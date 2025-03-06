@@ -9,6 +9,7 @@ from pinecone import Pinecone
 from FlagEmbedding import BGEM3FlagModel
 from src.models.rerank import rerank_fcn
 from src.utils.env_loader import load_environment
+from langsmith import traceable
 
 # Configure logging
 logging.basicConfig(
@@ -80,7 +81,15 @@ def get_hybrid_results(index, query: str, embed_model, alpha: float, top_k: int)
         top_k
     )
 
-async def get_documents(query: str, index, embed_model, cohere_client) -> List[Dict]:
+@traceable(name="document_retrieval")
+async def get_documents(
+    query: str,
+    index,
+    embed_model,
+    cohere_client,
+    top_k: int = 10,
+    min_score: float = 0.1
+) -> List[Dict]:
     """Retrieve and rerank relevant documents."""
     try:           
         # Get hybrid search results

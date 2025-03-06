@@ -317,7 +317,7 @@ def main():
 
         if chatbot is None:
             st.error("Failed to initialize chatbot. Please check your configuration.")
-            st.info("Make sure the .env file exists in the project root directory")
+            st.info("Make sure all required API keys are properly configured in your environment")
             return
 
         # Sidebar

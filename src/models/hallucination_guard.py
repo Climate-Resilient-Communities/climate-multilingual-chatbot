@@ -6,6 +6,7 @@ from typing import List, Dict, Union, Optional
 from src.utils.env_loader import load_environment
 from src.models.nova_flow import BedrockModel
 import cohere
+from langsmith import traceable
 
 # Configure logging
 logging.basicConfig(
@@ -41,6 +42,7 @@ def extract_contexts(docs_reranked: List[dict], max_contexts: int = 3) -> List[s
         logger.error(f"Error extracting contexts: {str(e)}")
         raise
 
+@traceable(name="hallucination_check")
 async def check_hallucination(
     question: str,
     answer: str,

@@ -6,6 +6,7 @@ from src.models.nova_flow import BedrockModel  # Updated import
 from src.models.redis_cache import ClimateCache
 from concurrent.futures import ThreadPoolExecutor
 import time
+from langsmith import traceable
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +106,7 @@ def generate_cache_key(query: str, docs: List[Dict]) -> str:
     query_key = hash(query.lower().strip())
     return f"nova_response:{query_key}:{doc_key}"
 
+@traceable(name="nova_chat")
 async def nova_chat(
     query: str,
     documents: List[Dict[str, Any]],

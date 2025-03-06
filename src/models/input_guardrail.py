@@ -1,6 +1,7 @@
 import ray
 import torch
 import logging
+import time
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
@@ -8,6 +9,7 @@ from transformers import (
 )
 from transformers.pipelines.pt_utils import KeyDataset
 from datasets import Dataset
+from langsmith import traceable
 
 # Configure logging
 logging.basicConfig(
@@ -21,11 +23,13 @@ def construct_dataset(question):
     return Dataset.from_dict({'question': [question]})
 
 @ray.remote
+@traceable(name="topic_moderation", run_type="chain")
 def topic_moderation(question, pipe):
     """
     Return a topic moderation label from a question.
     Returns 'yes' if the question is climate-related and safe, 'no' otherwise.
     """
+    start_time = time.time()
     try:
         # Harmful content patterns to check
         harmful_patterns = [
@@ -44,12 +48,20 @@ def topic_moderation(question, pipe):
         # Check for harmful content first
         if any(pattern in question_lower for pattern in harmful_patterns):
             logger.warning(f"Harmful content detected in query: {question}")
-            return "no"
+            return {
+                "result": "no",
+                "reason": "harmful_content",
+                "duration": time.time() - start_time
+            }
             
         # Check for denial/misinformation patterns
         if any(pattern in question_lower for pattern in denial_patterns):
             logger.warning(f"Potential misinformation/denial detected in query: {question}")
-            return "no"
+            return {
+                "result": "no",
+                "reason": "misinformation",
+                "duration": time.time() - start_time
+            }
         
         # Direct pipeline call for climate relevance
         result = pipe(question)
@@ -59,12 +71,26 @@ def topic_moderation(question, pipe):
             print(f"Raw model output: {result}")
             # Model returns 'yes' label for climate-related content
             if result[0]['label'] == 'yes' and result[0]['score'] > 0.5:
-                return "yes"
-        return "no"
+                return {
+                    "result": "yes",
+                    "score": result[0]['score'],
+                    "duration": time.time() - start_time
+                }
+        return {
+            "result": "no",
+            "reason": "not_climate_related",
+            "score": result[0]['score'] if result and len(result) > 0 else 0.0,
+            "duration": time.time() - start_time
+        }
         
     except Exception as e:
         logger.error(f"Error in topic moderation: {str(e)}")
-        return "no"  # Default to rejecting on error for safety
+        return {
+            "result": "no",
+            "reason": "error",
+            "error": str(e),
+            "duration": time.time() - start_time
+        }
 
 @ray.remote
 def safe_guard_input(question, pipe):
