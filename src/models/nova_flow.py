@@ -138,28 +138,40 @@ class BedrockModel:
     ) -> str:
         """Generate a response using Nova."""
         try:
-            # Format prompt with context and query
+            from src.models.gen_response_nova import system_message
+            
+            # Format documents for context
             formatted_docs = "\n\n".join([
                 f"Document {i+1}:\n{doc.get('content', '')}"
                 for i, doc in enumerate(documents)
             ])
             
+            # Create messages in the format Nova expects
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"text": system_message}
+                    ]
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"text": f"Context Documents:\n{formatted_docs}"}
+                    ]
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"text": f"Based on the provided documents, answer this question: {query}" + 
+                                (f" {description}" if description else "")}
+                    ]
+                }
+            ]
+            
+            # Create prompt payload
             prompt = {
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {"text": f"""Based on the following documents, provide a direct answer (without any markdown headers) to this question: {query}
-
-Documents for context:
-{formatted_docs}
-
-Instructions:
-1. Answer directly without using any markdown headers (###, ##, etc.)
-2. {description if description else 'Provide a clear, accurate response based on the given context.'}"""}
-                        ]
-                    }
-                ],
+                "messages": messages,
                 "inferenceConfig": {
                     "maxTokens": 2000,
                     "temperature": 0.7,
