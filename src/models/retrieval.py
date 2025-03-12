@@ -81,58 +81,65 @@ def get_hybrid_results(index, query: str, embed_model, alpha: float, top_k: int)
         top_k
     )
 
-@traceable(name="document_retrieval")
-async def get_documents(
-    query: str,
-    index,
-    embed_model,
-    cohere_client,
-    top_k: int = 10,
-    min_score: float = 0.1
-) -> List[Dict]:
-    """Retrieve and rerank relevant documents."""
-    try:           
-        # Get hybrid search results
-        try:
-            hybrid_results = get_hybrid_results(
-                index,
-                query,
-                embed_model,
-                alpha=0.4,
-                top_k=10
-            )
-
-            logger.debug(f"Retrieved {len(hybrid_results.matches)} matches from hybrid search")
-                
-        except Exception as e:
-            logger.error(f"Error in hybrid search: {str(e)}")
-            raise
-                
-        # Process results
-        try:
-            docs_with_content = process_search_results(hybrid_results)
-            logger.debug(f"Processed {len(docs_with_content)} documents")
+async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top_k=15):
+    """
+    Get relevant documents from vector store using hybrid search.
+    Returns reranked documents sorted by relevance.
+    """
+    try:
+        from langsmith import trace
+        
+        # Main retrieval trace
+        with trace(name="hybrid_search"):
+            logger.debug(f"Starting hybrid search for query: {query}")
             
-            if not docs_with_content:
+            hybrid_results = get_hybrid_results(
+                index, 
+                query,
+                embed_model, 
+                alpha=alpha,
+                top_k=top_k
+            )
+            
+            logger.debug(f"Retrieved {len(hybrid_results.matches)} matches from hybrid search")
+            
+            # Process search results into document format
+            docs = process_search_results(hybrid_results)
+            
+            if not docs:
                 logger.warning("No documents with content found")
                 return []
                 
-            # Rerank documents with cohere using asyncio
+            logger.debug(f"Processed {len(docs)} documents")
+            
+        # Reranking trace
+        with trace(name="document_reranking"):
+            # Ensure we don't exceed document limits
+            if len(docs) > 15:
+                docs = docs[:15]  # Limit to top 15 for reranking
+                
+            # Get reranked documents using run_in_executor for the synchronous rerank_fcn
             loop = asyncio.get_event_loop()
             reranked_docs = await loop.run_in_executor(
                 None, 
-                rerank_fcn, 
+                rerank_fcn,
                 query, 
-                docs_with_content, 
-                5,  # top_k 
+                docs, 
+                top_k,
                 cohere_client
             )
             
-            return reranked_docs
+            if not reranked_docs:
+                logger.warning("No documents after reranking")
+                return []
+                
+            # Ensure we don't exceed max token limits for context window
+            if len(reranked_docs) > 10:
+                reranked_docs = reranked_docs[:10]  # Limit to top 10 for response generation
+                
+            logger.debug(f"Final document count: {len(reranked_docs)}")
             
-        except Exception as e:
-            logger.error(f"Error in document retrieval: {str(e)}")
-            raise
+        return reranked_docs
             
     except Exception as e:
         logger.error(f"Error in get_documents: {str(e)}")

@@ -42,7 +42,6 @@ def extract_contexts(docs_reranked: List[dict], max_contexts: int = 3) -> List[s
         logger.error(f"Error extracting contexts: {str(e)}")
         raise
 
-@traceable(name="hallucination_check")
 async def check_hallucination(
     question: str,
     answer: str,
@@ -50,65 +49,60 @@ async def check_hallucination(
     cohere_api_key: str,
     threshold: float = 0.5
 ) -> float:
+    """Check if the generated answer is faithful to the provided contexts."""
     try:
-        # Initialize Cohere client
-        co = cohere.Client(cohere_api_key)
+        from langsmith import trace
         
-        # Ensure contexts is a list
-        if isinstance(contexts, str):
-            contexts = [contexts]
+        with trace(name="faithfulness_check"):
+            import cohere
+            import asyncio
+            from concurrent.futures import ThreadPoolExecutor
+            import logging
             
-        # Handle empty or None contexts
-        if not contexts or all(not c for c in contexts):
-            logger.warning("No valid contexts provided for hallucination check")
-            return 0.0
-
-        # Build prompt for validation
-        prompt = [
-            "Task: You are a balanced fact-checker. Verify if the answer is supported by the provided contexts.",
-            "Score from 0 to 1 based on these criteria:",
-            "0.0: Complete fabrication or contains clearly false claims",
-            "0.4: Contains significant unsupported claims but some accurate information",
-            "0.6: Mostly accurate but includes minor details not in context",
-            "0.8: Very accurate with minimal unsupported details",
-            "1.0: Completely accurate and fully supported by context",
-            f"\nQuestion: {question}",
-            f"Answer: {answer}",
-            "\nContexts:"
-        ]
-        
-        # Add contexts
-        for i, ctx in enumerate(contexts, 1):
-            if ctx:  # Only add non-empty contexts
-                prompt.append(f"\nContext {i}:\n{ctx}")
+            logger = logging.getLogger(__name__)
+            
+            # Validate inputs
+            if not answer or not question or not contexts:
+                logger.warning("Missing required inputs for hallucination check")
+                return 0.5  # Return neutral score if inputs are invalid
                 
-        prompt.append("\nAnalyze the answer's accuracy relative to the contexts.")
-        prompt.append("First explain your reasoning, then provide a score (0-1).")
-
-        # Get Nova response for factual validation
-        try:
-            nova_model = BedrockModel()
-            validation_response = await nova_model.query_normalizer("\n".join(prompt), "english")
+            # Create Cohere client
+            client = cohere.Client(api_key=cohere_api_key)
             
-            # Extract score from response
-            import re
-            numbers = re.findall(r"0\.\d+|\d+", str(validation_response))
-            if numbers:
-                score = float(numbers[0])
-                score = min(max(score, 0.0), 1.0)  # Clamp between 0 and 1
-            else:
-                # Default to neutral if no score found
-                score = 0.5
+            # Prepare the prompt with the answer and context
+            combined_context = "\n\n".join(contexts)
             
-            return score
-
-        except Exception as e:
-            logger.error(f"Error in Nova validation: {str(e)}")
-            return 0.0
-
+            # Run the request in a thread to avoid blocking
+            with ThreadPoolExecutor() as executor:
+                try:
+                    # Check faithfulness score
+                    result = await asyncio.get_event_loop().run_in_executor(
+                        executor,
+                        lambda: client.evaluate(
+                            parameters={
+                                "texts": [answer],
+                                "groundedness_criteria": "factual_correctness",
+                                "references": [combined_context]
+                            }
+                        )
+                    )
+                    
+                    # Extract the score
+                    if result and result.groundedness_scores:
+                        score = result.groundedness_scores[0]
+                        logger.info(f"Faithfulness score: {score}")
+                        return score
+                    else:
+                        logger.warning("Failed to get hallucination score from Cohere")
+                        return 0.5
+                        
+                except Exception as e:
+                    logger.error(f"Error checking hallucination: {str(e)}")
+                    return 0.5
+                    
     except Exception as e:
         logger.error(f"Error in hallucination check: {str(e)}")
-        return 0.0
+        return 0.5  # Return neutral score on error
 
 async def test_hallucination_guard():
     """Test the hallucination detection functionality"""

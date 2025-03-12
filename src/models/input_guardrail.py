@@ -23,11 +23,10 @@ def construct_dataset(question):
     return Dataset.from_dict({'question': [question]})
 
 @ray.remote
-@traceable(name="topic_moderation", run_type="chain")
-def topic_moderation(question, pipe):
+def topic_moderation(question, topic_pipe):
     """
     Return a topic moderation label from a question.
-    Returns 'yes' if the question is climate-related and safe, 'no' otherwise.
+    Returns dictionary with passed=True if the question is climate-related and safe.
     """
     start_time = time.time()
     try:
@@ -49,6 +48,7 @@ def topic_moderation(question, pipe):
         if any(pattern in question_lower for pattern in harmful_patterns):
             logger.warning(f"Harmful content detected in query: {question}")
             return {
+                "passed": False,
                 "result": "no",
                 "reason": "harmful_content",
                 "duration": time.time() - start_time
@@ -58,13 +58,14 @@ def topic_moderation(question, pipe):
         if any(pattern in question_lower for pattern in denial_patterns):
             logger.warning(f"Potential misinformation/denial detected in query: {question}")
             return {
+                "passed": False,
                 "result": "no",
                 "reason": "misinformation",
                 "duration": time.time() - start_time
             }
         
         # Direct pipeline call for climate relevance
-        result = pipe(question)
+        result = topic_pipe(question)
         if result and len(result) > 0:
             # Log the full result for debugging
             logger.debug(f"Topic moderation raw result: {result}")
@@ -72,11 +73,13 @@ def topic_moderation(question, pipe):
             # Model returns 'yes' label for climate-related content
             if result[0]['label'] == 'yes' and result[0]['score'] > 0.5:
                 return {
+                    "passed": True,
                     "result": "yes",
                     "score": result[0]['score'],
                     "duration": time.time() - start_time
                 }
         return {
+            "passed": False,
             "result": "no",
             "reason": "not_climate_related",
             "score": result[0]['score'] if result and len(result) > 0 else 0.0,
@@ -86,6 +89,7 @@ def topic_moderation(question, pipe):
     except Exception as e:
         logger.error(f"Error in topic moderation: {str(e)}")
         return {
+            "passed": False,
             "result": "no",
             "reason": "error",
             "error": str(e),

@@ -39,11 +39,8 @@ from transformers import (
 )
 from pinecone import Pinecone
 from FlagEmbedding import BGEM3FlagModel
-from langsmith import Client
-from langsmith import traceable, trace
-from langsmith.run_helpers import TraceMixin
+from langsmith import Client, traceable, trace
 from langchain_community.tools.tavily_search import TavilySearchResults
-from langchain.callbacks import tracing_enabled, trace_as_chain_group
 
 # Local imports
 from src.utils.env_loader import load_environment
@@ -73,7 +70,7 @@ os.environ["LANGCHAIN_PROJECT"] = os.getenv("LANGSMITH_PROJECT", "climate-chat-p
 # Filter warnings
 warnings.filterwarnings("ignore", category=Warning)
 
-class MultilingualClimateChatbot(TraceMixin):
+class MultilingualClimateChatbot:
     """
     A multilingual chatbot specialized in climate-related topics.
     
@@ -147,9 +144,8 @@ class MultilingualClimateChatbot(TraceMixin):
 
         # Validate all required keys exist
         missing_keys = [key for key, value in required_keys.items() if not value]
-        if missing_keys:
+        if (missing_keys):
             raise ValueError(f"Missing required API keys: {', '.join(missing_keys)}")
-
         # Store keys as instance variables
         for key, value in required_keys.items():
             setattr(self, key, value)
@@ -223,14 +219,64 @@ class MultilingualClimateChatbot(TraceMixin):
     def _initialize_redis(self):
         """Initialize Redis client with proper event loop handling."""
         try:
-            # Create new event loop for Redis initialization
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            self.redis_client = ClimateCache()
-            logger.info("Redis cache initialized successfully")
+            # If Redis client exists and is not closed, no need to reinitialize
+            if self.redis_client and not getattr(self.redis_client, '_closed', True):
+                return
+
+            host = os.getenv('REDIS_HOST', 'localhost')
+            port = int(os.getenv('REDIS_PORT', 6379))
+            password = os.getenv('REDIS_PASSWORD', None) or None  # Convert empty string to None
+            
+            logger.info(f"Initializing Redis connection to {host}:{port}")
+            
+            # Direct initialization without event loop dependency
+            self.redis_client = ClimateCache(
+                host=host,
+                port=port,
+                password=password,
+                expiration=3600  # 1 hour cache expiration
+            )
+            
+            # Test connection to ensure it's working
+            loop = asyncio.get_event_loop()
+            test_result = loop.run_until_complete(self._test_redis_connection())
+            if test_result:
+                logger.info("Redis cache initialized and connected successfully")
+            else:
+                logger.error("Redis connection test failed")
+                self.redis_client = None
+                
         except Exception as e:
             logger.error(f"Redis initialization failed: {str(e)}")
             self.redis_client = None
+    
+    async def _test_redis_connection(self):
+        """Test Redis connection by setting and getting a test value."""
+        try:
+            if not self.redis_client or getattr(self.redis_client, '_closed', True):
+                return False
+                
+            test_key = "test:connection"
+            test_value = {"test": "value", "timestamp": time.time()}
+            
+            # Test setting a value
+            set_result = await self.redis_client.set(test_key, test_value)
+            if not set_result:
+                logger.error("Failed to set test value in Redis")
+                return False
+                
+            # Test getting the value
+            get_result = await self.redis_client.get(test_key)
+            if not get_result:
+                logger.error("Failed to get test value from Redis")
+                return False
+                
+            # Clean up test key
+            await self.redis_client.delete(test_key)
+            return True
+        except Exception as e:
+            logger.error(f"Redis connection test failed: {str(e)}")
+            return False
 
     def get_language_code(self, language_name: str) -> str:
         """Convert language name to code."""
@@ -250,83 +296,60 @@ class MultilingualClimateChatbot(TraceMixin):
             f"{', '.join(available_languages)}"
         )
 
-    @traceable
+    @traceable(name="input_validation")
     async def process_input_guards(self, query: str) -> Dict[str, Any]:
-        """Run input guardrails with detailed validation results."""
+        """Run input guardrails."""
         try:
             logger.info("Running input guardrails")
             guard_start = time.time()
             
             # Basic input validation
-            if not query or len(query.strip()) == 0:
-                return {
-                    "passed": False,
-                    "reason": "empty_query",
-                    "message": "Please provide a question to get started.",
-                    "duration": time.time() - guard_start
-                }
-                
-            if len(query.split()) < 2:
-                return {
-                    "passed": False,
-                    "reason": "too_short",
-                    "message": "Could you please provide a more detailed question about climate change?",
-                    "duration": time.time() - guard_start
-                }
-
-            # Perform topic check
-            try:
-                topic_check = topic_moderation.remote(
-                    query,
-                    self.topic_moderation_pipe
-                )
-                topic_result = ray.get(topic_check)
-                
-                # Handle enhanced topic moderation response
-                result = topic_result.get("result", "no")
-                reason = topic_result.get("reason", "unknown")
-                score = topic_result.get("score", 0.0)
-                mod_duration = topic_result.get("duration", 0.0)
-                
-                logger.debug(f"Guard results - Topic: {result}, Score: {score}, Duration: {mod_duration}")
-                
-                if result == "yes":
-                    return {
-                        "passed": True,
-                        "topic_check": True,
-                        "score": score,
-                        "duration": time.time() - guard_start,
-                        "moderation_time": mod_duration
-                    }
-                else:
-                    message = {
-                        "harmful_content": "I apologize, but I cannot assist with potentially harmful topics.",
-                        "misinformation": "I focus on providing factual information about climate change based on scientific evidence.",
-                        "not_climate_related": "I apologize, but I'm specifically trained to help with climate change related questions. Could you please ask a question about climate change, global warming, or environmental issues?",
-                        "error": "I'm having trouble processing your question. Could you try rephrasing it?"
-                    }.get(reason, "I can only help with climate-related questions.")
-
+            with trace(name="basic_validation"):
+                if not query or len(query.strip()) == 0:
                     return {
                         "passed": False,
-                        "reason": reason,
-                        "message": message,
-                        "score": score,
-                        "duration": time.time() - guard_start,
-                        "moderation_time": mod_duration
+                        "reason": "empty_query",
+                        "message": "Please provide a question to get started.",
+                        "duration": time.time() - guard_start
                     }
                     
-            except Exception as e:
-                logger.error(f"Topic moderation error: {str(e)}")
-                return {
-                    "passed": False,
-                    "reason": "moderation_error",
-                    "message": "I'm having trouble processing your question. Could you try rephrasing it or ask a different climate-related question?",
-                    "duration": time.time() - guard_start,
-                    "error": str(e)
-                }
+                if len(query.split()) < 2:
+                    return {
+                        "passed": False,
+                        "reason": "too_short",
+                        "message": "Could you please provide a more detailed question about climate change?",
+                        "duration": time.time() - guard_start
+                    }
+
+            # Perform topic check with nested tracing
+            with trace(name="topic_moderation") as topic_trace:
+                try:
+                    # Call the remote function which returns an ObjectRef
+                    topic_ref = topic_moderation.remote(
+                        question=query,
+                        topic_pipe=self.topic_moderation_pipe
+                    )
+                    
+                    # Get the result from the ObjectRef
+                    topic_result = await asyncio.to_thread(ray.get, topic_ref)
+                    
+                    # Add trace metadata
+                    topic_result['trace_id'] = topic_trace.id
+                    topic_result['duration'] = time.time() - guard_start
+                    return topic_result
+                    
+                except Exception as e:
+                    logger.error(f"Topic moderation error: {str(e)}", exc_info=True)
+                    return {
+                        "passed": False,
+                        "reason": "moderation_error",
+                        "message": "I'm having trouble processing your question. Could you try rephrasing it or ask a different climate-related question?",
+                        "duration": time.time() - guard_start,
+                        "error": str(e)
+                    }
             
         except Exception as e:
-            logger.error(f"Error in input guards: {str(e)}")
+            logger.error(f"Error in input guards: {str(e)}", exc_info=True)
             return {
                 "passed": False,
                 "reason": "system_error",
@@ -335,210 +358,227 @@ class MultilingualClimateChatbot(TraceMixin):
                 "error": str(e)
             }
 
-    @traceable(name="process_query", run_type="chain")
+    @traceable(name="main_query_processing")
     async def process_query(
             self,
             query: str,
             language_name: str
         ) -> Dict[str, Any]:
-            """Process a query through the complete pipeline with tracing."""
+            """Process a query through the complete pipeline."""
             try:
-                # Start timing the entire process
                 start_time = time.time()
                 step_times = {}
                 
-                logger.info("🔍 Starting search process...")
-                
-                # 1. Query normalization
-                norm_start = time.time()
-                with trace("query_normalization") as norm_trace:
-                    norm_query = await self.nova_model.query_normalizer(query.lower().strip(), language_name)
-                    language_code = self.get_language_code(language_name)
-                    step_times['normalization'] = time.time() - norm_start
-                    norm_trace.set_metadata({
-                        "duration": step_times['normalization'],
-                        "normalized_query": norm_query,
-                        "language_code": language_code
-                    })
-
-                # 2. Input validation and topic moderation
-                validation_start = time.time()
-                with trace("topic_moderation") as topic_trace:
-                    logger.info("🔍 Validating input...")
-                    guard_results = await self.process_input_guards(norm_query)
-                    step_times['validation'] = time.time() - validation_start
-                    topic_trace.set_metadata({
-                        "duration": step_times['validation'],
-                        "validation_results": guard_results
-                    })
-                    
-                    if not guard_results['passed']:
-                        total_time = time.time() - start_time
-                        return {
-                            "success": False,
-                            "message": guard_results.get('message', "I apologize, but I can only help with climate-related questions."),
-                            "validation_result": guard_results,
-                            "processing_time": total_time,
-                            "step_times": step_times
-                        }
-                logger.info("🔍 Input validation passed")
-
-                # 3. Language routing
-                route_start = time.time()
-                with trace("language_routing") as route_trace:
-                    logger.info("🌐 Processing language routing...")
-                    route_result = await self.router.route_query(
-                        query=norm_query,
-                        language_code=language_code,
-                        language_name=language_name,
-                        translation=self.nova_model.nova_translation 
-                    )
-                    step_times['routing'] = time.time() - route_start
-                    route_trace.set_metadata({
-                        "duration": step_times['routing'],
-                        "route_result": route_result
-                    })
-                    
-                    if not route_result['should_proceed']:
-                        total_time = time.time() - start_time
-                        return {
-                            "success": False,
-                            "message": route_result['routing_info']['message'],
-                            "processing_time": total_time,
-                            "step_times": step_times
-                        }
-                    
-                processed_query = route_result['processed_query']
-                english_query = route_result['english_query']
-                logger.info("🌐 Language routing complete")
-
-                # 4. Document retrieval and reranking
-                retrieval_start = time.time()
-                with trace("document_retrieval") as retrieval_trace:
-                    try:
-                        logger.info("📚 Starting retrieval and reranking...")
-                        reranked_docs = await get_documents(processed_query, self.index, self.embed_model, self.cohere_client)
-                        step_times['retrieval'] = time.time() - retrieval_start
-                        retrieval_trace.set_metadata({
-                            "duration": step_times['retrieval'],
-                            "num_docs": len(reranked_docs)
-                        })
-                        logger.info(f"📚 Reranked {len(reranked_docs)} documents")
-                    except Exception as e:
-                        logger.error(f"📚 Error in retrieval process: {str(e)}")
-                        raise
-
-                # 5. Generate response
-                generation_start = time.time()
-                with trace("response_generation") as gen_trace:
-                    try:
-                        logger.info("✍️ Starting response generation...")
-                        response, citations = await nova_chat(processed_query, reranked_docs, self.nova_model)
-                        step_times['generation'] = time.time() - generation_start
-                        gen_trace.set_metadata({
-                            "duration": step_times['generation'],
-                            "num_citations": len(citations)
-                        })
-                        logger.info("✍️ Response generation complete")
-                    except Exception as e:
-                        logger.error(f"✍️ Error in response generation: {str(e)}")
-                        raise
-
-                # 6. Quality checks
-                quality_start = time.time()
-                with trace("quality_checks") as quality_trace:
-                    logger.info("✔️ Starting quality checks...")
-                    try:
-                        contexts = extract_contexts(reranked_docs, max_contexts=5)
-
-                        if route_result['routing_info']['support_level']=='command_r_plus' and language_code!='en':
-                            processed_response = await self.nova_model.nova_translation(response, language_name, 'english')
-                        else:
-                            processed_response = response
-
-                        faithfulness_score = await check_hallucination(
-                            question=english_query,
-                            answer=processed_response,
-                            contexts=contexts,
-                            cohere_api_key=self.COHERE_API_KEY
-                        )
-                        step_times['quality_check'] = time.time() - quality_start
-                        quality_trace.set_metadata({
-                            "duration": step_times['quality_check'],
-                            "faithfulness_score": faithfulness_score
-                        })
-                        logger.info(f"✔️ Hallucination check complete - Score: {faithfulness_score}")
+                # Main pipeline trace that wraps everything
+                with trace(name="complete_pipeline") as pipeline_trace:
+                    # 1. Basic query normalization and language setup
+                    with trace(name="query_preprocessing") as preprocess_trace:
+                        norm_query = query.lower().strip()
+                        language_code = self.get_language_code(language_name)
+                        cache_key = f"{language_code}:{norm_query}"
                         
-                        if faithfulness_score < 0.1:
-                            fallback_start = time.time()
-                            with trace("fallback_search") as fallback_trace:
-                                logger.warning("Low faithfulness score - attempting fallback")
-                                fallback_response, fallback_citations, fallback_score = await self._try_tavily_fallback(
-                                    query=processed_query,
-                                    english_query=english_query,
-                                    language_name=language_name
+                        # Ensure Redis connection is active
+                        if not self.redis_client or getattr(self.redis_client, '_closed', True):
+                            logger.info("Redis client not available, reinitializing...")
+                            self._initialize_redis()
+                        
+                        logger.info(f"🔍 Checking cache with key: '{cache_key}'")
+                    
+                    # 2. Check cache first before any processing
+                    with trace(name="cache_check") as cache_trace:
+                        if self.redis_client and not getattr(self.redis_client, '_closed', False):
+                            try:
+                                logger.info(f"📝 Redis client exists, attempting to get value for key: '{cache_key}'")
+                                cached_result = await self.redis_client.get(cache_key)
+                                if cached_result:
+                                    cache_time = time.time() - start_time
+                                    logger.info(f"✨ Cache hit - returning cached response")
+                                    return {
+                                        "success": True,
+                                        "language_code": language_code,
+                                        "query": norm_query,
+                                        "response": cached_result.get('response'),
+                                        "citations": cached_result.get('citations', []),
+                                        "faithfulness_score": cached_result.get('faithfulness_score', 0.8),
+                                        "processing_time": cache_time,
+                                        "cache_hit": True,
+                                        "step_times": {"cache_lookup": cache_time},
+                                        "trace_id": pipeline_trace.id
+                                    }
+                                else:
+                                    logger.info(f"❓ Cache miss for key: '{cache_key}'")
+                            except Exception as e:
+                                logger.warning(f"⚠️ Cache retrieval failed: {str(e)}")
+
+                    logger.info("🔍 Starting full processing pipeline...")
+                    
+                    # 3. Query normalization
+                    with trace(name="query_normalization") as norm_trace:
+                        norm_start = time.time()
+                        norm_query = await self.nova_model.query_normalizer(norm_query, language_name)
+                        step_times['normalization'] = time.time() - norm_start
+
+                    # 4. Input validation and topic moderation
+                    with trace(name="input_validation") as validation_trace:
+                        validation_start = time.time()
+                        logger.info("🔍 Validating input...")
+                        
+                        # Run input guards which includes nested topic moderation
+                        guard_results = await self.process_input_guards(norm_query)
+                        step_times['validation'] = time.time() - validation_start
+                        
+                        if not guard_results['passed']:
+                            total_time = time.time() - start_time
+                            return {
+                                "success": False,
+                                "message": guard_results.get('message', "I apologize, but I can only help with climate-related questions."),
+                                "validation_result": guard_results,
+                                "processing_time": total_time,
+                                "step_times": step_times,
+                                "trace_id": pipeline_trace.id
+                            }
+                        logger.info("🔍 Input validation passed")
+
+                    # 5. Language routing
+                    with trace(name="language_routing") as route_trace:
+                        route_start = time.time()
+                        logger.info("🌐 Processing language routing...")
+                        route_result = await self.router.route_query(
+                            query=norm_query,
+                            language_code=language_code,
+                            language_name=language_name,
+                            translation=self.nova_model.nova_translation 
+                        )
+                        step_times['routing'] = time.time() - route_start
+                        
+                        if not route_result['should_proceed']:
+                            total_time = time.time() - start_time
+                            return {
+                                "success": False,
+                                "message": route_result['routing_info']['message'],
+                                "processing_time": total_time,
+                                "step_times": step_times,
+                                "trace_id": pipeline_trace.id
+                            }
+                        
+                        processed_query = route_result['processed_query']
+                        english_query = route_result['english_query']
+                        logger.info("🌐 Language routing complete")
+
+                    # 6. Document retrieval chain
+                    with trace(name="document_retrieval") as retrieval_trace:
+                        retrieval_start = time.time()
+                        try:
+                            logger.info("📚 Starting retrieval and reranking...")
+                            # Document retrieval includes hybrid search and reranking
+                            reranked_docs = await get_documents(processed_query, self.index, self.embed_model, self.cohere_client)
+                            step_times['retrieval'] = time.time() - retrieval_start
+                            logger.info(f"📚 Retrieved and reranked {len(reranked_docs)} documents")
+                        except Exception as e:
+                            logger.error(f"📚 Error in retrieval process: {str(e)}")
+                            raise
+
+                    # 7. Response generation chain
+                    with trace(name="response_generation") as gen_trace:
+                        generation_start = time.time()
+                        try:
+                            logger.info("✍️ Starting response generation...")
+                            response, citations = await nova_chat(processed_query, reranked_docs, self.nova_model)
+                            step_times['generation'] = time.time() - generation_start
+                            logger.info("✍️ Response generation complete")
+                        except Exception as e:
+                            logger.error(f"✍️ Error in response generation: {str(e)}")
+                            raise
+
+                    # 8. Quality checks chain
+                    with trace(name="quality_checks") as quality_trace:
+                        quality_start = time.time()
+                        logger.info("✔️ Starting quality checks...")
+                        try:
+                            contexts = extract_contexts(reranked_docs, max_contexts=5)
+
+                            # Translate response for hallucination check if needed
+                            if route_result['routing_info']['support_level']=='command_r_plus' and language_code!='en':
+                                processed_response = await self.nova_model.nova_translation(response, language_name, 'english')
+                            else:
+                                processed_response = response
+
+                            # Nested hallucination check within quality checks
+                            with trace(name="hallucination_check") as hall_trace:
+                                faithfulness_score = await check_hallucination(
+                                    question=english_query,
+                                    answer=processed_response,
+                                    contexts=contexts,
+                                    cohere_api_key=self.COHERE_API_KEY
                                 )
-                                step_times['fallback'] = time.time() - fallback_start
-                                fallback_trace.set_metadata({
-                                    "duration": step_times['fallback'],
-                                    "fallback_score": fallback_score,
-                                    "used_fallback": fallback_score > faithfulness_score
-                                })
-                                if fallback_score > faithfulness_score:
-                                    response = fallback_response
-                                    citations = fallback_citations
-                                    faithfulness_score = fallback_score
-                    except Exception as e:
-                        logger.error(f"✔️ Error in quality checks: {str(e)}")
-                        faithfulness_score = 0.0
+                            
+                            step_times['quality_check'] = time.time() - quality_start
+                            logger.info(f"✔️ Hallucination check complete - Score: {faithfulness_score}")
+                            
+                            # Fallback to web search if needed
+                            if faithfulness_score < 0.1:
+                                with trace(name="fallback_search") as fallback_trace:
+                                    fallback_start = time.time()
+                                    logger.warning("Low faithfulness score - attempting fallback")
+                                    fallback_response, fallback_citations, fallback_score = await self._try_tavily_fallback(
+                                        query=processed_query,
+                                        english_query=english_query,
+                                        language_name=language_name
+                                    )
+                                    step_times['fallback'] = time.time() - fallback_start
+                                    if fallback_score > faithfulness_score:
+                                        response = fallback_response
+                                        citations = fallback_citations
+                                        faithfulness_score = fallback_score
+                        except Exception as e:
+                            logger.error(f"✔️ Error in quality checks: {str(e)}")
+                            faithfulness_score = 0.0
 
-                # 7. Final translation if needed
-                translation_start = time.time()
-                with trace("final_translation") as trans_trace:
-                    if route_result['routing_info']['needs_translation']:
-                        logger.info(f"🌐 Translating response back to {language_name}")
-                        response = await self.nova_model.nova_translation(response, 'english', language_name)
-                        step_times['translation'] = time.time() - translation_start
-                        trans_trace.set_metadata({
-                            "duration": step_times['translation'],
-                            "from_language": "english",
-                            "to_language": language_name
-                        })
-                        logger.info("🌐 Translation complete")
+                    # 9. Final translation if needed
+                    with trace(name="final_translation") as trans_trace:
+                        translation_start = time.time()
+                        if route_result['routing_info']['needs_translation']:
+                            logger.info(f"🌐 Translating response back to {language_name}")
+                            response = await self.nova_model.nova_translation(response, 'english', language_name)
+                            step_times['translation'] = time.time() - translation_start
+                            logger.info("🌐 Translation complete")
 
-                # Calculate total processing time and store results
-                total_time = time.time() - start_time
-                await self._store_results(
-                    query=norm_query,
-                    response=response,
-                    language_code=language_code,
-                    citations=citations,
-                    faithfulness_score=faithfulness_score,
-                    processing_time=total_time,
-                    route_result=route_result
-                )
+                    # 10. Store results
+                    with trace(name="result_storage") as storage_trace:
+                        total_time = time.time() - start_time
+                        await self._store_results(
+                            query=norm_query,
+                            response=response,
+                            language_code=language_code,
+                            citations=citations,
+                            faithfulness_score=faithfulness_score,
+                            processing_time=total_time,
+                            route_result=route_result
+                        )
 
-                logger.info(f"Processing time: {total_time} seconds")
-                logger.info("✨ Processing complete!")
+                        logger.info(f"Processing time: {total_time} seconds")
+                        logger.info("✨ Processing complete!")
 
-                # Return final results with timing breakdown
-                return {
-                    "success": True,
-                    "language_code": language_code,
-                    "query": norm_query,
-                    "response": response,
-                    "citations": citations,
-                    "faithfulness_score": faithfulness_score,
-                    "processing_time": total_time,
-                    "step_times": step_times,
-                    "cache_hit": False
-                }
+                        # Return final results with full tracing info
+                        return {
+                            "success": True,
+                            "language_code": language_code,
+                            "query": norm_query,
+                            "response": response,
+                            "citations": citations,
+                            "faithfulness_score": faithfulness_score,
+                            "processing_time": total_time,
+                            "step_times": step_times,
+                            "cache_hit": False,
+                            "trace_id": pipeline_trace.id
+                        }
                     
             except Exception as e:
                 logger.error(f"❌ Error processing query: {str(e)}", exc_info=True)
                 return {
                     "success": False,
-                    "message": f"Error processing query: {str(e)}"
+                    "message": f"Error processing query: {str(e)}",
+                    "trace_id": getattr(pipeline_trace, 'id', None)  # Include trace ID even in error case
                 }
 
     async def _try_tavily_fallback(self, query: str, english_query: str, language_name: str) -> Tuple[Optional[str], Optional[List], float]:
@@ -568,7 +608,12 @@ class MultilingualClimateChatbot(TraceMixin):
             
             # Generate new response with Tavily results
             description = """Please provide accurate information based on the search results. Always cite your sources. Ensure strict factual accuracy"""
-            fallback_response, fallback_citations = nova_chat(query, documents_for_nova, description, nova_model=self.nova_model)
+            fallback_response, fallback_citations = await nova_chat(
+                query=query, 
+                documents=documents_for_nova, 
+                nova_model=self.nova_model, 
+                description=description
+            )
             
             # Verify fallback response
             web_contexts = [f"{result.get('title', '')}: {result.get('content', '')}" for result in search_results]
@@ -607,28 +652,63 @@ class MultilingualClimateChatbot(TraceMixin):
     ) -> None:
         """Store query results in cache and update metrics."""
         try:
-            # Cache response
+            # 1. Store in Redis cache first
             cache_key = f"{language_code}:{query.lower().strip()}"
+            
+            if self.redis_client and not getattr(self.redis_client, '_closed', False):
+                try:
+                    logger.info(f"📝 Storing results in Redis with key: '{cache_key}'")
+                    
+                    # Prepare cache data
+                    cache_data = {
+                        "response": response,
+                        "citations": citations,
+                        "faithfulness_score": faithfulness_score,
+                        "metadata": {
+                            "cached_at": time.time(),
+                            "language_code": language_code,
+                            "processing_time": processing_time,
+                            "required_translation": route_result['routing_info']['needs_translation']
+                        }
+                    }
+                    
+                    # Try to store in Redis
+                    success = await self.redis_client.set(cache_key, cache_data)
+                    if success:
+                        logger.info(f"✨ Response cached successfully in Redis with key: '{cache_key}'")
+                    else:
+                        logger.warning(f"⚠️ Failed to cache response in Redis for key: '{cache_key}'")
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to cache in Redis: {str(e)}")
+            else:
+                logger.warning(f"⚠️ Redis client not available for caching key: '{cache_key}'")
+            
+            # 2. Store in memory cache as backup
             self.response_cache[cache_key] = {
                 "response": response,
                 "citations": citations,
-                "faithfulness_score": faithfulness_score
+                "faithfulness_score": faithfulness_score,
+                "cached_at": time.time()
             }
+            logger.debug(f"✨ Response cached in memory with key: '{cache_key}'")
             
-            # Update conversation history
+            # 3. Update conversation history
             self.conversation_history.append({
                 "query": query,
                 "response": response,
                 "language": language_code,
-                "faithfulness_score": faithfulness_score
+                "faithfulness_score": faithfulness_score,
+                "timestamp": time.time()
             })
             
-            # Store metrics
+            # 4. Store metrics
             self.feedback_metrics.append({
                 "language": language_code,
                 "processing_time": processing_time,
                 "required_translation": route_result['routing_info']['needs_translation'],
-                "faithfulness_score": faithfulness_score
+                "faithfulness_score": faithfulness_score,
+                "cached": False,
+                "timestamp": time.time()
             })
             
             logger.debug(f"Results stored successfully for query: {query[:50]}...")
@@ -680,16 +760,22 @@ class MultilingualClimateChatbot(TraceMixin):
     def _initialize_langsmith(self) -> None:
         """Initialize LangSmith for tracing."""
         try:
-            # Initialize LangSmith client and set project
-            self.langsmith_client = Client()
-            project_name = os.getenv("LANGSMITH_PROJECT", "climate-chat-production")
-            os.environ["LANGCHAIN_PROJECT"] = project_name
-
-            # Enable LangSmith tracing
+            # Set environment variables first to ensure proper tracing setup
             os.environ["LANGCHAIN_TRACING_V2"] = "true"
-            logger.info("LangSmith tracing initialized successfully")
+            os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGSMITH_API_KEY")
+            os.environ["LANGCHAIN_PROJECT"] = os.getenv("LANGSMITH_PROJECT", "climate-chat-production")
+            
+            # Initialize LangSmith client
+            self.langsmith_client = Client()
+            
+            # Verify initialization
+            if not self.langsmith_client:
+                raise ValueError("Failed to initialize LangSmith client")
+                
+            logger.info(f"LangSmith tracing initialized successfully for project: {os.getenv('LANGSMITH_PROJECT')}")
+            
         except Exception as e:
-            logger.warning(f"Failed to initialize LangSmith tracing: {str(e)}")
+            logger.error(f"Failed to initialize LangSmith tracing: {str(e)}")
             self.langsmith_client = None
 
 async def main():

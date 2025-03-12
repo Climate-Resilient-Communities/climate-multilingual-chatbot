@@ -106,57 +106,48 @@ def generate_cache_key(query: str, docs: List[Dict]) -> str:
     query_key = hash(query.lower().strip())
     return f"nova_response:{query_key}:{doc_key}"
 
-@traceable(name="nova_chat")
-async def nova_chat(
-    query: str,
-    documents: List[Dict[str, Any]],
-    nova_model,
-    description: str = None
-) -> Tuple[str, List[Dict[str, str]]]:
-    """Process query and generate response using Nova."""
-    cache = None
+async def nova_chat(query, documents, nova_model, description=None):
+    """
+    Generate a response from Nova model using a query and retrieved documents.
+    
+    Args:
+        query (str): The user's query
+        documents (list): List of documents from retrieval
+        nova_model (object): Initialized Nova model
+        description (str, optional): Description to include in the prompt
+        
+    Returns:
+        tuple: (response, citations)
+    """
     try:
-        # Initialize cache
-        cache = ClimateCache()
-        cache_key = query.lower().strip()
+        from langsmith import trace
         
-        # Try to get from cache
-        try:
-            if cache and not getattr(cache, '_closed', False):
-                cached_result = await cache.get(cache_key)
-                if cached_result:
-                    logger.info("Cache hit - returning cached response")
-                    return cached_result.get('response'), cached_result.get('citations', [])
-        except Exception as e:
-            logger.warning(f"Cache retrieval failed: {str(e)}")
+        with trace(name="nova_response_generation"):
+            logger.info("Starting nova_chat response generation")
             
-        # Process documents and generate response
-        response, citations = await _process_documents_and_generate(
-            query, documents, nova_model, description
-        )
-        
-        # Cache the result
-        try:
-            if cache and not getattr(cache, '_closed', False):
-                await cache.set(cache_key, {
-                    'response': response,
-                    'citations': citations
-                })
-        except Exception as e:
-            logger.warning(f"Failed to cache result: {str(e)}")
-            
-        return response, citations
-            
+            if not documents:
+                logger.error("No documents were successfully processed")
+                raise ValueError("No valid documents to process")
+                
+            try:
+                # Process documents for generation
+                with trace(name="document_processing"):
+                    response, citations = await _process_documents_and_generate(
+                        query=query,
+                        documents=documents,
+                        nova_model=nova_model,
+                        description=description
+                    )
+                    
+                logger.info("Response generation complete")
+                return response, citations
+                
+            except Exception as e:
+                logger.error(f"Error in nova_chat: {str(e)}")
+                raise
     except Exception as e:
         logger.error(f"Error in nova_chat: {str(e)}")
         raise
-    finally:
-        # Ensure cache connection is closed properly
-        if cache and not getattr(cache, '_closed', False):
-            try:
-                await cache.close()
-            except Exception as e:
-                logger.warning(f"Error closing cache connection: {str(e)}")
 
 async def _process_documents_and_generate(
     query: str,
