@@ -134,8 +134,8 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
                 return []
                 
             # Ensure we don't exceed max token limits for context window
-            if len(reranked_docs) > 10:
-                reranked_docs = reranked_docs[:10]  # Limit to top 10 for response generation
+            if len(reranked_docs) > 5:  # Changed from 10 to 5
+                reranked_docs = reranked_docs[:5]  # Limit to top 5 for response generation
                 
             logger.debug(f"Final document count: {len(reranked_docs)}")
             

@@ -3,32 +3,54 @@ import json
 import logging
 import asyncio
 from typing import Any, Optional
-from contextlib import asynccontextmanager
+from threading import Lock
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class RedisCache:
+    _instance = None
+    _lock = Lock()
+    
+    def __new__(cls, *args, **kwargs):
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super().__new__(cls)
+            return cls._instance
+
     def __init__(self, host='localhost', port=6379, db=0, expiration=3600, password=None):
         """Initialize Redis cache with configurable expiration time."""
+        # Skip initialization if already initialized
+        if hasattr(self, '_initialized'):
+            return
+            
         try:
+            # Check if we're in an event loop
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                # Create new event loop if none exists
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
             self.redis_client = redis.Redis(
                 host=host, 
                 port=port, 
                 db=db,
                 password=password,
-                decode_responses=True,  # Automatically decode response bytes to str
-                socket_timeout=5,  # 5 seconds timeout
+                decode_responses=True,
+                socket_timeout=5,
                 socket_connect_timeout=5,
                 retry_on_timeout=True
             )
             # Test connection
             self.redis_client.ping()
             
-            self.expiration = expiration  # Cache expiration time in seconds
+            self.expiration = expiration
             self._closed = False
-            self._lock = asyncio.Lock()
+            self._async_lock = asyncio.Lock()
+            self._initialized = True
             logger.info("Redis cache initialized and connected successfully")
         except Exception as e:
             logger.error(f"Failed to initialize Redis cache: {str(e)}")
@@ -55,7 +77,7 @@ class RedisCache:
             return None
         try:
             loop = self._get_loop()
-            async with self._lock:
+            async with self._async_lock:
                 value = await loop.run_in_executor(
                     None, 
                     self.redis_client.get,
@@ -84,7 +106,7 @@ class RedisCache:
             return False
         try:
             loop = self._get_loop()
-            async with self._lock:
+            async with self._async_lock:
                 try:
                     # Ensure we only store strings, not bytes
                     serialized = json.dumps(value, ensure_ascii=False)
@@ -108,7 +130,7 @@ class RedisCache:
             return False
         try:
             loop = self._get_loop()
-            async with self._lock:
+            async with self._async_lock:
                 return bool(await loop.run_in_executor(None, self.redis_client.delete, key))
         except Exception as e:
             logger.error(f"Cache delete error: {str(e)}")
@@ -119,7 +141,7 @@ class RedisCache:
         if self._closed:
             return
         try:
-            async with self._lock:
+            async with self._async_lock:
                 if self.redis_client:
                     loop = self._get_loop()
                     await loop.run_in_executor(

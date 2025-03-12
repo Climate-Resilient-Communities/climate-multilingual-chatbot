@@ -128,7 +128,21 @@ async def nova_chat(query, documents, nova_model, description=None):
             if not documents:
                 logger.error("No documents were successfully processed")
                 raise ValueError("No valid documents to process")
-                
+
+            # Generate cache key based on query and documents
+            cache_key = generate_cache_key(query, documents)
+            
+            # Try to get cached response
+            cache = ClimateCache()
+            if cache.redis_client:
+                try:
+                    cached_result = await cache.get(cache_key)
+                    if cached_result:
+                        logger.info("Cache hit - returning cached response")
+                        return cached_result.get('response'), cached_result.get('citations', [])
+                except Exception as e:
+                    logger.error(f"Error retrieving from cache: {str(e)}")
+            
             try:
                 # Process documents for generation
                 with trace(name="document_processing"):
@@ -139,6 +153,18 @@ async def nova_chat(query, documents, nova_model, description=None):
                         description=description
                     )
                     
+                # Cache the result if cache is available
+                if cache.redis_client:
+                    try:
+                        cache_data = {
+                            'response': response,
+                            'citations': citations
+                        }
+                        await cache.set(cache_key, cache_data)
+                        logger.info("Response cached successfully")
+                    except Exception as e:
+                        logger.error(f"Error caching response: {str(e)}")
+                
                 logger.info("Response generation complete")
                 return response, citations
                 

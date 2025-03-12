@@ -220,7 +220,7 @@ class MultilingualClimateChatbot:
         """Initialize Redis client with proper event loop handling."""
         try:
             # If Redis client exists and is not closed, no need to reinitialize
-            if self.redis_client and not getattr(self.redis_client, '_closed', True):
+            if hasattr(self, 'redis_client') and self.redis_client and not getattr(self.redis_client, '_closed', True):
                 return
 
             host = os.getenv('REDIS_HOST', 'localhost')
@@ -237,46 +237,25 @@ class MultilingualClimateChatbot:
                 expiration=3600  # 1 hour cache expiration
             )
             
-            # Test connection to ensure it's working
+            # Immediate connection test
             loop = asyncio.get_event_loop()
-            test_result = loop.run_until_complete(self._test_redis_connection())
-            if test_result:
-                logger.info("Redis cache initialized and connected successfully")
-            else:
+            test_key = "test:init:connection"
+            test_value = {"test": "value", "timestamp": time.time()}
+            
+            # Test setting and getting a value immediately
+            set_result = loop.run_until_complete(self.redis_client.set(test_key, test_value))
+            get_result = loop.run_until_complete(self.redis_client.get(test_key))
+            delete_result = loop.run_until_complete(self.redis_client.delete(test_key))
+            
+            if not all([set_result, get_result, delete_result]):
                 logger.error("Redis connection test failed")
                 self.redis_client = None
+            else:
+                logger.info("Redis cache initialized and tested successfully")
                 
         except Exception as e:
             logger.error(f"Redis initialization failed: {str(e)}")
             self.redis_client = None
-    
-    async def _test_redis_connection(self):
-        """Test Redis connection by setting and getting a test value."""
-        try:
-            if not self.redis_client or getattr(self.redis_client, '_closed', True):
-                return False
-                
-            test_key = "test:connection"
-            test_value = {"test": "value", "timestamp": time.time()}
-            
-            # Test setting a value
-            set_result = await self.redis_client.set(test_key, test_value)
-            if not set_result:
-                logger.error("Failed to set test value in Redis")
-                return False
-                
-            # Test getting the value
-            get_result = await self.redis_client.get(test_key)
-            if not get_result:
-                logger.error("Failed to get test value from Redis")
-                return False
-                
-            # Clean up test key
-            await self.redis_client.delete(test_key)
-            return True
-        except Exception as e:
-            logger.error(f"Redis connection test failed: {str(e)}")
-            return False
 
     def get_language_code(self, language_name: str) -> str:
         """Convert language name to code."""
@@ -295,66 +274,89 @@ class MultilingualClimateChatbot:
             f"Available languages:\n" +
             f"{', '.join(available_languages)}"
         )
-
-    @traceable(name="input_validation")
+        
+    @traceable(name="process_input_guards")
     async def process_input_guards(self, query: str) -> Dict[str, Any]:
-        """Run input guardrails."""
+        """
+        Process input validation and topic moderation.
+        
+        Args:
+            query (str): The normalized user query
+            
+        Returns:
+            Dict[str, Any]: Results of input validation with 'passed' flag
+        """
         try:
-            logger.info("Running input guardrails")
-            guard_start = time.time()
-            
-            # Basic input validation
-            with trace(name="basic_validation"):
-                if not query or len(query.strip()) == 0:
-                    return {
-                        "passed": False,
-                        "reason": "empty_query",
-                        "message": "Please provide a question to get started.",
-                        "duration": time.time() - guard_start
-                    }
+            # Input validation checks
+            if not query or len(query.strip()) < 3:
+                return {
+                    "passed": False,
+                    "message": "Please provide a more detailed question.",
+                    "reason": "too_short"
+                }
+                
+            # Check for very long queries
+            if len(query) > 1000:
+                return {
+                    "passed": False,
+                    "message": "Your question is too long. Please provide a more concise question.",
+                    "reason": "too_long"
+                }
+                
+            # Apply topic moderation using Ray remote
+            try:
+                # Use ray for parallel processing
+                topic_results = await asyncio.to_thread(
+                    lambda: ray.get(topic_moderation.remote(query, self.topic_moderation_pipe))
+                )
+                
+                if not topic_results or not topic_results.get('passed', False):
+                    result_reason = topic_results.get('reason', 'not_climate_related')
                     
-                if len(query.split()) < 2:
-                    return {
-                        "passed": False,
-                        "reason": "too_short",
-                        "message": "Could you please provide a more detailed question about climate change?",
-                        "duration": time.time() - guard_start
-                    }
-
-            # Perform topic check with nested tracing
-            with trace(name="topic_moderation") as topic_trace:
-                try:
-                    # Call the remote function which returns an ObjectRef
-                    topic_ref = topic_moderation.remote(
-                        question=query,
-                        topic_pipe=self.topic_moderation_pipe
-                    )
+                    if result_reason == 'harmful_content':
+                        return {
+                            "passed": False,
+                            "message": "I cannot provide information on harmful actions. Please ask a question about climate change.",
+                            "reason": "harmful_content",
+                            "details": topic_results
+                        }
+                    elif result_reason == 'misinformation':
+                        return {
+                            "passed": False,
+                            "message": "I provide factual information about climate change based on scientific consensus.",
+                            "reason": "misinformation",
+                            "details": topic_results
+                        }
+                    else:
+                        return {
+                            "passed": False,
+                            "message": "I apologize, but I can only help with climate-related questions.",
+                            "reason": "not_climate_related",
+                            "details": topic_results
+                        }
                     
-                    # Get the result from the ObjectRef
-                    topic_result = await asyncio.to_thread(ray.get, topic_ref)
-                    
-                    # Add trace metadata
-                    topic_result['trace_id'] = topic_trace.id
-                    topic_result['duration'] = time.time() - guard_start
-                    return topic_result
-                    
-                except Exception as e:
-                    logger.error(f"Topic moderation error: {str(e)}", exc_info=True)
-                    return {
-                        "passed": False,
-                        "reason": "moderation_error",
-                        "message": "I'm having trouble processing your question. Could you try rephrasing it or ask a different climate-related question?",
-                        "duration": time.time() - guard_start,
-                        "error": str(e)
-                    }
-            
+                # All checks passed
+                return {
+                    "passed": True,
+                    "message": "Input validation passed",
+                    "details": topic_results
+                }
+                
+            except Exception as e:
+                logger.error(f"Error in topic moderation: {str(e)}")
+                # In case of errors, we allow the query to proceed
+                return {
+                    "passed": True,
+                    "message": "Input validation passed with errors in moderation",
+                    "error": str(e)
+                }
+                
         except Exception as e:
-            logger.error(f"Error in input guards: {str(e)}", exc_info=True)
+            logger.error(f"Error in process_input_guards: {str(e)}")
+            # Default to allowing in case of errors
             return {
-                "passed": False,
-                "reason": "system_error",
-                "message": "I apologize, but I'm experiencing technical difficulties. Please try again with a climate-related question.",
-                "duration": time.time() - guard_start,
+                "passed": True,
+                "message": "Input validation passed with errors",
                 "error": str(e)
             }
 
@@ -369,50 +371,41 @@ class MultilingualClimateChatbot:
                 start_time = time.time()
                 step_times = {}
                 
-                # Main pipeline trace that wraps everything
+                # Immediate query normalization for cache check
+                norm_query = query.lower().strip()
+                language_code = self.get_language_code(language_name)
+                cache_key = f"{language_code}:{norm_query}"
+                
+                # Ensure Redis connection is available immediately
+                if not self.redis_client or getattr(self.redis_client, '_closed', True):
+                    logger.info("Redis client not available, initializing...")
+                    self._initialize_redis()
+                
+                # Check cache before starting the pipeline
+                if self.redis_client and not getattr(self.redis_client, '_closed', False):
+                    try:
+                        logger.info(f"📝 Checking cache for key: '{cache_key}'")
+                        cached_result = await self.redis_client.get(cache_key)
+                        if cached_result:
+                            cache_time = time.time() - start_time
+                            logger.info(f"✨ Cache hit - returning cached response")
+                            return {
+                                "success": True,
+                                "language_code": language_code,
+                                "query": norm_query,
+                                "response": cached_result.get('response'),
+                                "citations": cached_result.get('citations', []),
+                                "faithfulness_score": cached_result.get('faithfulness_score', 0.8),
+                                "processing_time": cache_time,
+                                "cache_hit": True,
+                                "step_times": {"cache_lookup": cache_time}
+                            }
+                    except Exception as e:
+                        logger.warning(f"⚠️ Cache check failed: {str(e)}")
+                
+                # If no cache hit, proceed with full pipeline
                 with trace(name="complete_pipeline") as pipeline_trace:
-                    # 1. Basic query normalization and language setup
-                    with trace(name="query_preprocessing") as preprocess_trace:
-                        norm_query = query.lower().strip()
-                        language_code = self.get_language_code(language_name)
-                        cache_key = f"{language_code}:{norm_query}"
-                        
-                        # Ensure Redis connection is active
-                        if not self.redis_client or getattr(self.redis_client, '_closed', True):
-                            logger.info("Redis client not available, reinitializing...")
-                            self._initialize_redis()
-                        
-                        logger.info(f"🔍 Checking cache with key: '{cache_key}'")
-                    
-                    # 2. Check cache first before any processing
-                    with trace(name="cache_check") as cache_trace:
-                        if self.redis_client and not getattr(self.redis_client, '_closed', False):
-                            try:
-                                logger.info(f"📝 Redis client exists, attempting to get value for key: '{cache_key}'")
-                                cached_result = await self.redis_client.get(cache_key)
-                                if cached_result:
-                                    cache_time = time.time() - start_time
-                                    logger.info(f"✨ Cache hit - returning cached response")
-                                    return {
-                                        "success": True,
-                                        "language_code": language_code,
-                                        "query": norm_query,
-                                        "response": cached_result.get('response'),
-                                        "citations": cached_result.get('citations', []),
-                                        "faithfulness_score": cached_result.get('faithfulness_score', 0.8),
-                                        "processing_time": cache_time,
-                                        "cache_hit": True,
-                                        "step_times": {"cache_lookup": cache_time},
-                                        "trace_id": pipeline_trace.id
-                                    }
-                                else:
-                                    logger.info(f"❓ Cache miss for key: '{cache_key}'")
-                            except Exception as e:
-                                logger.warning(f"⚠️ Cache retrieval failed: {str(e)}")
-
-                    logger.info("🔍 Starting full processing pipeline...")
-                    
-                    # 3. Query normalization
+                    # Start with query normalization
                     with trace(name="query_normalization") as norm_trace:
                         norm_start = time.time()
                         norm_query = await self.nova_model.query_normalizer(norm_query, language_name)
