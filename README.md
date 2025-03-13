@@ -1,7 +1,3 @@
-<<<<<<< Updated upstream
-# climate-multilingual-chatbot
-Multilingual climate change chatbot with RAG capabilities, built for climate-resilient communities.
-=======
 # Multilingual Climate Change Chatbot Application
 
 A sophisticated multilingual chatbot specialized in climate-related topics, leveraging advanced RAG (Retrieval Augmented Generation) architecture with Amazon Bedrock for response generation and multiple guardrails for quality assurance.
@@ -141,4 +137,3 @@ This project is licensed under the terms of the license included with this repos
 - Pinecone for vector storage
 - Cohere for reranking capabilities
 - Streamlit for the web interface framework
->>>>>>> Stashed changes
