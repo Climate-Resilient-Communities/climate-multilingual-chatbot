@@ -1,0 +1,19 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+directory = htmlcov[html]    raise ImportError    pass    if __name__ == .__main__.:    raise NotImplementedError    def __repr__    pragma: no coverexclude_lines =[report]    */site-packages/*    src/webui/*    tests/*omit = source = src[run]
