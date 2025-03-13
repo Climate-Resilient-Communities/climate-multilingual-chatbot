@@ -17,6 +17,36 @@ os.environ["TORCH_USE_CUDA_DSA"] = "0"
 project_root = Path(__file__).resolve().parent.parent
 sys.path.append(str(project_root))
 
+# Import environment loader early
+from src.utils.env_loader import load_environment, validate_environment
+from src.data.config.azure_config import is_running_in_azure, configure_for_azure
+
+# Load environment variables
+load_environment()
+
+# Configure for Azure if running in Azure environment
+if is_running_in_azure():
+    configure_for_azure()
+
+# Validate required environment variables
+env_validation = validate_environment()
+if not env_validation["all_present"]:
+    missing_vars = env_validation["missing_vars"]
+    raise EnvironmentError(f"Missing required environment variables: {', '.join(missing_vars)}")
+
+# Configure Azure-specific settings if running in Azure
+is_azure = env_validation.get("is_azure", False)
+if is_azure:
+    logging.info("Running in Azure environment. Configuring Azure-specific settings...")
+    # Azure-specific configurations are now handled in configure_for_azure()
+
+# Set environment variables explicitly as they might be needed specifically in this format
+os.environ['COHERE_API_KEY'] = os.getenv('COHERE_API_KEY')
+os.environ['LANGCHAIN_TRACING_V2'] = os.getenv('LANGCHAIN_TRACING_V2')
+os.environ['LANGCHAIN_API_KEY'] = os.getenv('LANGCHAIN_API_KEY')
+os.environ['LANGCHAIN_PROJECT'] = os.getenv('LANGSMITH_PROJECT', "climate-chat-production")
+os.environ['TAVILY_API_KEY'] = os.getenv('TAVILY_API_KEY')
+
 # Import and configure torch before other imports
 import torch
 torch.set_num_threads(1)
@@ -43,7 +73,6 @@ from langsmith import Client, traceable, trace
 from langchain_community.tools.tavily_search import TavilySearchResults
 
 # Local imports
-from src.utils.env_loader import load_environment
 from src.models.redis_cache import ClimateCache
 from src.models.nova_flow import BedrockModel
 from src.models.gen_response_nova import nova_chat
@@ -51,24 +80,20 @@ from src.models.query_routing import MultilingualRouter
 from src.models.input_guardrail import topic_moderation
 from src.models.retrieval import get_documents
 from src.models.hallucination_guard import extract_contexts, check_hallucination
+from src.data.config.azure_config import get_azure_settings
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime')s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# Load environment variables once
-load_environment()
-
-# Set up LangSmith environment variables
-os.environ["LANGCHAIN_TRACING_V2"] = "true"
-os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGSMITH_API_KEY")
-os.environ["LANGCHAIN_PROJECT"] = os.getenv("LANGSMITH_PROJECT", "climate-chat-production")
-
 # Filter warnings
 warnings.filterwarnings("ignore", category=Warning)
+
+# If running in Azure, include Azure settings
+AZURE_SETTINGS = get_azure_settings() if is_running_in_azure() else {}
 
 class MultilingualClimateChatbot:
     """
@@ -126,6 +151,8 @@ class MultilingualClimateChatbot:
     def __init__(self, index_name: str):
         """Initialize the chatbot with necessary components."""
         try:
+            # Store Azure settings if available
+            self.azure_settings = AZURE_SETTINGS if is_running_in_azure() else {}
             self._initialize_api_keys()
             self._initialize_components(index_name)
             logger.info("Chatbot initialized successfully")
@@ -217,32 +244,49 @@ class MultilingualClimateChatbot:
         self.nova_model = BedrockModel()
 
     def _initialize_redis(self):
-        """Initialize Redis client with proper event loop handling."""
+        """Initialize Redis client with Azure support."""
         try:
             # If Redis client exists and is not closed, no need to reinitialize
             if hasattr(self, 'redis_client') and self.redis_client and not getattr(self.redis_client, '_closed', True):
                 return
 
-            host = os.getenv('REDIS_HOST', 'localhost')
-            port = int(os.getenv('REDIS_PORT', 6379))
-            password = os.getenv('REDIS_PASSWORD', None) or None  # Convert empty string to None
+            # Use Azure Redis settings if running in Azure and Redis is configured
+            if is_running_in_azure() and self.azure_settings.get("redis", {}).get("enabled", False):
+                host = self.azure_settings["redis"]["host"]
+                port = self.azure_settings["redis"]["port"]
+                password = self.azure_settings["redis"]["password"]
+                ssl = self.azure_settings["redis"]["ssl"]
+                
+                logger.info(f"Initializing Azure Redis connection to {host}:{port} (SSL: {ssl})")
+                
+                # Pass SSL parameter if using Azure Redis Cache
+                self.redis_client = ClimateCache(
+                    host=host,
+                    port=port,
+                    password=password,
+                    ssl=ssl,
+                    expiration=3600  # 1 hour cache expiration
+                )
+            else:
+                # Standard Redis connection for non-Azure environments
+                host = os.getenv('REDIS_HOST', 'localhost')
+                port = int(os.getenv('REDIS_PORT', 6379))
+                password = os.getenv('REDIS_PASSWORD', None) or None  # Convert empty string to None
+                
+                logger.info(f"Initializing standard Redis connection to {host}:{port}")
+                
+                self.redis_client = ClimateCache(
+                    host=host,
+                    port=port,
+                    password=password,
+                    expiration=3600  # 1 hour cache expiration
+                )
             
-            logger.info(f"Initializing Redis connection to {host}:{port}")
-            
-            # Direct initialization without event loop dependency
-            self.redis_client = ClimateCache(
-                host=host,
-                port=port,
-                password=password,
-                expiration=3600  # 1 hour cache expiration
-            )
-            
-            # Immediate connection test
+            # Test connection
             loop = asyncio.get_event_loop()
             test_key = "test:init:connection"
             test_value = {"test": "value", "timestamp": time.time()}
             
-            # Test setting and getting a value immediately
             set_result = loop.run_until_complete(self.redis_client.set(test_key, test_value))
             get_result = loop.run_until_complete(self.redis_client.get(test_key))
             delete_result = loop.run_until_complete(self.redis_client.delete(test_key))
