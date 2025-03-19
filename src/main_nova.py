@@ -180,8 +180,18 @@ class MultilingualClimateChatbot:
         # Initialize clients
         self.cohere_client = cohere.Client(api_key=self.COHERE_API_KEY)
         
-        # Login to Hugging Face
-        login(token=self.HF_API_TOKEN, add_to_git_credential=True)
+        # Login to Hugging Face - make it optional in Azure environments
+        try:
+            if is_running_in_azure():
+                logger.info("Running in Azure - skipping Hugging Face git credential setup")
+                # Use simple login without git credential helper
+                login(token=self.HF_API_TOKEN, add_to_git_credential=False)
+            else:
+                # Regular login with git credential helper
+                login(token=self.HF_API_TOKEN, add_to_git_credential=True)
+        except Exception as e:
+            logger.warning(f"Hugging Face login warning: {str(e)}")
+            logger.info("Continuing without HF login - some features may be limited")
 
         # Set environment variables
         os.environ.update({
