@@ -129,6 +129,7 @@ celerybeat.pid
 
 # Environments
 .env
+.env.*
 .venv
 env/
 venv/
@@ -169,3 +170,23 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Poetry
+poetry.lock
+
+# Logs
+logs/
+
+# Redis
+redis_data/
+
+# Cache
+cache/
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
