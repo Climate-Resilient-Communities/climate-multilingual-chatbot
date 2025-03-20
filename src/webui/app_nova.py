@@ -96,12 +96,30 @@ def run_async(coro):
 @st.cache_resource
 def init_chatbot():
     try:
+        # First attempt - try to initialize with full functionality
         chatbot = MultilingualClimateChatbot(
             index_name="climate-change-adaptation-index-10-24-prod"
         )
         return chatbot
     except Exception as e:
         st.error(f"Failed to initialize chatbot: {str(e)}")
+        
+        # Check if the error is related to git not being found
+        if "[Errno 2] No such file or directory: 'git'" in str(e):
+            st.warning("Git not found in Azure environment. Attempting to initialize with limited functionality.")
+            try:
+                # Try to modify environment to handle missing git
+                os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+                os.environ["HF_HUB_DISABLE_IMPLICIT_TOKEN"] = "1"
+                
+                # Retry initialization
+                chatbot = MultilingualClimateChatbot(
+                    index_name="climate-change-adaptation-index-10-24-prod"
+                )
+                return chatbot
+            except Exception as retry_error:
+                st.error(f"Second initialization attempt failed: {str(retry_error)}")
+                return None
         return None
 
 # Update asset paths using Path for cross-platform compatibility
