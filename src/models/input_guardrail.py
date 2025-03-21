@@ -2,6 +2,8 @@ import ray
 import torch
 import logging
 import time
+import os
+from pathlib import Path
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
@@ -10,6 +12,9 @@ from transformers import (
 from transformers.pipelines.pt_utils import KeyDataset
 from datasets import Dataset
 from langsmith import traceable
+
+# Import Azure configuration
+from src.data.config.azure_config import is_running_in_azure
 
 # Configure logging
 logging.basicConfig(
@@ -101,13 +106,30 @@ def safe_guard_input(question, pipe):
     result = pipe(question)
     return result
 
+def check_dir(path, description="directory"):
+    """Utility function to check directory existence and list contents"""
+    dir_path = Path(path)
+    if dir_path.exists() and dir_path.is_dir():
+        try:
+            contents = list(dir_path.iterdir())
+            logger.info(f"{description} at {path} exists with {len(contents)} items")
+            
+            # Log first few items
+            if contents:
+                item_names = [item.name for item in contents[:5]]
+                logger.info(f"First few items: {', '.join(item_names)}")
+                
+            return True, contents
+        except Exception as e:
+            logger.error(f"Error checking {description} at {path}: {str(e)}")
+            return False, []
+    else:
+        logger.warning(f"{description} at {path} does not exist or is not a directory")
+        return False, []
+
 def initialize_models():
     """Initialize topic moderation ML model."""
     try:
-        # Load model and tokenizer for ClimateBERT
-        from pathlib import Path
-        import os
-        
         # Model name for downloading
         climatebert_model_name = "climatebert/distilroberta-base-climate-detector"
         
@@ -115,11 +137,42 @@ def initialize_models():
         azure_model_path = Path("/home/site/wwwroot/models/climatebert")
         project_root = Path(__file__).resolve().parent.parent.parent
         local_model_path = project_root / "models" / "climatebert"
+
+        # Verify directory existence and contents
+        logger.info("Checking model directories...")
+        is_azure = is_running_in_azure()
+        logger.info(f"Running in Azure: {is_azure}")
+        
+        azure_exists, azure_files = check_dir(azure_model_path, "Azure model directory")
+        local_exists, local_files = check_dir(local_model_path, "Local model directory")
+        
+        # Extra debug info for Azure environment
+        if is_azure:
+            try:
+                azure_wwwroot = Path("/home/site/wwwroot")
+                wwwroot_exists, wwwroot_contents = check_dir(azure_wwwroot, "Azure wwwroot directory")
+                
+                # Check for models dir directly under wwwroot
+                models_dir = azure_wwwroot / "models"
+                models_exists, models_contents = check_dir(models_dir, "Models directory")
+            except Exception as e:
+                logger.error(f"Error checking Azure directories: {str(e)}")
+        
+        # Set Hugging Face cache dir explicitly to a known writable location
+        if is_azure:
+            os.environ["HF_HOME"] = "/tmp/huggingface"
+            os.environ["TRANSFORMERS_CACHE"] = "/tmp/huggingface/transformers"
+            logger.info(f"Set HF_HOME to {os.environ.get('HF_HOME')}")
         
         # Try Azure path first, then local path, then fallback to HF download
-        if is_running_in_azure() and azure_model_path.exists() and azure_model_path.is_dir():
+        climatebert_model = None
+        climatebert_tokenizer = None
+        
+        if is_azure and azure_exists and azure_files:
             logger.info(f"Loading ClimateBERT model from Azure path: {azure_model_path}")
             try:
+                # Set offline mode to force local file usage
+                os.environ["HF_HUB_OFFLINE"] = "1"
                 climatebert_model = AutoModelForSequenceClassification.from_pretrained(
                     str(azure_model_path),
                     local_files_only=True
@@ -128,28 +181,19 @@ def initialize_models():
                     str(azure_model_path),
                     local_files_only=True
                 )
+                os.environ.pop("HF_HUB_OFFLINE", None)  # Remove offline mode
                 logger.info("✓ Successfully loaded ClimateBERT from Azure directory")
             except Exception as azure_err:
+                os.environ.pop("HF_HUB_OFFLINE", None)  # Remove offline mode
                 logger.warning(f"Failed to load from Azure path: {str(azure_err)}")
                 logger.info("Falling back to local directory...")
-                # Next try local path
-                if local_model_path.exists() and local_model_path.is_dir():
-                    climatebert_model = AutoModelForSequenceClassification.from_pretrained(
-                        str(local_model_path),
-                        local_files_only=True
-                    )
-                    climatebert_tokenizer = AutoTokenizer.from_pretrained(
-                        str(local_model_path),
-                        local_files_only=True
-                    )
-                else:
-                    logger.info("Falling back to downloading from Hugging Face")
-                    climatebert_model = AutoModelForSequenceClassification.from_pretrained(climatebert_model_name)
-                    climatebert_tokenizer = AutoTokenizer.from_pretrained(climatebert_model_name)
-        elif local_model_path.exists() and local_model_path.is_dir():
-            # Try local path (development environment)
+        
+        # If model still not loaded, try local path
+        if (climatebert_model is None) and local_exists and local_files:
             logger.info(f"Loading ClimateBERT model from local path: {local_model_path}")
             try:
+                # Set offline mode to force local file usage
+                os.environ["HF_HUB_OFFLINE"] = "1"
                 climatebert_model = AutoModelForSequenceClassification.from_pretrained(
                     str(local_model_path),
                     local_files_only=True
@@ -158,16 +202,22 @@ def initialize_models():
                     str(local_model_path),
                     local_files_only=True
                 )
+                os.environ.pop("HF_HUB_OFFLINE", None)  # Remove offline mode
                 logger.info("✓ Successfully loaded ClimateBERT from local directory")
             except Exception as local_err:
+                os.environ.pop("HF_HUB_OFFLINE", None)  # Remove offline mode
                 logger.warning(f"Failed to load from local path: {str(local_err)}")
-                logger.info("Falling back to downloading from Hugging Face")
+        
+        # If model still not loaded, try downloading
+        if climatebert_model is None:
+            logger.info(f"Local model not found. Downloading from Hugging Face...")
+            try:
                 climatebert_model = AutoModelForSequenceClassification.from_pretrained(climatebert_model_name)
                 climatebert_tokenizer = AutoTokenizer.from_pretrained(climatebert_model_name)
-        else:
-            logger.info(f"Local model not found. Downloading from Hugging Face.")
-            climatebert_model = AutoModelForSequenceClassification.from_pretrained(climatebert_model_name)
-            climatebert_tokenizer = AutoTokenizer.from_pretrained(climatebert_model_name)
+                logger.info("✓ Successfully downloaded ClimateBERT from Hugging Face")
+            except Exception as download_err:
+                logger.error(f"Failed to download model: {str(download_err)}")
+                raise  # Re-raise if we can't load the model any way
         
         # Set up topic moderation pipeline with proper settings
         device = 0 if torch.cuda.is_available() else -1

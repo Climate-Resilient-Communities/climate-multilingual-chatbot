@@ -227,32 +227,119 @@ class MultilingualClimateChatbot:
             azure_model_path = Path("/home/site/wwwroot/models/climatebert")
             local_model_path = Path(__file__).resolve().parent.parent / "models" / "climatebert"
             
+            # Verify directory existence and contents
+            logger.info("Checking model directories...")
+            
+            # Debug Azure environment
+            if is_running_in_azure():
+                try:
+                    # Set Hugging Face cache dir explicitly to a known writable location
+                    os.environ["HF_HOME"] = "/tmp/huggingface"
+                    os.environ["TRANSFORMERS_CACHE"] = "/tmp/huggingface/transformers"
+                    logger.info(f"Set HF_HOME to {os.environ.get('HF_HOME')}")
+                    
+                    # Check Azure directories
+                    if azure_model_path.exists() and azure_model_path.is_dir():
+                        contents = list(azure_model_path.iterdir())
+                        logger.info(f"Azure model directory exists with {len(contents)} items")
+                        if contents:
+                            file_names = [item.name for item in contents[:5]]
+                            logger.info(f"First few files: {', '.join(file_names)}")
+                    else:
+                        logger.warning(f"Azure model path {azure_model_path} does not exist or is not a directory")
+                        
+                        # Check if models dir exists
+                        parent_dir = Path("/home/site/wwwroot/models")
+                        if parent_dir.exists() and parent_dir.is_dir():
+                            logger.info(f"Parent models directory exists with contents: {list(parent_dir.iterdir())}")
+                        else:
+                            logger.warning("Parent models directory does not exist")
+                            
+                            # Check wwwroot
+                            wwwroot_dir = Path("/home/site/wwwroot")
+                            if wwwroot_dir.exists() and wwwroot_dir.is_dir():
+                                wwwroot_contents = list(wwwroot_dir.iterdir())
+                                logger.info(f"wwwroot directory exists with {len(wwwroot_contents)} items")
+                                if wwwroot_contents:
+                                    logger.info(f"First few wwwroot items: {', '.join([item.name for item in wwwroot_contents[:5]])}")
+                except Exception as e:
+                    logger.error(f"Error checking Azure directories: {str(e)}")
+            
             # Try Azure path first, then local path, then fallback to HF download
             if is_running_in_azure() and azure_model_path.exists() and azure_model_path.is_dir():
                 logger.info(f"Loading ClimateBERT model from Azure path: {azure_model_path}")
-                self.climatebert_model = AutoModelForSequenceClassification.from_pretrained(
-                    str(azure_model_path),
-                    local_files_only=True
-                )
-                self.climatebert_tokenizer = AutoTokenizer.from_pretrained(
-                    str(azure_model_path),
-                    max_length=512,
-                    local_files_only=True
-                )
-                logger.info("✓ Successfully loaded ClimateBERT from Azure directory")
-            elif local_model_path.exists() and local_model_path.is_dir():
+                try:
+                    # Set offline mode to force local file usage
+                    os.environ["HF_HUB_OFFLINE"] = "1"
+                    self.climatebert_model = AutoModelForSequenceClassification.from_pretrained(
+                        str(azure_model_path),
+                        local_files_only=True
+                    )
+                    self.climatebert_tokenizer = AutoTokenizer.from_pretrained(
+                        str(azure_model_path),
+                        max_length=512,
+                        local_files_only=True
+                    )
+                    os.environ.pop("HF_HUB_OFFLINE", None)  # Remove offline mode
+                    logger.info("✓ Successfully loaded ClimateBERT from Azure directory")
+                except Exception as azure_err:
+                    os.environ.pop("HF_HUB_OFFLINE", None)  # Remove offline mode
+                    logger.warning(f"Failed to load from Azure path: {str(azure_err)}")
+                    logger.info("Falling back to local directory...")
+                    
+                    # Try alternate Azure model path
+                    alt_azure_path = Path("/home/site/wwwroot/models")
+                    try:
+                        # Find any model directories under models/
+                        model_dirs = [d for d in alt_azure_path.iterdir() if d.is_dir()]
+                        if model_dirs:
+                            logger.info(f"Found alternate model directories: {[d.name for d in model_dirs]}")
+                            # Try each directory
+                            for model_dir in model_dirs:
+                                try:
+                                    logger.info(f"Attempting to load from {model_dir}")
+                                    os.environ["HF_HUB_OFFLINE"] = "1"
+                                    self.climatebert_model = AutoModelForSequenceClassification.from_pretrained(
+                                        str(model_dir),
+                                        local_files_only=True
+                                    )
+                                    self.climatebert_tokenizer = AutoTokenizer.from_pretrained(
+                                        str(model_dir),
+                                        max_length=512,
+                                        local_files_only=True
+                                    )
+                                    os.environ.pop("HF_HUB_OFFLINE", None)  # Remove offline mode
+                                    logger.info(f"✓ Successfully loaded from alternate directory {model_dir}")
+                                    break
+                                except Exception as alt_err:
+                                    os.environ.pop("HF_HUB_OFFLINE", None)  # Remove offline mode
+                                    logger.warning(f"Failed to load from {model_dir}: {alt_err}")
+                    except Exception as search_err:
+                        logger.warning(f"Error searching for alternate model directories: {search_err}")
+            
+            # If model still not loaded, try local path
+            if not hasattr(self, 'climatebert_model') and local_model_path.exists() and local_model_path.is_dir():
                 logger.info(f"Loading ClimateBERT model from local path: {local_model_path}")
-                self.climatebert_model = AutoModelForSequenceClassification.from_pretrained(
-                    str(local_model_path),
-                    local_files_only=True
-                )
-                self.climatebert_tokenizer = AutoTokenizer.from_pretrained(
-                    str(local_model_path),
-                    max_length=512,
-                    local_files_only=True
-                )
-                logger.info("✓ Successfully loaded ClimateBERT from local directory")
-            else:
+                try:
+                    # Set offline mode to force local file usage
+                    os.environ["HF_HUB_OFFLINE"] = "1"
+                    self.climatebert_model = AutoModelForSequenceClassification.from_pretrained(
+                        str(local_model_path),
+                        local_files_only=True
+                    )
+                    self.climatebert_tokenizer = AutoTokenizer.from_pretrained(
+                        str(local_model_path),
+                        max_length=512,
+                        local_files_only=True
+                    )
+                    os.environ.pop("HF_HUB_OFFLINE", None)  # Remove offline mode
+                    logger.info("✓ Successfully loaded ClimateBERT from local directory")
+                except Exception as local_err:
+                    os.environ.pop("HF_HUB_OFFLINE", None)  # Remove offline mode
+                    logger.warning(f"Failed to load from local path: {str(local_err)}")
+            
+            # If model still not loaded, try downloading
+            if not hasattr(self, 'climatebert_model'):
                 logger.info(f"Local model not found. Downloading from Hugging Face.")
                 self.climatebert_model = AutoModelForSequenceClassification.from_pretrained(model_name)
                 self.climatebert_tokenizer = AutoTokenizer.from_pretrained(model_name, max_length=512)
@@ -267,6 +354,7 @@ class MultilingualClimateChatbot:
                 truncation=True,
                 max_length=512
             )
+            logger.info("✓ Topic moderation pipeline initialized successfully")
         except Exception as e:
             logger.error(f"Error initializing models: {str(e)}")
             raise
