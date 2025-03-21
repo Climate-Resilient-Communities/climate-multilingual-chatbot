@@ -222,8 +222,40 @@ class MultilingualClimateChatbot:
         try:
             # Initialize ClimateBERT for topic moderation
             model_name = "climatebert/distilroberta-base-climate-detector"
-            self.climatebert_model = AutoModelForSequenceClassification.from_pretrained(model_name)
-            self.climatebert_tokenizer = AutoTokenizer.from_pretrained(model_name, max_length=512)
+            
+            # Check for models in Azure App Service path first
+            azure_model_path = Path("/home/site/wwwroot/models/climatebert")
+            local_model_path = Path(__file__).resolve().parent.parent / "models" / "climatebert"
+            
+            # Try Azure path first, then local path, then fallback to HF download
+            if is_running_in_azure() and azure_model_path.exists() and azure_model_path.is_dir():
+                logger.info(f"Loading ClimateBERT model from Azure path: {azure_model_path}")
+                self.climatebert_model = AutoModelForSequenceClassification.from_pretrained(
+                    str(azure_model_path),
+                    local_files_only=True
+                )
+                self.climatebert_tokenizer = AutoTokenizer.from_pretrained(
+                    str(azure_model_path),
+                    max_length=512,
+                    local_files_only=True
+                )
+                logger.info("✓ Successfully loaded ClimateBERT from Azure directory")
+            elif local_model_path.exists() and local_model_path.is_dir():
+                logger.info(f"Loading ClimateBERT model from local path: {local_model_path}")
+                self.climatebert_model = AutoModelForSequenceClassification.from_pretrained(
+                    str(local_model_path),
+                    local_files_only=True
+                )
+                self.climatebert_tokenizer = AutoTokenizer.from_pretrained(
+                    str(local_model_path),
+                    max_length=512,
+                    local_files_only=True
+                )
+                logger.info("✓ Successfully loaded ClimateBERT from local directory")
+            else:
+                logger.info(f"Local model not found. Downloading from Hugging Face.")
+                self.climatebert_model = AutoModelForSequenceClassification.from_pretrained(model_name)
+                self.climatebert_tokenizer = AutoTokenizer.from_pretrained(model_name, max_length=512)
             
             # Set up pipeline
             device = 0 if torch.cuda.is_available() else -1 

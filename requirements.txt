@@ -22,3 +22,9 @@ jsonschema>=4.23.0
 ragas>=0.0.22
 datasets>=2.19.0
 tokenizers>=0.19.1
+# Azure deployment requirements
+opencensus-ext-azure>=1.1.9
+# For local model support
+safetensors>=0.4.1
+accelerate>=0.27.0
+protobuf>=4.24.4

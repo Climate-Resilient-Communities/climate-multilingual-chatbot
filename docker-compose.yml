@@ -8,6 +8,8 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - HF_HUB_DISABLE_SYMLINKS_WARNING=1
+      - HF_HUB_DISABLE_IMPLICIT_TOKEN=1
     env_file:
       - .env
     depends_on:
@@ -15,6 +17,7 @@ services:
     volumes:
       - ./logs:/app/logs
       - ./cache:/app/cache
+      - ./models:/app/models
     networks:
       - chatbot_network
     healthcheck:

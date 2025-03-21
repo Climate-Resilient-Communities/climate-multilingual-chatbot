@@ -8,6 +8,68 @@ This guide provides instructions for deploying the Climate Multilingual Chatbot 
 - Azure CLI installed (optional, for command-line deployments)
 - Docker installed (optional, for container deployments)
 
+## Important: Local Model Preparation
+
+In Azure environments, accessing Hugging Face models can be problematic due to Git dependencies. To ensure your deployment works properly:
+
+1. **Download models locally before deployment:**
+   ```bash
+   python src/utils/download_models.py
+   ```
+
+2. **Include the models directory in your deployment package** - This ensures the application can use local model files instead of downloading them during runtime.
+
+3. **Make sure the models directory structure is preserved:** The application expects models at `models/climatebert/` relative to the project root.
+
+## Using Git LFS for Model Files
+
+Since the model files are large, we use Git LFS (Large File Storage) to manage them efficiently. When deploying to Azure:
+
+### Option 1: Clone with Git LFS Support
+
+If your Azure App Service has Git LFS installed and configured:
+
+1. Make sure Git LFS is correctly set up in your deployment workflow:
+   ```bash
+   git lfs install
+   git clone https://github.com/yourusername/climate-multilingual-chatbot.git
+   ```
+
+2. Verify the model files were properly downloaded:
+   ```bash
+   ls -la models/climatebert/
+   ```
+
+### Option 2: Manual Model Upload (Recommended for Azure)
+
+For Azure App Service deployments where Git LFS might not be available:
+
+1. Download models locally first:
+   ```bash
+   python src/utils/download_models.py
+   ```
+
+2. When deploying to Azure, ensure the model files are included in your deployment package
+   - For GitHub Actions: Use the `actions/upload-artifact` to include the models directory
+   - For manual deployments: Use `az webapp deploy` with the entire directory including models
+
+3. Verify the model directory exists in your Azure App Service:
+   ```
+   /home/site/wwwroot/models/climatebert/
+   ```
+
+### Handling Git LFS in Docker Deployments
+
+Our Docker configuration already handles copying the local model files into the container. Make sure the models are downloaded before building your Docker image:
+
+```bash
+# Download models locally
+python src/utils/download_models.py
+
+# Build Docker image (the models will be included)
+docker build -t climate-chatbot:latest .
+```
+
 ## Configuration Options
 
 ### 1. Environment Variables
@@ -29,6 +91,8 @@ The following environment variables should be configured in your Azure App Servi
 - `REDIS_PORT`: Redis port (default: 6379)
 - `REDIS_PASSWORD`: Redis password if required
 - `AZURE_REDIS_SSL`: Set to "true" if using Azure Redis Cache (default: auto-detect)
+- `HF_HUB_DISABLE_SYMLINKS_WARNING`: Set to "1" to disable Hugging Face symlinks warnings
+- `HF_HUB_DISABLE_IMPLICIT_TOKEN`: Set to "1" to disable implicit token authentication
 
 ### 2. Azure Redis Cache
 
@@ -51,7 +115,7 @@ For production deployments, we recommend using Azure Redis Cache:
 4. Configure the environment variables listed above
 5. Deploy the application
 
-### Method 2: Docker Container Deployment
+### Method 2: Docker Container Deployment (Recommended)
 
 1. Build the Docker container:
    ```bash
@@ -94,6 +158,15 @@ To enable application telemetry:
 3. **API Key Authentication Failures**
    - Verify all API keys are valid and not expired
    - Check for any special characters that might need escaping
+
+4. **Git Not Found Error**
+   - This is common in Azure environments: `Failed to initialize chatbot: [Errno 2] No such file or directory: 'git'`
+   - Solution: Ensure you've downloaded models locally with `python src/utils/download_models.py` before deployment
+   - The application has been modified to handle this case by loading models from local paths
+
+5. **Hugging Face Model Download Issues**
+   - If you see errors related to downloading models from Hugging Face, make sure your deployment includes the local model files
+   - Check that the `models/climatebert` directory exists and contains all model files
 
 ### Logs
 
