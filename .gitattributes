@@ -1,0 +1,6 @@
+# Configure Git LFS for model files
+models/**/*.bin filter=lfs diff=lfs merge=lfs -text
+models/**/*.safetensors filter=lfs diff=lfs merge=lfs -text
+models/**/*.json filter=lfs diff=lfs merge=lfs -text
+models/**/*.txt filter=lfs diff=lfs merge=lfs -text
+models/**/*.model filter=lfs diff=lfs merge=lfs -text

@@ -105,10 +105,70 @@ def initialize_models():
     """Initialize topic moderation ML model."""
     try:
         # Load model and tokenizer for ClimateBERT
+        from pathlib import Path
+        import os
+        
+        # Model name for downloading
         climatebert_model_name = "climatebert/distilroberta-base-climate-detector"
-        climatebert_model = AutoModelForSequenceClassification.from_pretrained(climatebert_model_name)
-        climatebert_tokenizer = AutoTokenizer.from_pretrained(climatebert_model_name)
-
+        
+        # Check for local model in Azure App Service path first
+        azure_model_path = Path("/home/site/wwwroot/models/climatebert")
+        project_root = Path(__file__).resolve().parent.parent.parent
+        local_model_path = project_root / "models" / "climatebert"
+        
+        # Try Azure path first, then local path, then fallback to HF download
+        if is_running_in_azure() and azure_model_path.exists() and azure_model_path.is_dir():
+            logger.info(f"Loading ClimateBERT model from Azure path: {azure_model_path}")
+            try:
+                climatebert_model = AutoModelForSequenceClassification.from_pretrained(
+                    str(azure_model_path),
+                    local_files_only=True
+                )
+                climatebert_tokenizer = AutoTokenizer.from_pretrained(
+                    str(azure_model_path),
+                    local_files_only=True
+                )
+                logger.info("✓ Successfully loaded ClimateBERT from Azure directory")
+            except Exception as azure_err:
+                logger.warning(f"Failed to load from Azure path: {str(azure_err)}")
+                logger.info("Falling back to local directory...")
+                # Next try local path
+                if local_model_path.exists() and local_model_path.is_dir():
+                    climatebert_model = AutoModelForSequenceClassification.from_pretrained(
+                        str(local_model_path),
+                        local_files_only=True
+                    )
+                    climatebert_tokenizer = AutoTokenizer.from_pretrained(
+                        str(local_model_path),
+                        local_files_only=True
+                    )
+                else:
+                    logger.info("Falling back to downloading from Hugging Face")
+                    climatebert_model = AutoModelForSequenceClassification.from_pretrained(climatebert_model_name)
+                    climatebert_tokenizer = AutoTokenizer.from_pretrained(climatebert_model_name)
+        elif local_model_path.exists() and local_model_path.is_dir():
+            # Try local path (development environment)
+            logger.info(f"Loading ClimateBERT model from local path: {local_model_path}")
+            try:
+                climatebert_model = AutoModelForSequenceClassification.from_pretrained(
+                    str(local_model_path),
+                    local_files_only=True
+                )
+                climatebert_tokenizer = AutoTokenizer.from_pretrained(
+                    str(local_model_path),
+                    local_files_only=True
+                )
+                logger.info("✓ Successfully loaded ClimateBERT from local directory")
+            except Exception as local_err:
+                logger.warning(f"Failed to load from local path: {str(local_err)}")
+                logger.info("Falling back to downloading from Hugging Face")
+                climatebert_model = AutoModelForSequenceClassification.from_pretrained(climatebert_model_name)
+                climatebert_tokenizer = AutoTokenizer.from_pretrained(climatebert_model_name)
+        else:
+            logger.info(f"Local model not found. Downloading from Hugging Face.")
+            climatebert_model = AutoModelForSequenceClassification.from_pretrained(climatebert_model_name)
+            climatebert_tokenizer = AutoTokenizer.from_pretrained(climatebert_model_name)
+        
         # Set up topic moderation pipeline with proper settings
         device = 0 if torch.cuda.is_available() else -1
         topic_moderation_pipe = pipeline(
@@ -117,12 +177,12 @@ def initialize_models():
             tokenizer=climatebert_tokenizer,
             device=device
         )
-
-        print("Models initialized successfully")
+        
+        logger.info("Models initialized successfully")
         return topic_moderation_pipe, None
         
     except Exception as e:
-        print(f"Error initializing models: {e}")
+        logger.error(f"Error initializing models: {e}")
         raise
 
 if __name__ == "__main__":

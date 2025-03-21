@@ -61,6 +61,12 @@ COHERE_API_KEY=your_cohere_key
 HF_API_TOKEN=your_huggingface_token  # Optional
 ```
 
+5. Download models for offline usage (recommended for Azure deployment):
+```bash
+python src/utils/download_models.py
+```
+This will download the ClimateBERT model files to the `models/climatebert` directory, allowing the application to work without internet access to Hugging Face.
+
 ## Usage
 
 1. Activate the Poetry environment:
@@ -80,19 +86,21 @@ poetry run streamlit run src/webui/app_nova.py
 
 Or run as a CLI application:
 ```bash
-poetry run mlccapp
+python src/main_nova.py climate-change-adaptation-index-10-24-prod
 ```
 
 ## Project Structure
 
 ```
 climate-multilingual-chatbot/
-├── src/                      # Main source code
-│   ├── models/              # Core model implementations
-│   ├── utils/               # Utility functions
-│   └── webui/               # Streamlit web interface
+├── models/                  # Local model files
+│   └── climatebert/        # Downloaded ClimateBERT model files
+├── src/                     # Main source code
+│   ├── models/             # Core model implementations
+│   ├── utils/              # Utility functions
+│   └── webui/              # Streamlit web interface
 ├── tests/                   # Test suites
-│   ├── integration/         # Integration tests
+│   ├── integration/        # Integration tests
 │   ├── system/             # System tests
 │   └── unit/               # Unit tests
 ├── .env                     # Environment variables (not in repo)
@@ -100,6 +108,21 @@ climate-multilingual-chatbot/
 ├── pyproject.toml          # Project configuration
 └── README.md              # Project documentation
 ```
+
+## Azure Deployment
+
+For Azure deployment, it's recommended to:
+
+1. Download models locally before deployment using:
+   ```bash
+   python src/utils/download_models.py
+   ```
+
+2. Configure Azure App Service environment variables as described in `AZURE_DEPLOYMENT.md`
+
+3. Review the Azure specific configurations in `AZURE_DEPLOYMENT.md`
+
+See the `AZURE_DEPLOYMENT.md` file for detailed Azure deployment instructions.
 
 ## Development
 
@@ -126,6 +149,20 @@ poetry run flake8
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Model Loading Issues**
+   - If you encounter issues with Hugging Face models in Azure, make sure you've downloaded the models locally using the provided script
+   - Check that the models directory exists and contains the required files
+
+2. **Git Not Found Error in Azure**
+   - This is expected in some Azure environments. The application should handle this gracefully by using the local model files.
+
+3. **Environment Variables**
+   - Ensure all required environment variables are properly set
 
 ## License
 
