@@ -2,6 +2,7 @@ import redis
 import json
 import logging
 import asyncio
+import os
 from typing import Any, Optional
 from threading import Lock
 
@@ -19,13 +20,21 @@ class RedisCache:
                 cls._instance = super().__new__(cls)
             return cls._instance
 
-    def __init__(self, host='localhost', port=6379, db=0, expiration=3600, password=None):
+    def __init__(self, host=None, port=None, db=0, expiration=3600, password=None, ssl=False):
         """Initialize Redis cache with configurable expiration time."""
         # Skip initialization if already initialized
         if hasattr(self, '_initialized'):
             return
             
         try:
+            # Get configuration from environment variables or use provided values
+            self.host = host or os.getenv('REDIS_HOST', 'localhost')
+            self.port = port or int(os.getenv('REDIS_PORT', 6379))
+            self.password = password or os.getenv('REDIS_PASSWORD')
+            self.ssl = ssl or os.getenv('REDIS_SSL', '').lower() == 'true'
+            
+            logger.info(f"Initializing Redis connection to {self.host}:{self.port} (SSL: {self.ssl})")
+            
             # Check if we're in an event loop
             try:
                 loop = asyncio.get_event_loop()
@@ -34,16 +43,19 @@ class RedisCache:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
 
+            # Initialize Redis client with SSL if needed
             self.redis_client = redis.Redis(
-                host=host, 
-                port=port, 
+                host=self.host, 
+                port=self.port, 
                 db=db,
-                password=password,
+                password=self.password,
+                ssl=self.ssl,
                 decode_responses=True,
                 socket_timeout=5,
                 socket_connect_timeout=5,
                 retry_on_timeout=True
             )
+            
             # Test connection
             self.redis_client.ping()
             
@@ -51,7 +63,7 @@ class RedisCache:
             self._closed = False
             self._async_lock = asyncio.Lock()
             self._initialized = True
-            logger.info("Redis cache initialized and connected successfully")
+            logger.info(f"✓ Redis cache initialized and connected successfully to {self.host}")
         except Exception as e:
             logger.error(f"Failed to initialize Redis cache: {str(e)}")
             self.redis_client = None

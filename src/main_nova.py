@@ -380,37 +380,26 @@ class MultilingualClimateChatbot:
             if hasattr(self, 'redis_client') and self.redis_client and not getattr(self.redis_client, '_closed', True):
                 return
 
-            # Use Azure Redis settings if running in Azure and Redis is configured
-            if is_running_in_azure() and self.azure_settings.get("redis", {}).get("enabled", False):
-                host = self.azure_settings["redis"]["host"]
-                port = self.azure_settings["redis"]["port"]
-                password = self.azure_settings["redis"]["password"]
-                ssl = self.azure_settings["redis"]["ssl"]
-                
-                logger.info(f"Initializing Azure Redis connection to {host}:{port} (SSL: {ssl})")
-                
-                # Pass SSL parameter if using Azure Redis Cache
-                self.redis_client = ClimateCache(
-                    host=host,
-                    port=port,
-                    password=password,
-                    ssl=ssl,
-                    expiration=3600  # 1 hour cache expiration
-                )
-            else:
-                # Standard Redis connection for non-Azure environments
-                host = os.getenv('REDIS_HOST', 'localhost')
-                port = int(os.getenv('REDIS_PORT', 6379))
-                password = os.getenv('REDIS_PASSWORD', None) or None  # Convert empty string to None
-                
-                logger.info(f"Initializing standard Redis connection to {host}:{port}")
-                
-                self.redis_client = ClimateCache(
-                    host=host,
-                    port=port,
-                    password=password,
-                    expiration=3600  # 1 hour cache expiration
-                )
+            # Get Redis configuration from environment variables
+            redis_host = os.getenv('REDIS_HOST')
+            redis_port = int(os.getenv('REDIS_PORT', 6379))
+            redis_password = os.getenv('REDIS_PASSWORD')
+            redis_ssl = os.getenv('REDIS_SSL', '').lower() == 'true'
+
+            # Log Redis connection details
+            logger.info(f"Initializing Redis connection to {redis_host or 'localhost'}:{redis_port}")
+            
+            if not redis_host:
+                logger.warning("REDIS_HOST environment variable not set")
+            
+            # Initialize Redis client with environment variables
+            self.redis_client = ClimateCache(
+                host=redis_host,
+                port=redis_port,
+                password=redis_password,
+                ssl=redis_ssl,
+                expiration=3600  # 1 hour cache expiration
+            )
             
             # Test connection
             loop = asyncio.get_event_loop()
@@ -425,7 +414,7 @@ class MultilingualClimateChatbot:
                 logger.error("Redis connection test failed")
                 self.redis_client = None
             else:
-                logger.info("Redis cache initialized and tested successfully")
+                logger.info(f"✓ Redis cache initialized and tested successfully at {redis_host}:{redis_port}")
                 
         except Exception as e:
             logger.error(f"Redis initialization failed: {str(e)}")
