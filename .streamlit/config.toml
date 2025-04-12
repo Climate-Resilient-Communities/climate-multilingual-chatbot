@@ -1,0 +1,21 @@
+[server]
+# Disable file watcher to prevent the Streamlit file watcher from
+# triggering the "__path__._path" error with PyTorch internals
+watcher_type = "none"
+runOnSave = false
+enableCORS = true
+fileWatcherType = "none"
+
+[theme]
+primaryColor = "#4CAF50"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F2F6"
+textColor = "#262730"
+font = "sans serif"
+
+[browser]
+# Reduce memory footprint
+gatherUsageStats = false
+
+[logger]
+level = "info"
