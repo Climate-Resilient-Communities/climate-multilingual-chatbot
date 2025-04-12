@@ -202,8 +202,15 @@ class MultilingualClimateChatbot:
 
     def _initialize_components(self, index_name: str) -> None:
         """Initialize all required components."""
+        # Use our custom Ray initialization for Azure
+        from src.utils.ray_config import initialize_ray_for_azure, shutdown_ray
+        
         if not ray.is_initialized():
-            ray.init()
+            logger.info("Initializing Ray with Azure-optimized settings")
+            ray_init_success = initialize_ray_for_azure()
+            if not ray_init_success:
+                logger.warning("Failed to initialize Ray with optimized settings. Some features may be limited.")
+                # Continue without Ray as a fallback
             
         self._initialize_models()
         self._initialize_retrieval(index_name)
@@ -893,13 +900,14 @@ class MultilingualClimateChatbot:
                 cleanup_errors.append(f"Cleanup tasks error: {str(e)}")
                 logger.error(f"Error in cleanup tasks: {str(e)}")
 
-        # Shutdown Ray if initialized
-        if ray.is_initialized():
-            try:
-                ray.shutdown()
-            except Exception as e:
-                cleanup_errors.append(f"Ray cleanup error: {str(e)}")
-                logger.error(f"Error shutting down Ray: {str(e)}")
+        # Shutdown Ray if initialized using our custom shutdown
+        from src.utils.ray_config import shutdown_ray
+        try:
+            if ray.is_initialized():
+                shutdown_ray()
+        except Exception as e:
+            cleanup_errors.append(f"Ray cleanup error: {str(e)}")
+            logger.error(f"Error shutting down Ray: {str(e)}")
 
         # Reset instance variables
         self.redis_client = None
