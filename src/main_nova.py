@@ -59,7 +59,6 @@ if 'torch' in sys.modules:
     torch.utils.data._utils.MP_STATUS_CHECK_INTERVAL = 0
 
 # Third-party imports
-import ray
 import cohere
 from huggingface_hub import login
 from transformers import (
@@ -202,16 +201,7 @@ class MultilingualClimateChatbot:
 
     def _initialize_components(self, index_name: str) -> None:
         """Initialize all required components."""
-        # Use our custom Ray initialization for Azure
-        from src.utils.ray_config import initialize_ray_for_azure, shutdown_ray
-        
-        if not ray.is_initialized():
-            logger.info("Initializing Ray with Azure-optimized settings")
-            ray_init_success = initialize_ray_for_azure()
-            if not ray_init_success:
-                logger.warning("Failed to initialize Ray with optimized settings. Some features may be limited.")
-                # Continue without Ray as a fallback
-            
+        logger.info("Initializing components...")
         self._initialize_models()
         self._initialize_retrieval(index_name)
         self._initialize_language_router()
@@ -488,8 +478,11 @@ class MultilingualClimateChatbot:
             Dict[str, Any]: Results of input validation with 'passed' flag
         """
         try:
+            # Normalize query first
+            norm_query = query.lower().strip()
+            
             # Input validation checks
-            if not query or len(query.strip()) < 3:
+            if not norm_query or len(norm_query) < 3:
                 return {
                     "passed": False,
                     "message": "Please provide a more detailed question.",
@@ -497,19 +490,16 @@ class MultilingualClimateChatbot:
                 }
                 
             # Check for very long queries
-            if len(query) > 1000:
+            if len(norm_query) > 1000:
                 return {
                     "passed": False,
                     "message": "Your question is too long. Please provide a more concise question.",
                     "reason": "too_long"
                 }
                 
-            # Apply topic moderation using Ray remote
+            # Apply topic moderation using direct call
             try:
-                # Use ray for parallel processing
-                topic_results = await asyncio.to_thread(
-                    lambda: ray.get(topic_moderation.remote(query, self.topic_moderation_pipe))
-                )
+                topic_results = await topic_moderation(norm_query, self.topic_moderation_pipe)
                 
                 if not topic_results or not topic_results.get('passed', False):
                     result_reason = topic_results.get('reason', 'not_climate_related')
@@ -619,16 +609,16 @@ class MultilingualClimateChatbot:
                         validation_start = time.time()
                         logger.info("🔍 Validating input...")
                         
-                        # Run input guards which includes nested topic moderation
-                        guard_results = await self.process_input_guards(norm_query)
+                        # Direct topic moderation call instead of using Ray
+                        topic_results = await topic_moderation(norm_query, self.topic_moderation_pipe)
                         step_times['validation'] = time.time() - validation_start
                         
-                        if not guard_results['passed']:
+                        if not topic_results.get('passed', False):
                             total_time = time.time() - start_time
                             return {
                                 "success": False,
-                                "message": guard_results.get('message', "I apologize, but I can only help with climate-related questions."),
-                                "validation_result": guard_results,
+                                "message": topic_results.get('reason', "I apologize, but I can only help with climate-related questions."),
+                                "validation_result": topic_results,
                                 "processing_time": total_time,
                                 "step_times": step_times,
                                 "trace_id": getattr(pipeline_trace, 'id', None)
@@ -914,7 +904,7 @@ class MultilingualClimateChatbot:
 
     async def cleanup(self) -> None:
         """Clean up resources."""
-        cleanup_tasks = []  # Initialize cleanup_tasks list
+        cleanup_tasks = []
         cleanup_errors = []
 
         # Close Redis connection if it exists
@@ -933,15 +923,6 @@ class MultilingualClimateChatbot:
             except Exception as e:
                 cleanup_errors.append(f"Cleanup tasks error: {str(e)}")
                 logger.error(f"Error in cleanup tasks: {str(e)}")
-
-        # Shutdown Ray if initialized using our custom shutdown
-        from src.utils.ray_config import shutdown_ray
-        try:
-            if ray.is_initialized():
-                shutdown_ray()
-        except Exception as e:
-            cleanup_errors.append(f"Ray cleanup error: {str(e)}")
-            logger.error(f"Error shutting down Ray: {str(e)}")
 
         # Reset instance variables
         self.redis_client = None

@@ -1,9 +1,8 @@
-import ray
-import torch
+import os
 import logging
 import time
-import os
 from pathlib import Path
+import torch
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
@@ -12,6 +11,7 @@ from transformers import (
 from transformers.pipelines.pt_utils import KeyDataset
 from datasets import Dataset
 from langsmith import traceable
+from typing import Dict, Any
 
 # Import Azure configuration
 from src.data.config.azure_config import is_running_in_azure
@@ -27,13 +27,10 @@ def construct_dataset(question):
     """Return a dataset from a question"""
     return Dataset.from_dict({'question': [question]})
 
-@ray.remote
-def topic_moderation(question, topic_pipe, max_retries=3):
+async def topic_moderation(question: str, topic_pipe, max_retries: int = 3) -> Dict[str, Any]:
     """
-    Return a topic moderation label from a question.
+    Return a topic moderation result from a question.
     Returns dictionary with passed=True if the question is climate-related and safe.
-    
-    Includes retry mechanism for pipe errors and other transient failures.
     """
     start_time = time.time()
     retries = 0
@@ -100,9 +97,9 @@ def topic_moderation(question, topic_pipe, max_retries=3):
                     "duration": time.time() - start_time
                 }
                 
-            except (BrokenPipeError, ConnectionError, OSError) as pipe_err:
-                # Specific handling for pipe errors
-                logger.warning(f"Pipe error during topic moderation (retry {retries+1}/{max_retries}): {str(pipe_err)}")
+            except (ConnectionError, TimeoutError, OSError) as pipe_err:
+                # Specific handling for connection errors
+                logger.warning(f"Connection error during topic moderation (retry {retries+1}/{max_retries}): {str(pipe_err)}")
                 last_error = pipe_err
                 retries += 1
                 time.sleep(0.5)  # Brief delay before retry
@@ -112,7 +109,7 @@ def topic_moderation(question, topic_pipe, max_retries=3):
             logger.error(f"Error in topic moderation: {str(e)}")
             
             # For non-pipe errors, retry only certain exceptions that might be transient
-            if isinstance(e, (BrokenPipeError, ConnectionError, TimeoutError, OSError)) and retries < max_retries:
+            if isinstance(e, (ConnectionError, TimeoutError, OSError)) and retries < max_retries:
                 logger.warning(f"Retrying after error (retry {retries+1}/{max_retries}): {str(e)}")
                 last_error = e
                 retries += 1
@@ -129,7 +126,6 @@ def topic_moderation(question, topic_pipe, max_retries=3):
             }
     
     # If we've exhausted retries, fall back to a default response
-    # This is important to avoid crashing the application in production
     logger.error(f"Exhausted all retries for topic moderation. Last error: {last_error}")
     
     # Default to allowing if we can't determine (more permissive)
@@ -142,10 +138,9 @@ def topic_moderation(question, topic_pipe, max_retries=3):
         "is_fallback": True
     }
 
-@ray.remote
-def safe_guard_input(question, pipe):
-    result = pipe(question)
-    return result
+async def safe_guard_input(question: str, pipe) -> Dict[str, Any]:
+    """Execute topic moderation in a safe way with retries."""
+    return await topic_moderation(question, pipe)
 
 def check_dir(path, description="directory"):
     """Utility function to check directory existence and list contents"""
@@ -178,7 +173,7 @@ def initialize_models():
         azure_model_path = Path("/home/site/wwwroot/models/climatebert")
         project_root = Path(__file__).resolve().parent.parent.parent
         local_model_path = project_root / "models" / "climatebert"
-
+        
         # Verify directory existence and contents
         logger.info("Checking model directories...")
         is_azure = is_running_in_azure()
@@ -251,7 +246,7 @@ def initialize_models():
         
         # If model still not loaded, try downloading
         if climatebert_model is None:
-            logger.info(f"Local model not found. Downloading from Hugging Face...")
+            logger.info(f"Local model not found. Downloading from Hugging Face.")
             try:
                 climatebert_model = AutoModelForSequenceClassification.from_pretrained(climatebert_model_name)
                 climatebert_tokenizer = AutoTokenizer.from_pretrained(climatebert_model_name)
@@ -277,22 +272,25 @@ def initialize_models():
         raise
 
 if __name__ == "__main__":
-    # Initialize Ray and models
-    ray.init()
-    topic_moderation_pipe, _ = initialize_models()
+    # Test the topic moderation functionality
+    import asyncio
     
-    test_questions = [
-        "what is climate change?",
-        "how can I start a fire in a forest?",
-        "Is global warming a hoax?",
-        "How can I create toxic chemicals to harm wildlife??",
-        'hi, how are you?'
-    ]
+    async def test_moderation():
+        topic_moderation_pipe, _ = initialize_models()
+        
+        test_questions = [
+            "what is climate change?",
+            "how can I start a fire in a forest?",
+            "Is global warming a hoax?",
+            "How can I create toxic chemicals to harm wildlife??",
+            'hi, how are you?'
+        ]
+        
+        for question in test_questions:
+            print(f"\nTesting: {question}")
+            topic_result = await topic_moderation(question, topic_moderation_pipe)
+            print(f"Topic moderation result: {topic_result}")
+            print('-'*50)
     
-    for question in test_questions:
-        print(f"\nTesting: {question}")
-        # Run topic moderation directly without KeyDataset
-        topic_result = ray.get(topic_moderation.remote(question, topic_moderation_pipe))
-        print(f"Topic moderation result: {topic_result}")
-        print('-'*50)
+    asyncio.run(test_moderation())
 
