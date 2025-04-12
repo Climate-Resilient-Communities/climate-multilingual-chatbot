@@ -852,7 +852,7 @@ class MultilingualClimateChatbot:
             cache_key = f"{language_code}:{query.lower().strip()}"
             
             if self.redis_client and not getattr(self.redis_client, '_closed', False):
-                try {
+                try:
                     logger.info(f"📝 Storing results in Redis with key: '{cache_key}'")
                     
                     # Prepare cache data
@@ -870,17 +870,16 @@ class MultilingualClimateChatbot:
                     
                     # Try to store in Redis
                     success = await self.redis_client.set(cache_key, cache_data)
-                    if (success):
+                    if success:
                         logger.info(f"✨ Response cached successfully in Redis with key: '{cache_key}'")
                     else:
                         logger.warning(f"⚠️ Failed to cache response in Redis for key: '{cache_key}'")
-                } catch (Exception e) {
+                except Exception as e:
                     logger.warning(f"⚠️ Failed to cache in Redis: {str(e)}")
-                }
             else:
                 logger.warning(f"⚠️ Redis client not available for caching key: '{cache_key}'")
             
-            // 2. Store in memory cache as backup
+            # 2. Store in memory cache as backup
             self.response_cache[cache_key] = {
                 "response": response,
                 "citations": citations,
@@ -889,7 +888,7 @@ class MultilingualClimateChatbot:
             }
             logger.debug(f"✨ Response cached in memory with key: '{cache_key}'")
             
-            // 3. Update conversation history
+            # 3. Update conversation history
             self.conversation_history.append({
                 "query": query,
                 "response": response,
@@ -898,7 +897,7 @@ class MultilingualClimateChatbot:
                 "timestamp": time.time()
             })
             
-            // 4. Store metrics
+            # 4. Store metrics
             self.feedback_metrics.append({
                 "language": language_code,
                 "processing_time": processing_time,
@@ -910,45 +909,41 @@ class MultilingualClimateChatbot:
             
             logger.debug(f"Results stored successfully for query: {query[:50]}...")
             logger.info(f"Processing time: {processing_time} seconds")
-        } catch (Exception e) {
+        except Exception as e:
             logger.error(f"Error storing results: {str(e)}")
-        }
 
     async def cleanup(self) -> None:
         """Clean up resources."""
         cleanup_tasks = []  # Initialize cleanup_tasks list
         cleanup_errors = []
 
-        // Close Redis connection if it exists
+        # Close Redis connection if it exists
         if hasattr(self, 'redis_client') and self.redis_client is not None:
-            try {
+            try:
                 if not getattr(self.redis_client, '_closed', False):
                     cleanup_tasks.append(self.redis_client.close())
-            } catch (Exception e) {
+            except Exception as e:
                 cleanup_errors.append(f"Redis cleanup error: {str(e)}")
                 logger.error(f"Error closing Redis connection: {str(e)}")
-            }
 
-        // Wait for all cleanup tasks to complete
+        # Wait for all cleanup tasks to complete
         if cleanup_tasks:
-            try {
+            try:
                 await asyncio.gather(*cleanup_tasks)
-            } catch (Exception e) {
+            except Exception as e:
                 cleanup_errors.append(f"Cleanup tasks error: {str(e)}")
                 logger.error(f"Error in cleanup tasks: {str(e)}")
-            }
 
-        // Shutdown Ray if initialized using our custom shutdown
+        # Shutdown Ray if initialized using our custom shutdown
         from src.utils.ray_config import shutdown_ray
-        try {
+        try:
             if ray.is_initialized():
                 shutdown_ray()
-        } catch (Exception e) {
+        except Exception as e:
             cleanup_errors.append(f"Ray cleanup error: {str(e)}")
             logger.error(f"Error shutting down Ray: {str(e)}")
-        }
 
-        // Reset instance variables
+        # Reset instance variables
         self.redis_client = None
         self.response_cache = {}
         self.conversation_history = []
@@ -961,75 +956,73 @@ class MultilingualClimateChatbot:
 
     def _initialize_langsmith(self) -> None:
         """Initialize LangSmith for tracing."""
-        try {
-            // Set environment variables first to ensure proper tracing setup
+        try:
+            # Set environment variables first to ensure proper tracing setup
             os.environ["LANGCHAIN_TRACING_V2"] = "true"
             os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGSMITH_API_KEY")
             os.environ["LANGCHAIN_PROJECT"] = os.getenv("LANGSMITH_PROJECT", "climate-chat-production")
             
-            // Initialize LangSmith client
+            # Initialize LangSmith client
             self.langsmith_client = Client()
             
-            // Verify initialization
+            # Verify initialization
             if not self.langsmith_client:
                 raise ValueError("Failed to initialize LangSmith client")
                 
             logger.info(f"LangSmith tracing initialized successfully for project: {os.getenv('LANGSMITH_PROJECT')}")
             
-        } catch (Exception e) {
+        except Exception as e:
             logger.error(f"Failed to initialize LangSmith tracing: {str(e)}")
             self.langsmith_client = None
-        }
 
-async def main() {
+async def main() -> None:
     """Main entry point for the climate chatbot application."""
-    try {
-        // Validate command line arguments
+    try:
+        # Validate command line arguments
         if len(sys.argv) < 2:
-            print("Usage: python main.py <index_name> ")
-            print("Example: python main.py climate-change-adaptation-index-10-24-prod ")
+            print("Usage: python main.py <index_name>")
+            print("Example: python main.py climate-change-adaptation-index-10-24-prod")
             sys.exit(1)
             
         index_name = sys.argv[1]
         
-        // Initialize chatbot
+        # Initialize chatbot
         print("\nInitializing Climate Chatbot...")
         chatbot = MultilingualClimateChatbot(index_name)
         print("✓ Initialization complete\n")
         
-        // Print welcome message
+        # Print welcome message
         print("Welcome to the Multilingual Climate Chatbot!")
         print("Available languages:")
         languages = sorted(set(list(chatbot.LANGUAGE_NAME_TO_CODE.keys()) + 
                              list(chatbot.LANGUAGE_VARIATIONS.keys())))
         
-        // Print languages in columns
+        # Print languages in columns
         col_width = 20
         num_cols = 4
         for i in range(0, len(languages), num_cols):  
             row = languages[i:i + num_cols]
             print("".join(lang.ljust(col_width) for lang in row))
             
-        // Get language choice once at the start
+        # Get language choice once at the start
         while True:
             language_name = input("\nPlease select your language for this session: ").strip()
             if language_name:
-                try {
-                    // Validate language selection
+                try:
+                    # Validate language selection
                     chatbot.get_language_code(language_name)
                     print(f"\nLanguage set to: {language_name}")
                     break
-                } catch (ValueError e) {
+                except ValueError as e:
                     print(f"\nError: {str(e)}")
                     continue
-                }
 
         print("\nType 'quit' to exit, 'language' to see your current language setting\n")
 
-        // Main interaction loop
+        # Main interaction loop
         while True:
-            try {
-                // Get query
+            try:
+                # Get query
                 query = input("\nEnter your question: ").strip()
                 if not query:
                     print("Please enter a question.")
@@ -1045,13 +1038,13 @@ async def main() {
 
                 print("\nProcessing your query...")
                 
-                // Process query
+                # Process query
                 result = await chatbot.process_query(
                     query=query,
                     language_name=language_name
                 )
                 
-                // Display results
+                # Display results
                 if result.get('success', False):
                     print("\nResponse:", result.get('response', 'No response generated'))
                     
@@ -1064,39 +1057,33 @@ async def main() {
                 else:
                     print("\nError:", result.get('message', 'An unknown error occurred'))
                     
-                print("\n" + "-"*50)  // Separator line
+                print("\n" + "-"*50)  # Separator line
                     
-            } catch (KeyboardInterrupt e) {
+            except KeyboardInterrupt as e:
                 print("\n\nExiting gracefully...")
                 break
-            } catch (Exception e) {
+            except Exception as e:
                 print(f"\nError: {str(e)}")
                 print("Please try again.")
-            }
                 
-    } catch (KeyboardInterrupt e) {
+    except KeyboardInterrupt as e:
         print("\n\nExiting gracefully...")
-    } catch (Exception e) {
+    except Exception as e:
         print(f"\nFatal error: {str(e)}")
         raise
-    } finally {
+    finally:
         if 'chatbot' in locals():
-            try {
+            try:
                 await chatbot.cleanup()
                 print("\nResources cleaned up successfully")
-            } catch (Exception e) {
+            except Exception as e:
                 print(f"\nError during cleanup: {str(e)}")
-            }
-        }
-    }
 
 if __name__ == "__main__":
-    try {
+    try:
         asyncio.run(main())
-    } catch (KeyboardInterrupt e) {
+    except KeyboardInterrupt as e:
         print("\nProgram terminated by user")
-    } catch (Exception e) {
+    except Exception as e:
         print(f"\nProgram terminated due to error: {str(e)}")
         sys.exit(1)
-    }
-}
