@@ -12,7 +12,6 @@ ENV PYTHONUNBUFFERED=1 \
     # Azure App Service optimization variables
     STREAMLIT_WATCHER_TYPE=none \
     STREAMLIT_SERVER_RUN_ON_SAVE=false \
-    RAY_object_store_memory=10000000 \
     # Add environment variables to help with HuggingFace in Azure
     HF_HOME=/tmp/huggingface \
     TRANSFORMERS_CACHE=/tmp/huggingface/transformers \

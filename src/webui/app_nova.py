@@ -7,14 +7,17 @@ from pathlib import Path
 # Initialize event loop properly at the very beginning
 import asyncio
 try:
-    asyncio.get_running_loop()
+    loop = asyncio.get_event_loop()
+    if loop.is_closed():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
 except RuntimeError:
-    asyncio.set_event_loop(asyncio.new_event_loop())
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
-# Set environment variables for Ray and Streamlit
+# Set environment variables for Streamlit
 os.environ["STREAMLIT_WATCHER_TYPE"] = "none"
 os.environ["STREAMLIT_SERVER_RUN_ON_SAVE"] = "false"
-os.environ["RAY_object_store_memory"] = "10000000"  # 10MB for Ray object store
 os.environ["HF_HOME"] = os.environ.get("TEMP", "/tmp") + "/huggingface"  # Replace deprecated TRANSFORMERS_CACHE
 
 # Configure torch environment variables before any imports
@@ -168,10 +171,8 @@ def init_chatbot():
                     logger.info("Attempting last-resort initialization...")
                     # This is a hack to bypass model loading issues
                     from unittest.mock import patch
-                    import ray
                     
                     # Define a simple mock function to replace topic moderation
-                    @ray.remote
                     def mock_topic_moderation(question, pipe):
                         logger.info(f"Mock topic moderation called with question: {question[:50]}...")
                         return {"passed": True, "result": "yes", "score": 0.9}
