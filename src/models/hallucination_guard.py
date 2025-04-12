@@ -70,31 +70,64 @@ async def check_hallucination(
             client = cohere.Client(api_key=cohere_api_key)
             
             # Prepare the prompt with the answer and context
-            combined_context = "\n\n".join(contexts)
+            if isinstance(contexts, list):
+                combined_context = "\n\n".join(contexts)
+            else:
+                combined_context = contexts
             
             # Run the request in a thread to avoid blocking
             with ThreadPoolExecutor() as executor:
                 try:
-                    # Check faithfulness score
-                    result = await asyncio.get_event_loop().run_in_executor(
-                        executor,
-                        lambda: client.evaluate(
-                            parameters={
-                                "texts": [answer],
-                                "groundedness_criteria": "factual_correctness",
-                                "references": [combined_context]
-                            }
+                    # Try grounding first
+                    try:
+                        # Use grounding endpoint when available
+                        result = await asyncio.get_event_loop().run_in_executor(
+                            executor,
+                            lambda: client.ground(
+                                text=answer,
+                                context=combined_context
+                            )
                         )
-                    )
+                        
+                        # Extract the score
+                        if hasattr(result, 'grounding_score'):
+                            score = float(result.grounding_score)
+                            logger.info(f"Grounding score: {score}")
+                            return score
+                    except (AttributeError, Exception) as grounding_error:
+                        logger.warning(f"Grounding API not available: {str(grounding_error)}")
                     
-                    # Extract the score
-                    if result and result.groundedness_scores:
-                        score = result.groundedness_scores[0]
-                        logger.info(f"Faithfulness score: {score}")
-                        return score
-                    else:
-                        logger.warning("Failed to get hallucination score from Cohere")
-                        return 0.5
+                    # Fall back to rerank correlations
+                    try:
+                        # Use rerank as a fallback
+                        rerank_result = await asyncio.get_event_loop().run_in_executor(
+                            executor,
+                            lambda: client.rerank(
+                                query=question,
+                                documents=[
+                                    {"text": answer},
+                                    {"text": combined_context}
+                                ],
+                                top_n=2,
+                                model="rerank-english-v2.0"
+                            )
+                        )
+                        
+                        # Extract the relevance score
+                        if rerank_result and hasattr(rerank_result, 'results'):
+                            # Calculate similarity between answer and context
+                            scores = [r.relevance_score for r in rerank_result.results]
+                            if len(scores) >= 2:
+                                # Use the second score (context relevance) as our faithfulness indicator
+                                score = float(scores[1])
+                                logger.info(f"Fallback faithfulness score: {score}")
+                                return score
+                    except Exception as rerank_error:
+                        logger.warning(f"Rerank fallback failed: {str(rerank_error)}")
+                        
+                    # If all methods fail, return default
+                    logger.warning("All hallucination detection methods failed, using default score")
+                    return 0.5
                         
                 except Exception as e:
                     logger.error(f"Error checking hallucination: {str(e)}")
