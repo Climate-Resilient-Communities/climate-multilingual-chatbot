@@ -401,20 +401,17 @@ class MultilingualClimateChatbot:
                 expiration=3600  # 1 hour cache expiration
             )
             
-            # Test connection
-            loop = asyncio.get_event_loop()
-            test_key = "test:init:connection"
-            test_value = {"test": "value", "timestamp": time.time()}
-            
-            set_result = loop.run_until_complete(self.redis_client.set(test_key, test_value))
-            get_result = loop.run_until_complete(self.redis_client.get(test_key))
-            delete_result = loop.run_until_complete(self.redis_client.delete(test_key))
-            
-            if not all([set_result, get_result, delete_result]):
-                logger.error("Redis connection test failed")
+            # Test connection without using event loop directly
+            try:
+                # Simple sync test first
+                if hasattr(self.redis_client, 'redis_client'):
+                    self.redis_client.redis_client.ping()
+                    logger.info(f"✓ Redis connection test successful using sync ping")
+                else:
+                    logger.warning("Redis client initialized but redis_client attribute not found")
+            except Exception as e:
+                logger.warning(f"Redis sync test failed: {str(e)}")
                 self.redis_client = None
-            else:
-                logger.info(f"✓ Redis cache initialized and tested successfully at {redis_host}:{redis_port}")
                 
         except Exception as e:
             logger.error(f"Redis initialization failed: {str(e)}")
@@ -533,6 +530,7 @@ class MultilingualClimateChatbot:
             try:
                 start_time = time.time()
                 step_times = {}
+                pipeline_trace = None
                 
                 # Immediate query normalization for cache check
                 norm_query = query.lower().strip()
@@ -567,6 +565,7 @@ class MultilingualClimateChatbot:
                         logger.warning(f"⚠️ Cache check failed: {str(e)}")
                 
                 # If no cache hit, proceed with full pipeline
+                from langsmith import trace
                 with trace(name="complete_pipeline") as pipeline_trace:
                     # Start with query normalization
                     with trace(name="query_normalization") as norm_trace:
@@ -591,7 +590,7 @@ class MultilingualClimateChatbot:
                                 "validation_result": guard_results,
                                 "processing_time": total_time,
                                 "step_times": step_times,
-                                "trace_id": pipeline_trace.id
+                                "trace_id": getattr(pipeline_trace, 'id', None)
                             }
                         logger.info("🔍 Input validation passed")
 
@@ -726,7 +725,7 @@ class MultilingualClimateChatbot:
                             "processing_time": total_time,
                             "step_times": step_times,
                             "cache_hit": False,
-                            "trace_id": pipeline_trace.id
+                            "trace_id": getattr(pipeline_trace, 'id', None)
                         }
                     
             except Exception as e:
@@ -734,7 +733,7 @@ class MultilingualClimateChatbot:
                 return {
                     "success": False,
                     "message": f"Error processing query: {str(e)}",
-                    "trace_id": getattr(pipeline_trace, 'id', None)  # Include trace ID even in error case
+                    "trace_id": getattr(pipeline_trace, 'id', None) if 'pipeline_trace' in locals() else None
                 }
 
     async def _try_tavily_fallback(self, query: str, english_query: str, language_name: str) -> Tuple[Optional[str], Optional[List], float]:
@@ -830,7 +829,7 @@ class MultilingualClimateChatbot:
                     
                     # Try to store in Redis
                     success = await self.redis_client.set(cache_key, cache_data)
-                    if success:
+                    if (success):
                         logger.info(f"✨ Response cached successfully in Redis with key: '{cache_key}'")
                     else:
                         logger.warning(f"⚠️ Failed to cache response in Redis for key: '{cache_key}'")
