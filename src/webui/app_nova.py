@@ -4,6 +4,19 @@ import sys
 import logging
 from pathlib import Path
 
+# Initialize event loop properly at the very beginning
+import asyncio
+try:
+    asyncio.get_running_loop()
+except RuntimeError:
+    asyncio.set_event_loop(asyncio.new_event_loop())
+
+# Set environment variables for Ray and Streamlit
+os.environ["STREAMLIT_WATCHER_TYPE"] = "none"
+os.environ["STREAMLIT_SERVER_RUN_ON_SAVE"] = "false"
+os.environ["RAY_object_store_memory"] = "10000000"  # 10MB for Ray object store
+os.environ["HF_HOME"] = os.environ.get("TEMP", "/tmp") + "/huggingface"  # Replace deprecated TRANSFORMERS_CACHE
+
 # Configure torch environment variables before any imports
 os.environ["PYTORCH_JIT"] = "0"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"

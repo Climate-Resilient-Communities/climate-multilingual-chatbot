@@ -9,7 +9,13 @@ ENV PYTHONUNBUFFERED=1 \
     POETRY_HOME="/opt/poetry" \
     POETRY_VIRTUALENVS_IN_PROJECT=true \
     POETRY_NO_INTERACTION=1 \
+    # Azure App Service optimization variables
+    STREAMLIT_WATCHER_TYPE=none \
+    STREAMLIT_SERVER_RUN_ON_SAVE=false \
+    RAY_object_store_memory=10000000 \
     # Add environment variables to help with HuggingFace in Azure
+    HF_HOME=/tmp/huggingface \
+    TRANSFORMERS_CACHE=/tmp/huggingface/transformers \
     HF_HUB_DISABLE_SYMLINKS_WARNING=1 \
     HF_HUB_DISABLE_IMPLICIT_TOKEN=1
 
@@ -21,7 +27,8 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         curl \
         build-essential \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /tmp/huggingface/transformers
 
 # Install Poetry
 RUN curl -sSL https://install.python-poetry.org | python3 -
@@ -44,21 +51,14 @@ RUN poetry install --no-root --no-dev
 # Copy the rest of the application
 COPY . .
 
+# Make Azure startup script executable
+RUN chmod +x /app/azure_startup.sh
+
 # Install the application
 RUN poetry install --no-dev
 
 # Expose port for Streamlit
 EXPOSE 8501
 
-# Create entrypoint script
-RUN echo '#!/bin/sh\n\
-# Use local models if available\n\
-if [ -d "/app/models/climatebert" ]; then\n\
-    echo "Found local model files in /app/models/climatebert"\n\
-    export USE_LOCAL_MODELS=true\n\
-fi\n\
-poetry run streamlit run src/webui/app_nova.py "$@"' > /app/entrypoint.sh \
-    && chmod +x /app/entrypoint.sh
-
-# Set the entrypoint
-ENTRYPOINT ["/app/entrypoint.sh"]
+# Use our optimized startup script for Azure
+CMD ["/app/azure_startup.sh"]
