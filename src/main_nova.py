@@ -59,7 +59,6 @@ if 'torch' in sys.modules:
     torch.utils.data._utils.MP_STATUS_CHECK_INTERVAL = 0
 
 # Third-party imports
-import ray
 import cohere
 from huggingface_hub import login
 from transformers import (
@@ -495,9 +494,9 @@ class MultilingualClimateChatbot:
                     "reason": "too_long"
                 }
                 
-            # Apply topic moderation using Ray remote
+           
             try:
-                # Direct topic moderation call instead of using Ray
+                # Direct topic moderation call 
                 topic_results = await topic_moderation(query, self.topic_moderation_pipe)
                 
                 if not topic_results or not topic_results.get('passed', False):
