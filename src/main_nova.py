@@ -59,6 +59,7 @@ if 'torch' in sys.modules:
     torch.utils.data._utils.MP_STATUS_CHECK_INTERVAL = 0
 
 # Third-party imports
+import ray
 import cohere
 from huggingface_hub import login
 from transformers import (
@@ -478,11 +479,8 @@ class MultilingualClimateChatbot:
             Dict[str, Any]: Results of input validation with 'passed' flag
         """
         try:
-            # Normalize query first
-            norm_query = query.lower().strip()
-            
             # Input validation checks
-            if not norm_query or len(norm_query) < 3:
+            if not query or len(query.strip()) < 3:
                 return {
                     "passed": False,
                     "message": "Please provide a more detailed question.",
@@ -490,16 +488,17 @@ class MultilingualClimateChatbot:
                 }
                 
             # Check for very long queries
-            if len(norm_query) > 1000:
+            if len(query) > 1000:
                 return {
                     "passed": False,
                     "message": "Your question is too long. Please provide a more concise question.",
                     "reason": "too_long"
                 }
                 
-            # Apply topic moderation using direct call
+            # Apply topic moderation using Ray remote
             try:
-                topic_results = await topic_moderation(norm_query, self.topic_moderation_pipe)
+                # Direct topic moderation call instead of using Ray
+                topic_results = await topic_moderation(query, self.topic_moderation_pipe)
                 
                 if not topic_results or not topic_results.get('passed', False):
                     result_reason = topic_results.get('reason', 'not_climate_related')
@@ -595,42 +594,57 @@ class MultilingualClimateChatbot:
                     except Exception as e:
                         logger.warning(f"⚠️ Cache check failed: {str(e)}")
                 
-                # If no cache hit, proceed with full pipeline
-                from langsmith import trace
-                with trace(name="complete_pipeline") as pipeline_trace:
-                    # Start with query normalization
-                    with trace(name="query_normalization") as norm_trace:
-                        norm_start = time.time()
-                        norm_query = await self.nova_model.query_normalizer(norm_query, language_name)
-                        step_times['normalization'] = time.time() - norm_start
+                # Initialize pipeline variables
+                step_times = {}
+                translated_query = None
+                query_versions = {}
 
-                    # 4. Input validation and topic moderation
-                    with trace(name="input_validation") as validation_trace:
-                        validation_start = time.time()
-                        logger.info("🔍 Validating input...")
+                # Start pipeline with all query processing in one block
+                with trace(name="query_processing") as process_trace:
+                    # Initialize timing
+                    step_times = {}
+                    norm_start = time.time()
+                    
+                    # First normalize the query in original language
+                    norm_query = query.lower().strip()
+                    
+                    # Add translation to English
+                    if language_code != 'en':
+                        english_query = await self.nova_model.nova_translation(norm_query, language_name, 'english')
+                        logger.info("✓ Query translated to English for processing")
+                    else:
+                        english_query = norm_query
                         
-                        # Direct topic moderation call instead of using Ray
-                        topic_results = await topic_moderation(norm_query, self.topic_moderation_pipe)
-                        step_times['validation'] = time.time() - validation_start
-                        
-                        if not topic_results.get('passed', False):
-                            total_time = time.time() - start_time
-                            return {
-                                "success": False,
-                                "message": topic_results.get('reason', "I apologize, but I can only help with climate-related questions."),
-                                "validation_result": topic_results,
-                                "processing_time": total_time,
-                                "step_times": step_times,
-                                "trace_id": getattr(pipeline_trace, 'id', None)
-                            }
-                        logger.info("🔍 Input validation passed")
+                    # Store both versions for reference
+                    query_versions = {
+                        'original_normalized': norm_query,
+                        'english': english_query
+                    }
+                    step_times['normalization'] = time.time() - norm_start
+                    
+                    # Topic moderation check using English query
+                    validation_start = time.time()
+                    topic_results = await topic_moderation(english_query, self.topic_moderation_pipe)
+                    step_times['validation'] = time.time() - validation_start
+                    
+                    if not topic_results.get('passed', False):
+                        total_time = time.time() - start_time
+                        return {
+                            "success": False,
+                            "message": topic_results.get('reason', "I apologize, but I can only help with climate-related questions."),
+                            "validation_result": topic_results,
+                            "processing_time": total_time,
+                            "step_times": step_times,
+                            "trace_id": getattr(pipeline_trace, 'id', None)
+                        }
+                    logger.info("🔍 Input validation passed")
 
-                    # 5. Language routing
+                    # Language routing with English query
                     with trace(name="language_routing") as route_trace:
                         route_start = time.time()
                         logger.info("🌐 Processing language routing...")
                         route_result = await self.router.route_query(
-                            query=norm_query,
+                            query=english_query,
                             language_code=language_code,
                             language_name=language_name,
                             translation=self.nova_model.nova_translation 
@@ -646,54 +660,45 @@ class MultilingualClimateChatbot:
                                 "step_times": step_times,
                                 "trace_id": pipeline_trace.id
                             }
-                        
-                        processed_query = route_result['processed_query']
-                        english_query = route_result['english_query']
                         logger.info("🌐 Language routing complete")
 
-                    # 6. Document retrieval chain
+                    # 6. Document retrieval chain - Use English query for retrieval
                     with trace(name="document_retrieval") as retrieval_trace:
                         retrieval_start = time.time()
                         try:
                             logger.info("📚 Starting retrieval and reranking...")
                             # Document retrieval includes hybrid search and reranking
-                            reranked_docs = await get_documents(processed_query, self.index, self.embed_model, self.cohere_client)
+                            reranked_docs = await get_documents(english_query, self.index, self.embed_model, self.cohere_client)
                             step_times['retrieval'] = time.time() - retrieval_start
                             logger.info(f"📚 Retrieved and reranked {len(reranked_docs)} documents")
                         except Exception as e:
                             logger.error(f"📚 Error in retrieval process: {str(e)}")
                             raise
 
-                    # 7. Response generation chain
+                    # 7. Response generation chain - Use English query
                     with trace(name="response_generation") as gen_trace:
                         generation_start = time.time()
                         try:
                             logger.info("✍️ Starting response generation...")
-                            response, citations = await nova_chat(processed_query, reranked_docs, self.nova_model)
+                            response, citations = await nova_chat(english_query, reranked_docs, self.nova_model)
                             step_times['generation'] = time.time() - generation_start
                             logger.info("✍️ Response generation complete")
                         except Exception as e:
                             logger.error(f"✍️ Error in response generation: {str(e)}")
                             raise
 
-                    # 8. Quality checks chain
+                    # 8. Quality checks chain - Using English query and response
                     with trace(name="quality_checks") as quality_trace:
                         quality_start = time.time()
                         logger.info("✔️ Starting quality checks...")
                         try:
                             contexts = extract_contexts(reranked_docs, max_contexts=5)
 
-                            # Translate response for hallucination check if needed
-                            if route_result['routing_info']['support_level']=='command_r_plus' and language_code!='en':
-                                processed_response = await self.nova_model.nova_translation(response, language_name, 'english')
-                            else:
-                                processed_response = response
-
-                            # Nested hallucination check within quality checks
+                            # For hallucination check - we already have english_query
                             with trace(name="hallucination_check") as hall_trace:
                                 faithfulness_score = await check_hallucination(
                                     question=english_query,
-                                    answer=processed_response,
+                                    answer=response,  # Response is already in English at this point
                                     contexts=contexts,
                                     cohere_api_key=self.COHERE_API_KEY
                                 )
@@ -707,8 +712,8 @@ class MultilingualClimateChatbot:
                                     fallback_start = time.time()
                                     logger.warning("Low faithfulness score - attempting fallback")
                                     fallback_response, fallback_citations, fallback_score = await self._try_tavily_fallback(
-                                        query=processed_query,
-                                        english_query=english_query,
+                                        query=norm_query,  # Use normalized query for display
+                                        english_query=english_query,  # Use English for processing
                                         language_name=language_name
                                     )
                                     step_times['fallback'] = time.time() - fallback_start
@@ -720,20 +725,20 @@ class MultilingualClimateChatbot:
                             logger.error(f"✔️ Error in quality checks: {str(e)}")
                             faithfulness_score = 0.0
 
-                    # 9. Final translation if needed
+                    # 9. Final translation if needed - translate from English to target language
                     with trace(name="final_translation") as trans_trace:
-                        translation_start = time.time()
                         if route_result['routing_info']['needs_translation']:
-                            logger.info(f"🌐 Translating response back to {language_name}")
+                            translation_start = time.time()
+                            logger.info(f"🌐 Translating response from English to {language_name}")
                             response = await self.nova_model.nova_translation(response, 'english', language_name)
                             step_times['translation'] = time.time() - translation_start
                             logger.info("🌐 Translation complete")
 
-                    # 10. Store results
+                    # 10. Store results - Use original normalized query for caching
                     with trace(name="result_storage") as storage_trace:
                         total_time = time.time() - start_time
                         await self._store_results(
-                            query=norm_query,
+                            query=norm_query,  # Use normalized query for storage
                             response=response,
                             language_code=language_code,
                             citations=citations,
@@ -745,7 +750,6 @@ class MultilingualClimateChatbot:
                         logger.info(f"Processing time: {total_time} seconds")
                         logger.info("✨ Processing complete!")
 
-                        # Return final results with full tracing info
                         return {
                             "success": True,
                             "language_code": language_code,
