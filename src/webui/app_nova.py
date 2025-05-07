@@ -287,6 +287,30 @@ def display_progress(progress_placeholder):
 
 def is_rtl_language(language_code):
         return language_code in {'fa', 'ar', 'he'}
+def clean_html_content(content):
+    """Clean content from stray HTML tags that might break rendering."""
+    import re
+    
+    # Handle the case where content is None
+    if content is None:
+        return ""
+    
+    # Replace any standalone closing div tags
+    content = re.sub(r'</div>\s*$', '', content)
+    
+    # Replace other potentially problematic standalone tags
+    content = re.sub(r'</?div[^>]*>\s*$', '', content)
+    content = re.sub(r'</?span[^>]*>\s*$', '', content)
+    content = re.sub(r'</?p[^>]*>\s*$', '', content)
+    
+    # Fix unbalanced markdown or code blocks
+    # Check if there are uneven numbers of triple backticks
+    backtick_count = content.count('```')
+    if backtick_count % 2 != 0:
+        content += '\n```'  # Add closing code block
+    
+    # Ensure content is a string
+    return str(content)
 
 def display_chat_messages():
     """Display chat messages in a custom format."""
@@ -296,17 +320,26 @@ def display_chat_messages():
         else:
             assistant_message = st.chat_message("assistant")
 
+            # Clean the content before displaying
+            content = clean_html_content(message.get('content', ''))
+            
             language_code = message.get('language_code', 'en')
             text_align = 'right' if is_rtl_language(language_code) else 'left'
             direction = 'rtl' if is_rtl_language(language_code) else 'ltr'
 
             # Display the response without markdown header formatting
-            assistant_message.markdown(
-                f"""<div style="direction: {direction}; text-align: {text_align}">
-                {message['content']}
-                </div>""",
-                unsafe_allow_html=True
-            )
+            try:
+                assistant_message.markdown(
+                    f"""<div style="direction: {direction}; text-align: {text_align}">
+                    {content}
+                    </div>""",
+                    unsafe_allow_html=True
+                )
+            except Exception as e:
+                # Fallback if markdown rendering fails
+                logger.error(f"Error rendering message: {str(e)}")
+                assistant_message.text("Error displaying formatted message. Raw content:")
+                assistant_message.text(content)
             
             if message.get('citations'):
                 display_source_citations(message['citations'], base_idx=i)
@@ -501,9 +534,11 @@ def main():
                     text_align = 'right' if is_rtl_language(language_code) else 'left'
                     direction = 'rtl' if is_rtl_language(language_code) else 'ltr'
                     
+                    content = clean_html_content(final_response['content'])
+
                     response_placeholder.markdown(
                         f"""<div style="direction: {direction}; text-align: {text_align}">
-                        {final_response['content']}
+                        {content}
                         </div>""",
                         unsafe_allow_html=True
                     )
