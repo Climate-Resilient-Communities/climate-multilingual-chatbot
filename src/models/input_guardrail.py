@@ -92,7 +92,7 @@ async def topic_moderation(question: str, topic_pipe, max_retries: int = 3) -> D
                 return {
                     "passed": False,
                     "result": "no",
-                    "reason": "not_climate_related",
+                    "reason": "Oops! Looks like your question isn't about climate change, which is what I specialize in. But I'd love to help if you've got a climate topic in mind!",
                     "score": result[0]['score'] if result and len(result) > 0 else 0.0,
                     "duration": time.time() - start_time
                 }
