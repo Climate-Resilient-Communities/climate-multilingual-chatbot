@@ -40,7 +40,7 @@ Content Requirements:
 Guidelines for Answers:
 - Focus on empowerment, not fear.
 - Offer at least one actionable step suited to the reader’s context and resource level.
-- Direct users to specific local and accessible resources if they mention they live in a certain city or mention a certain city
+- Direct users to specific local and accessible resources if they mention where they live or a city.
 - Provide links or references when citing sources.
 - Avoid bias, stereotypes, or unfounded assumptions.
 """
@@ -112,7 +112,7 @@ def generate_cache_key(query: str, docs: List[Dict]) -> str:
     query_key = hash(query.lower().strip())
     return f"nova_response:{query_key}:{doc_key}"
 
-async def nova_chat(query, documents, nova_model, description=None):
+async def nova_chat(query, documents, nova_model, description=None, conversation_history=None):
     """
     Generate a response from Nova model using a query and retrieved documents.
     
@@ -121,6 +121,7 @@ async def nova_chat(query, documents, nova_model, description=None):
         documents (list): List of documents from retrieval
         nova_model (object): Initialized Nova model
         description (str, optional): Description to include in the prompt
+        conversation_history (list, optional): Conversation history for context (currently ignored)
         
     Returns:
         tuple: (response, citations)
@@ -156,7 +157,8 @@ async def nova_chat(query, documents, nova_model, description=None):
                         query=query,
                         documents=documents,
                         nova_model=nova_model,
-                        description=description
+                        description=description,
+                        conversation_history=conversation_history
                     )
                     
                 # Cache the result if cache is available
@@ -185,9 +187,10 @@ async def _process_documents_and_generate(
     query: str,
     documents: List[Dict[str, Any]],
     nova_model,
-    description: str = None
+    description: str = None,
+    conversation_history: list = None
 ) -> Tuple[str, List[Dict[str, str]]]:
-    """Process documents and generate a response using Nova."""
+    """Process documents and generate a response using Nova. (conversation_history is accepted for compatibility)"""
     try:
         # Preprocess documents
         processed_docs = doc_preprocessing(documents)
@@ -201,6 +204,7 @@ async def _process_documents_and_generate(
             query=query,
             documents=processed_docs,
             description=description
+            # conversation_history is ignored here unless nova_model supports it
         )
         
         # Extract citations with full document details
