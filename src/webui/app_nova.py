@@ -511,10 +511,27 @@ def main():
             typing_message.markdown("_Assistant is thinking..._")
             
             try:
-                # Process query
+                # Build conversation history for process_query
+                conversation_history = []
+                chat_hist = st.session_state.chat_history
+                i = 0
+                while i < len(chat_hist) - 1:
+                    if chat_hist[i]["role"] == "user" and chat_hist[i+1]["role"] == "assistant":
+                        conversation_history.append({
+                            "query": chat_hist[i]["content"],
+                            "response": chat_hist[i+1]["content"],
+                            "language_code": chat_hist[i+1].get("language_code", "en"),
+                            "language_name": st.session_state.selected_language,
+                            "timestamp": None
+                        })
+                        i += 2
+                    else:
+                        i += 1
+                # Process query with conversation history
                 result = run_async(chatbot.process_query(
                     query=query, 
-                    language_name=st.session_state.selected_language
+                    language_name=st.session_state.selected_language,
+                    conversation_history=conversation_history
                 ))
                 
                 typing_message.empty()
