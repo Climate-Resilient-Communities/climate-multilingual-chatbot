@@ -134,31 +134,68 @@ class BedrockModel:
         """
         Generate a response using the Bedrock LLM, including conversation history if provided.
         """
-        # Build the prompt with conversation history
-        prompt = ""
-        if conversation_history:
-            for turn in conversation_history:
-                user = turn.get('query', '')
-                assistant = turn.get('response', '')
-                prompt += f"User: {user}\n"
-                prompt += f"Assistant: {assistant}\n"
-        prompt += f"User: {query}\nAssistant:"
-        
-        # Optionally add system message, description, and document context
-        if description:
-            prompt = description + "\n" + prompt
-        if documents:
-            context = "\n\nContext:\n"
-            for doc in documents:
-                context += f"- {doc.get('title', '')}: {doc.get('snippet', doc.get('content', '')[:200])}\n"
-            prompt += context
-        
-        # Call the actual LLM (this is a placeholder, replace with your LLM call)
-        # For example, if using an async LLM client:
-        # response = await self.llm_client.generate(prompt)
-        # For now, just echo the prompt for demonstration
-        response = f"[LLM RESPONSE BASED ON PROMPT]\n{prompt}"
-        return response
+        try:
+            # Build the prompt with conversation history
+            system_prompt = "You are a helpful climate change assistant. Answer questions accurately based on provided context."
+            
+            if description:
+                system_prompt = description
+                
+            # Format documents for context
+            context = ""
+            if documents:
+                context = "\n\nContext:\n"
+                for i, doc in enumerate(documents, 1):
+                    title = doc.get('title', f'Document {i}')
+                    content = doc.get('content', '')
+                    if content:
+                        context += f"[{title}]\n{content}\n\n"
+            
+            # Format conversation history
+            messages = [{"role": "system", "content": system_prompt + context}]
+            
+            if conversation_history:
+                for turn in conversation_history:
+                    user = turn.get('query', '')
+                    assistant = turn.get('response', '')
+                    if user:
+                        messages.append({"role": "user", "content": user})
+                    if assistant:
+                        messages.append({"role": "assistant", "content": assistant})
+            
+            # Add the current query
+            messages.append({"role": "user", "content": query})
+            
+            # Prepare the payload for the Bedrock API
+            payload = {
+                "messages": messages,
+                "inferenceConfig": {
+                    "maxTokens": 1000,
+                    "temperature": 0.7,
+                    "topP": 0.9
+                }
+            }
+            
+            # Call the Bedrock API
+            async with self.session.client(
+                service_name='bedrock-runtime',
+                region_name='us-east-1',
+                config=Config(read_timeout=300, connect_timeout=300)
+            ) as bedrock:
+                response = await bedrock.invoke_model(
+                    body=json.dumps(payload),
+                    modelId=self.model_id,
+                    accept="application/json",
+                    contentType="application/json"
+                )
+                response_body = await response['body'].read()
+                response_json = json.loads(response_body)
+                return response_json['output']['message']['content'][0]['text']
+                
+        except Exception as e:
+            logger.error(f"Error generating response: {str(e)}")
+            # Fallback response in case of API failure
+            return f"I apologize, but I'm having trouble generating a response about '{query}'. Please try again."
 
 if __name__ == "__main__":
     # Load environment variables
