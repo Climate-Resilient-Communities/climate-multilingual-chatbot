@@ -64,8 +64,8 @@ class BedrockModel:
                     }
                 ],
                 "inferenceConfig": {
-                    "maxTokens": 1000,
-                    "temperature": 0.7
+                    "maxTokens": 10000,
+                    "temperature": 0.1
                 }
             }
 
@@ -106,8 +106,8 @@ class BedrockModel:
                     }
                 ],
                 "inferenceConfig": {
-                    "maxTokens": 1000,
-                    "temperature": 0.7
+                    "maxTokens": 10000,
+                    "temperature": 0.1
                 }
             }
 
@@ -130,60 +130,65 @@ class BedrockModel:
             logger.error(f"Translation error: {str(e)}")
             return text
 
-    async def generate_response(self, query, documents, description=None, conversation_history=None):
-        """
-        Generate a response using the Bedrock LLM, including conversation history if provided.
-        """
+    async def generate_response(
+        self,
+        query: str,
+        documents: List[dict],
+        description: str = None,
+        conversation_history: List[dict] = None,
+    ) -> str:
+        """Generate a response using Nova."""
         try:
-            # Build the prompt with conversation history
-            system_prompt = "You are a helpful climate change assistant. Answer questions accurately based on provided context."
+            # Format prompt with context and query
+            formatted_docs = "\n\n".join([
+                f"Document {i+1}:\n{doc.get('content', '')}"
+                for i, doc in enumerate(documents)
+            ])
             
-            if description:
-                system_prompt = description
-                
-            # Format documents for context
-            context = ""
-            if documents:
-                context = "\n\nContext:\n"
-                for i, doc in enumerate(documents, 1):
-                    title = doc.get('title', f'Document {i}')
-                    content = doc.get('content', '')
-                    if content:
-                        context += f"[{title}]\n{content}\n\n"
-            
-            # Format conversation history
-            messages = [{"role": "system", "content": system_prompt + context}]
-            
+            # Format conversation history for context if provided
+            conversation_context = ""
             if conversation_history:
+                conversation_context = "\n\nConversation History:\n"
                 for turn in conversation_history:
                     user = turn.get('query', '')
                     assistant = turn.get('response', '')
                     if user:
-                        messages.append({"role": "user", "content": user})
+                        conversation_context += f"User: {user}\n"
                     if assistant:
-                        messages.append({"role": "assistant", "content": assistant})
+                        conversation_context += f"Assistant: {assistant}\n"
             
-            # Add the current query
-            messages.append({"role": "user", "content": query})
-            
-            # Prepare the payload for the Bedrock API
-            payload = {
-                "messages": messages,
+            prompt = {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"text": f"""Based on the following documents, provide a direct answer (without any markdown headers) to this question: {query}
+
+Documents for context:
+{formatted_docs}
+{conversation_context}
+Instructions:
+1. Answer directly without using any markdown headers (###, ##, etc.)
+2. {description if description else 'Provide a clear, accurate response based on the given context.'}"""}
+                        ]
+                    }
+                ],
                 "inferenceConfig": {
-                    "maxTokens": 1000,
-                    "temperature": 0.7,
-                    "topP": 0.9
+                    "maxTokens": 10000,
+                    "temperature": 0.1,
+                    "topP": 0.9,
+                    "stopSequences": []
                 }
             }
             
-            # Call the Bedrock API
+            # Call Bedrock
             async with self.session.client(
                 service_name='bedrock-runtime',
                 region_name='us-east-1',
                 config=Config(read_timeout=300, connect_timeout=300)
             ) as bedrock:
                 response = await bedrock.invoke_model(
-                    body=json.dumps(payload),
+                    body=json.dumps(prompt),
                     modelId=self.model_id,
                     accept="application/json",
                     contentType="application/json"
@@ -191,11 +196,10 @@ class BedrockModel:
                 response_body = await response['body'].read()
                 response_json = json.loads(response_body)
                 return response_json['output']['message']['content'][0]['text']
-                
+                    
         except Exception as e:
-            logger.error(f"Error generating response: {str(e)}")
-            # Fallback response in case of API failure
-            return f"I apologize, but I'm having trouble generating a response about '{query}'. Please try again."
+            logger.error(f"Error in generate_response: {str(e)}")
+            raise
 
 if __name__ == "__main__":
     # Load environment variables
