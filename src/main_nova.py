@@ -519,7 +519,7 @@ class MultilingualClimateChatbot:
                     else:
                         return {
                             "passed": False,
-                            "message": "I apologize, but I can only help with climate-related questions.",
+                            "message": "Oops! Looks like your question isn't about climate change, which is what I specialize in. But I'd love to help if you've got a climate topic in mind!",
                             "reason": "not_climate_related",
                             "details": topic_results
                         }
@@ -553,17 +553,35 @@ class MultilingualClimateChatbot:
     async def process_query(
             self,
             query: str,
-            language_name: str
+            language_name: str,
+            conversation_history: List[Dict[str, Any]] = None
         ) -> Dict[str, Any]:
-            """Process a query through the complete pipeline."""
+            """
+            Process a query through the complete pipeline.
+            
+            Args:
+                query (str): The user's query
+                language_name (str): The language name (e.g., "english", "spanish")
+                conversation_history (List[Dict[str, Any]], optional): Previous conversation turns
+                
+            Returns:
+                Dict[str, Any]: The processing results including the response
+            """
             try:
                 start_time = time.time()
                 step_times = {}
                 pipeline_trace = None
                 
+                # Initialize conversation history if None
+                if conversation_history is None:
+                    conversation_history = []
+                
                 # Immediate query normalization for cache check
                 norm_query = query.lower().strip()
                 language_code = self.get_language_code(language_name)
+                
+                # Create a cache key that doesn't include the conversation history
+                # We only cache based on the current query for consistent responses
                 cache_key = f"{language_code}:{norm_query}"
                 
                 # Ensure Redis connection is available immediately
@@ -579,6 +597,14 @@ class MultilingualClimateChatbot:
                         if cached_result:
                             cache_time = time.time() - start_time
                             logger.info(f"✨ Cache hit - returning cached response")
+                            # Create current turn with cached response for conversation history
+                            current_turn = {
+                                "query": norm_query,
+                                "response": cached_result.get('response'),
+                                "language_code": language_code,
+                                "language_name": language_name,
+                                "timestamp": time.time()
+                            }
                             return {
                                 "success": True,
                                 "language_code": language_code,
@@ -588,7 +614,8 @@ class MultilingualClimateChatbot:
                                 "faithfulness_score": cached_result.get('faithfulness_score', 0.8),
                                 "processing_time": cache_time,
                                 "cache_hit": True,
-                                "step_times": {"cache_lookup": cache_time}
+                                "step_times": {"cache_lookup": cache_time},
+                                "current_turn": current_turn  # Add current turn for conversation history tracking
                             }
                     except Exception as e:
                         logger.warning(f"⚠️ Cache check failed: {str(e)}")
@@ -622,7 +649,9 @@ class MultilingualClimateChatbot:
                     step_times['normalization'] = time.time() - norm_start
                     
                     # Topic moderation check using English query
+                    # Important: We only apply topic moderation to the current query, NOT to conversation history
                     validation_start = time.time()
+                    # Note: We deliberately don't pass conversation_history to topic_moderation
                     topic_results = await topic_moderation(english_query, self.topic_moderation_pipe)
                     step_times['validation'] = time.time() - validation_start
                     
@@ -630,7 +659,7 @@ class MultilingualClimateChatbot:
                         total_time = time.time() - start_time
                         return {
                             "success": False,
-                            "message": topic_results.get('reason', "I apologize, but I can only help with climate-related questions."),
+                            "message": topic_results.get('message', "Oops! Looks like your question isn't about climate change, which is what I specialize in. But I'd love to help if you've got a climate topic in mind!"),
                             "validation_result": topic_results,
                             "processing_time": total_time,
                             "step_times": step_times,
@@ -674,12 +703,44 @@ class MultilingualClimateChatbot:
                             logger.error(f"📚 Error in retrieval process: {str(e)}")
                             raise
 
-                    # 7. Response generation chain - Use English query
+                    # 7. Response generation chain - Use English query and include conversation history
                     with trace(name="response_generation") as gen_trace:
                         generation_start = time.time()
                         try:
-                            logger.info("✍️ Starting response generation...")
-                            response, citations = await nova_chat(english_query, reranked_docs, self.nova_model)
+                            logger.info("✍️ Starting response generation with conversation history...")
+                            
+                            # Format conversation history for the model
+                            formatted_history = []
+                            if conversation_history and len(conversation_history) > 0:
+                                logger.info(f"Processing conversation history with {len(conversation_history)} previous turns")
+                                for turn in conversation_history:
+                                    # Translate history items if needed
+                                    if language_code != 'en' and turn.get('language_code') != 'en':
+                                        user_msg = await self.nova_model.nova_translation(
+                                            turn.get('query', ''), 
+                                            turn.get('language_name', language_name), 
+                                            'english'
+                                        )
+                                        assistant_msg = await self.nova_model.nova_translation(
+                                            turn.get('response', ''), 
+                                            turn.get('language_name', language_name), 
+                                            'english'
+                                        )
+                                    else:
+                                        user_msg = turn.get('query', '')
+                                        assistant_msg = turn.get('response', '')
+                                    
+                                    formatted_history.append({"role": "user", "content": user_msg})
+                                    formatted_history.append({"role": "assistant", "content": assistant_msg})
+                                logger.info(f"Formatted {len(formatted_history)//2} conversation turns for model context")
+                            
+                            # Call nova_chat with conversation history
+                            response, citations = await nova_chat(
+                                english_query, 
+                                reranked_docs, 
+                                self.nova_model,
+                                conversation_history=formatted_history
+                            )
                             step_times['generation'] = time.time() - generation_start
                             logger.info("✍️ Response generation complete")
                         except Exception as e:
@@ -736,10 +797,21 @@ class MultilingualClimateChatbot:
                     # 10. Store results - Use original normalized query for caching
                     with trace(name="result_storage") as storage_trace:
                         total_time = time.time() - start_time
+                        
+                        # Create a new conversation turn to return and store
+                        current_turn = {
+                            "query": norm_query,
+                            "response": response,
+                            "language_code": language_code,
+                            "language_name": language_name,
+                            "timestamp": time.time()
+                        }
+                        
                         await self._store_results(
                             query=norm_query,  # Use normalized query for storage
                             response=response,
                             language_code=language_code,
+                            language_name=language_name,
                             citations=citations,
                             faithfulness_score=faithfulness_score,
                             processing_time=total_time,
@@ -752,6 +824,7 @@ class MultilingualClimateChatbot:
                         return {
                             "success": True,
                             "language_code": language_code,
+                            "language_name": language_name,
                             "query": norm_query,
                             "response": response,
                             "citations": citations,
@@ -759,7 +832,8 @@ class MultilingualClimateChatbot:
                             "processing_time": total_time,
                             "step_times": step_times,
                             "cache_hit": False,
-                            "trace_id": getattr(pipeline_trace, 'id', None)
+                            "trace_id": getattr(pipeline_trace, 'id', None),
+                            "current_turn": current_turn
                         }
                     
             except Exception as e:
@@ -834,6 +908,7 @@ class MultilingualClimateChatbot:
         query: str,
         response: str,
         language_code: str,
+        language_name: str,
         citations: List[Any],
         faithfulness_score: float,
         processing_time: float,
@@ -856,6 +931,7 @@ class MultilingualClimateChatbot:
                         "metadata": {
                             "cached_at": time.time(),
                             "language_code": language_code,
+                            "language_name": language_name,
                             "processing_time": processing_time,
                             "required_translation": route_result['routing_info']['needs_translation']
                         }
@@ -885,7 +961,8 @@ class MultilingualClimateChatbot:
             self.conversation_history.append({
                 "query": query,
                 "response": response,
-                "language": language_code,
+                "language_code": language_code,
+                "language_name": language_name,
                 "faithfulness_score": faithfulness_score,
                 "timestamp": time.time()
             })
@@ -1017,57 +1094,3 @@ async def main() -> None:
                     break
                     
                 if query.lower() == 'languages':
-                    print(f"\nCurrent language: {language_name}")
-                    continue
-
-                print("\nProcessing your query...")
-                
-                # Process query
-                result = await chatbot.process_query(
-                    query=query,
-                    language_name=language_name
-                )
-                
-                # Display results
-                if result.get('success', False):
-                    print("\nResponse:", result.get('response', 'No response generated'))
-                    
-                    if result.get('citations', []):
-                        print("\nSources:")
-                        for citation in result.get('citations'):
-                            print(f"- {citation}")
-                            
-                    print(f"\nFaithfulness Score: {result.get('faithfulness_score', 0.0):.2f}")
-                else:
-                    print("\nError:", result.get('message', 'An unknown error occurred'))
-                    
-                print("\n" + "-"*50)  # Separator line
-                    
-            except KeyboardInterrupt as e:
-                print("\n\nExiting gracefully...")
-                break
-            except Exception as e:
-                print(f"\nError: {str(e)}")
-                print("Please try again.")
-                
-    except KeyboardInterrupt as e:
-        print("\n\nExiting gracefully...")
-    except Exception as e:
-        print(f"\nFatal error: {str(e)}")
-        raise
-    finally:
-        if 'chatbot' in locals():
-            try:
-                await chatbot.cleanup()
-                print("\nResources cleaned up successfully")
-            except Exception as e:
-                print(f"\nError during cleanup: {str(e)}")
-
-if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt as e:
-        print("\nProgram terminated by user")
-    except Exception as e:
-        print(f"\nProgram terminated due to error: {str(e)}")
-        sys.exit(1)

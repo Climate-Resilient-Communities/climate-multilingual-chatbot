@@ -32,3 +32,10 @@ def load_env():
     """Fixture to ensure environment is loaded for all tests"""
     load_dotenv()
     return True
+
+@pytest.fixture(scope="session")
+def chatbot():
+    """Fixture to provide an instance of MultilingualClimateChatbot."""
+    from src.main_nova import MultilingualClimateChatbot
+    test_index_name = "climate-change-adaptation-index-10-24-prod"
+    return MultilingualClimateChatbot(index_name=test_index_name)
