@@ -190,7 +190,7 @@ async def _process_documents_and_generate(
     description: str = None,
     conversation_history: list = None
 ) -> Tuple[str, List[Dict[str, str]]]:
-    """Process documents and generate a response using Nova. (conversation_history is accepted for compatibility)"""
+    """Process documents and generate a response using Nova. (conversation_history is passed to the model if supported)"""
     try:
         # Preprocess documents
         processed_docs = doc_preprocessing(documents)
@@ -199,12 +199,12 @@ async def _process_documents_and_generate(
         
         logger.info(f"Successfully processed {len(processed_docs)} documents")
         
-        # Generate response with Nova
+        # Generate response with Nova, now passing conversation_history
         response = await nova_model.generate_response(
             query=query,
             documents=processed_docs,
-            description=description
-            # conversation_history is ignored here unless nova_model supports it
+            description=description,
+            conversation_history=conversation_history
         )
         
         # Extract citations with full document details
