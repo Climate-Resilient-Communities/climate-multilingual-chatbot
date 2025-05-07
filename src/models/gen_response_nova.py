@@ -40,6 +40,7 @@ Content Requirements:
 Guidelines for Answers:
 - Focus on empowerment, not fear.
 - Offer at least one actionable step suited to the reader’s context and resource level.
+- Direct users to specific local and accessible resources if they mention they live in a certain city or mention a certain city
 - Provide links or references when citing sources.
 - Avoid bias, stereotypes, or unfounded assumptions.
 """
