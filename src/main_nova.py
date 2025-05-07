@@ -1079,6 +1079,9 @@ async def main() -> None:
                     continue
 
         print("\nType 'quit' to exit, 'language' to see your current language setting\n")
+        
+        # Initialize conversation history for the CLI session
+        conversation_history = []
 
         # Main interaction loop
         while True:
@@ -1094,3 +1097,65 @@ async def main() -> None:
                     break
                     
                 if query.lower() == 'languages':
+                    print(f"\nCurrent language: {language_name}")
+                    continue
+
+                print("\nProcessing your query...")
+                
+                # Process query with conversation history
+                result = await chatbot.process_query(
+                    query=query,
+                    language_name=language_name,
+                    conversation_history=conversation_history
+                )
+                
+                # Display results
+                if result.get('success', False):
+                    print("\nResponse:", result.get('response', 'No response generated'))
+                    
+                    if result.get('citations', []):
+                        print("\nSources:")
+                        for citation in result.get('citations'):
+                            print(f"- {citation}")
+                            
+                    print(f"\nFaithfulness Score: {result.get('faithfulness_score', 0.0):.2f}")
+                    
+                    # Store the current turn in conversation history for context in future queries
+                    if result.get('current_turn'):
+                        conversation_history.append(result.get('current_turn'))
+                        # Keep conversation history to a reasonable size (last 5 turns)
+                        if len(conversation_history) > 5:
+                            conversation_history = conversation_history[-5:]
+                else:
+                    print("\nError:", result.get('message', 'An unknown error occurred'))
+                    
+                print("\n" + "-"*50)  # Separator line
+                    
+            except KeyboardInterrupt as e:
+                print("\n\nExiting gracefully...")
+                break
+            except Exception as e:
+                print(f"\nError: {str(e)}")
+                print("Please try again.")
+                
+    except KeyboardInterrupt as e:
+        print("\n\nExiting gracefully...")
+    except Exception as e:
+        print(f"\nFatal error: {str(e)}")
+        raise
+    finally:
+        if 'chatbot' in locals():
+            try:
+                await chatbot.cleanup()
+                print("\nResources cleaned up successfully")
+            except Exception as e:
+                print(f"\nError during cleanup: {str(e)}")
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt as e:
+        print("\nProgram terminated by user")
+    except Exception as e:
+        print(f"\nProgram terminated due to error: {str(e)}")
+        sys.exit(1)
