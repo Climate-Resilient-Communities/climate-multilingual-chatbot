@@ -319,22 +319,26 @@ def display_chat_messages():
             st.chat_message("user").markdown(message['content'])
         else:
             assistant_message = st.chat_message("assistant")
-
             # Clean the content before displaying
             content = clean_html_content(message.get('content', ''))
             
             language_code = message.get('language_code', 'en')
             text_align = 'right' if is_rtl_language(language_code) else 'left'
             direction = 'rtl' if is_rtl_language(language_code) else 'ltr'
-
-            # Display the response without markdown header formatting
+            
+            # Display the response with proper markdown rendering
             try:
-                assistant_message.markdown(
-                    f"""<div style="direction: {direction}; text-align: {text_align}">
-                    {content}
-                    </div>""",
-                    unsafe_allow_html=True
-                )
+                # For RTL languages, we need the HTML wrapper
+                if is_rtl_language(language_code):
+                    assistant_message.markdown(
+                        f"""<div style="direction: {direction}; text-align: {text_align}">
+                        {content}
+                        </div>""",
+                        unsafe_allow_html=True
+                    )
+                else:
+                    # For LTR languages, use direct markdown for better header rendering
+                    assistant_message.markdown(content)
             except Exception as e:
                 # Fallback if markdown rendering fails
                 logger.error(f"Error rendering message: {str(e)}")
