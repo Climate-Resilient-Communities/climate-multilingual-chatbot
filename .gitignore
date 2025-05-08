@@ -190,3 +190,8 @@ cache/
 *.swo
 *~
 .DS_Store
+
+# Test result files
+*_test_results.json
+rexdale_rag_test_results.json
+rag_test_results.json

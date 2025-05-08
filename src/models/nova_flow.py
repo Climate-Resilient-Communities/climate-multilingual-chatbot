@@ -10,6 +10,7 @@ from typing import Dict, Any, Optional, List, AsyncGenerator
 from botocore.config import Config
 import aioboto3
 from src.utils.env_loader import load_environment
+from src.models.system_messages import CLIMATE_SYSTEM_MESSAGE
 
 logger = logging.getLogger(__name__)
 
@@ -157,19 +158,27 @@ class BedrockModel:
                     if assistant:
                         conversation_context += f"Assistant: {assistant}\n"
             
+            # Use system message from system_messages.py
+            custom_instructions = description if description else "Provide a clear, accurate response based on the given context."
+            
             prompt = {
                 "messages": [
                     {
-                        "role": "user",
+                        "role": "user", 
                         "content": [
-                            {"text": f"""Based on the following documents, provide a direct answer (without any markdown headers) to this question: {query}
+                            {"text": f"""[SYSTEM INSTRUCTION]: {CLIMATE_SYSTEM_MESSAGE}
+
+Based on the following documents, provide a direct answer to this question: {query}
 
 Documents for context:
 {formatted_docs}
 {conversation_context}
-Instructions:
-1. Answer directly without using any markdown headers (###, ##, etc.)
-2. {description if description else 'Provide a clear, accurate response based on the given context.'}"""}
+
+Additional Instructions:
+1. {custom_instructions}
+2. Remember to write in plain, conversational English
+3. Include relatable examples or analogies when appropriate
+4. Suggest realistic, low-cost actions people can take when relevant"""}
                         ]
                     }
                 ],
