@@ -176,9 +176,12 @@ Documents for context:
 
 Additional Instructions:
 1. {custom_instructions}
-2. Remember to write in plain, conversational English
-3. Include relatable examples or analogies when appropriate
-4. Suggest realistic, low-cost actions people can take when relevant"""}
+2. Use proper markdown formatting with headers (e.g., # Main Title, ## Subtitle) for structure
+3. Remember to write in plain, conversational English
+4. Include relatable examples or analogies when appropriate
+5. Suggest realistic, low-cost actions people can take when relevant
+6. Ensure headers are properly formatted with a space after # symbols (e.g., "# Title" not "#Title")
+7. Start with a clear main header (# Title) that summarizes the topic"""}
                         ]
                     }
                 ],
@@ -204,11 +207,48 @@ Additional Instructions:
                 )
                 response_body = await response['body'].read()
                 response_json = json.loads(response_body)
-                return response_json['output']['message']['content'][0]['text']
+                raw_response = response_json['output']['message']['content'][0]['text']
+                
+                # Ensure markdown headers are properly formatted
+                processed_response = self._ensure_proper_markdown(raw_response)
+                
+                return processed_response
                     
         except Exception as e:
             logger.error(f"Error in generate_response: {str(e)}")
             raise
+    
+    def _ensure_proper_markdown(self, text: str) -> str:
+        """Ensure markdown headers are properly formatted for rendering."""
+        if not text:
+            return text
+            
+        lines = text.split("\n")
+        formatted_lines = []
+        
+        for line in lines:
+            # Check for headers without proper spacing
+            if line.strip().startswith('#'):
+                # Count the number of # symbols
+                header_level = 0
+                for char in line.strip():
+                    if char == '#':
+                        header_level += 1
+                    else:
+                        break
+                
+                # Extract the header text
+                header_text = line.strip()[header_level:].strip()
+                
+                # Reconstruct with proper spacing
+                if header_text:
+                    formatted_lines.append(f"{'#' * header_level} {header_text}")
+                else:
+                    formatted_lines.append(line)
+            else:
+                formatted_lines.append(line)
+                
+        return "\n".join(formatted_lines)
 
 if __name__ == "__main__":
     # Load environment variables

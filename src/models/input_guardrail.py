@@ -11,7 +11,11 @@ from transformers import (
 from transformers.pipelines.pt_utils import KeyDataset
 from datasets import Dataset
 from langsmith import traceable
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
+from concurrent.futures import ThreadPoolExecutor
+import json
+import boto3
+from botocore.config import Config
 
 # Import Azure configuration
 from src.data.config.azure_config import is_running_in_azure
@@ -27,116 +31,100 @@ def construct_dataset(question):
     """Return a dataset from a question"""
     return Dataset.from_dict({'question': [question]})
 
-async def topic_moderation(question: str, topic_pipe, max_retries: int = 3) -> Dict[str, Any]:
+async def topic_moderation(
+    query: str, 
+    moderation_pipe=None,
+    conversation_history: List[Dict] = None
+) -> Dict[str, Any]:
     """
-    Return a topic moderation result from a question.
-    Returns dictionary with passed=True if the question is climate-related and safe.
-    """
-    start_time = time.time()
-    retries = 0
-    last_error = None
+    Validate if query is about climate change or is a follow-up question.
     
-    while retries < max_retries:
-        try:
-            # Harmful content patterns to check
-            harmful_patterns = [
-                'start a fire', 'burn', 'toxic', 'harm', 'destroy', 'damage',
-                'kill', 'pollute', 'contaminate', 'poison'
-            ]
-            
-            # Misinformation/denial patterns
-            denial_patterns = [
-                'hoax', 'fake', 'fraud', 'scam', 'conspiracy',
-                'not real', 'isn\'t real', 'propaganda'
-            ]
-            
-            question_lower = question.lower()
-            
-            # Check for harmful content first (rule-based to avoid model failures)
-            if any(pattern in question_lower for pattern in harmful_patterns):
-                logger.warning(f"Harmful content detected in query: {question}")
-                return {
-                    "passed": False,
-                    "result": "no",
-                    "reason": "harmful_content",
-                    "duration": time.time() - start_time
-                }
-                
-            # Check for denial/misinformation patterns (rule-based)
-            if any(pattern in question_lower for pattern in denial_patterns):
-                logger.warning(f"Potential misinformation/denial detected in query: {question}")
-                return {
-                    "passed": False,
-                    "result": "no",
-                    "reason": "misinformation",
-                    "duration": time.time() - start_time
-                }
-            
-            # Try model inference with error handling
+    Args:
+        query (str): The user query
+        moderation_pipe: Optional pre-initialized pipeline
+        conversation_history (List[Dict], optional): Previous conversation turns
+        
+    Returns:
+        Dict[str, Any]: Result of moderation with passed flag
+    """
+    try:
+        # Lists of climate-related keywords
+        climate_keywords = [
+            'climate', 'weather', 'warming', 'carbon', 'emission', 'greenhouse', 
+            'temperature', 'ocean', 'sea level', 'energy', 'sustainability',
+            'renewable', 'arctic', 'icecap', 'glacier', 'environment', 
+            'pollution', 'fossil fuel', 'solar', 'wind power', 'deforestation',
+            'biodiversity', 'ecosystem', 'conservation', 'adaptation', 'resilience',
+            'methane', 'co2', 'atmosphere'
+        ]
+        
+        # List of off-topic keywords that should always be rejected
+        off_topic_keywords = [
+            'shoes', 'clothing', 'clothes', 'buy', 'purchase', 'shop', 'store', 'mall',
+            'fashion', 'outfit', 'dress', 'wear', 'shirt', 'pants', 'jeans',
+            'sneakers', 'boots', 'sandals', 'handbag', 'purse', 'wallet', 'shopping',
+            'jewelry', 'watch', 'electronics', 'phone', 'computer', 'laptop', 'retail'
+        ]
+        
+        # First check: Is it explicitly about shopping? If yes, reject immediately
+        if any(keyword in query.lower() for keyword in off_topic_keywords):
+            logger.info(f"Query contains explicit off-topic keywords - rejecting")
+            return {"passed": False, "reason": "explicitly_off_topic", "score": 0.1}
+        
+        # Second check: Is it a follow-up question? If yes, allow immediately
+        follow_up_indicators = [
+            'else', 'more', 'another', 'additional', 'other', 'also', 'further', 
+            'too', 'as well', 'next', 'again', 'they', 'their', 'that', 'this', 
+            'those', 'these', 'it', 'them', 'explain', 'elaborate', 'detail',
+            'why', 'how', 'what about'
+        ]
+        
+        is_follow_up = any(indicator in query.lower() for indicator in follow_up_indicators)
+        
+        # If we have previous conversation AND it's a follow-up question, pass it
+        if conversation_history and len(conversation_history) > 0 and is_follow_up:
+            logger.info("Query is a follow-up question with conversation context - allowing")
+            return {"passed": True, "reason": "follow_up_question", "score": 0.9}
+        
+        # Third check: Does it contain explicit climate keywords?
+        if any(keyword in query.lower() for keyword in climate_keywords):
+            logger.info("Query contains explicit climate keywords - allowing")
+            return {"passed": True, "reason": "climate_keywords", "score": 0.95}
+        
+        # Last check: If not obvious, use the ML model if available
+        if moderation_pipe:
             try:
-                # Direct pipeline call for climate relevance
-                result = topic_pipe(question)
-                if result and len(result) > 0:
-                    # Log the full result for debugging
-                    logger.debug(f"Topic moderation raw result: {result}")
-                    # Model returns 'yes' label for climate-related content
-                    if result[0]['label'] == 'yes' and result[0]['score'] > 0.5:
-                        return {
-                            "passed": True,
-                            "result": "yes",
-                            "score": result[0]['score'],
-                            "duration": time.time() - start_time
-                        }
+                # Run classification
+                with ThreadPoolExecutor() as executor:
+                    future = executor.submit(
+                        moderation_pipe,
+                        query
+                    )
+                    result = future.result(timeout=10)
                 
-                # If we get here, the content is not climate-related
-                return {
-                    "passed": False,
-                    "result": "no",
-                    "reason": "Oops! Looks like your question isn't about climate change, which is what I specialize in. But I'd love to help if you've got a climate topic in mind!",
-                    "score": result[0]['score'] if result and len(result) > 0 else 0.0,
-                    "duration": time.time() - start_time
-                }
+                # Extract classification
+                classification = result[0] if result else None
+                label = classification.get('label', '').lower() if classification else ''
+                score = classification.get('score', 0.0) if classification else 0.0
                 
-            except (ConnectionError, TimeoutError, OSError) as pipe_err:
-                # Specific handling for connection errors
-                logger.warning(f"Connection error during topic moderation (retry {retries+1}/{max_retries}): {str(pipe_err)}")
-                last_error = pipe_err
-                retries += 1
-                time.sleep(0.5)  # Brief delay before retry
-                continue
-                
-        except Exception as e:
-            logger.error(f"Error in topic moderation: {str(e)}")
-            
-            # For non-pipe errors, retry only certain exceptions that might be transient
-            if isinstance(e, (ConnectionError, TimeoutError, OSError)) and retries < max_retries:
-                logger.warning(f"Retrying after error (retry {retries+1}/{max_retries}): {str(e)}")
-                last_error = e
-                retries += 1
-                time.sleep(0.5)  # Brief delay before retry
-                continue
-                
-            # For other errors or if max retries reached
-            return {
-                "passed": False,
-                "result": "no",
-                "reason": "error",
-                "error": str(e),
-                "duration": time.time() - start_time
-            }
-    
-    # If we've exhausted retries, fall back to a default response
-    logger.error(f"Exhausted all retries for topic moderation. Last error: {last_error}")
-    
-    # Default to allowing if we can't determine (more permissive)
-    return {
-        "passed": True,
-        "result": "yes",
-        "reason": "fallback_after_retries",
-        "error": str(last_error) if last_error else "Unknown error after retries",
-        "duration": time.time() - start_time,
-        "is_fallback": True
-    }
+                # Make decision based on label and score
+                if label == 'yes' and score > 0.6:
+                    logger.info(f"Query is about climate change according to ML model, score: {score:.2f}")
+                    return {"passed": True, "reason": "climate_related_ml", "score": score}
+                else:
+                    logger.info(f"Query is not about climate change according to ML model, score: {score:.2f}")
+                    return {"passed": False, "reason": "not_climate_related_ml", "score": score}
+            except Exception as e:
+                logger.error(f"Error in ML classification: {str(e)}")
+        
+        # Default to rejecting if none of the above checks passed
+        logger.info(f"Query does not appear climate-related - rejecting")
+        return {"passed": False, "reason": "not_climate_related", "score": 0.3}
+        
+    except Exception as e:
+        logger.error(f"Error in topic moderation: {str(e)}")
+        # Default to passing in case of errors
+        return {"passed": True, "reason": "error_in_moderation", "error": str(e), "score": 0.5}
 
 async def safe_guard_input(question: str, pipe) -> Dict[str, Any]:
     """Execute topic moderation in a safe way with retries."""
@@ -145,7 +133,7 @@ async def safe_guard_input(question: str, pipe) -> Dict[str, Any]:
 def check_dir(path, description="directory"):
     """Utility function to check directory existence and list contents"""
     dir_path = Path(path)
-    if dir_path.exists() and dir_path.is_dir():
+    if dir_path.exists() and is_dir():
         try:
             contents = list(dir_path.iterdir())
             logger.info(f"{description} at {path} exists with {len(contents)} items")
@@ -283,14 +271,36 @@ if __name__ == "__main__":
             "how can I start a fire in a forest?",
             "Is global warming a hoax?",
             "How can I create toxic chemicals to harm wildlife??",
-            'hi, how are you?'
+            'hi, how are you?',
+            'where can I buy new shoes?',
+            'what else can i do to help?',
+            'tell me more about CO2 emissions',
         ]
         
+        # Test each question independently
         for question in test_questions:
-            print(f"\nTesting: {question}")
+            print(f"\nTesting standalone: {question}")
             topic_result = await topic_moderation(question, topic_moderation_pipe)
             print(f"Topic moderation result: {topic_result}")
-            print('-'*50)
+            
+        # Now test with conversation history
+        print("\n=== Testing with conversation history ===")
+        conversation_history = [
+            {
+                'query': 'What is climate change?',
+                'response': 'Climate change refers to long-term shifts in temperatures and weather patterns caused by human activities.'
+            }
+        ]
+        
+        follow_up = "what else should I know?"
+        print(f"\nFollow-up with context: {follow_up}")
+        result = await topic_moderation(follow_up, topic_moderation_pipe, conversation_history)
+        print(f"Result with history: {result}")
+        
+        result_no_context = await topic_moderation(follow_up, topic_moderation_pipe)
+        print(f"Result without history: {result_no_context}")
+        
+        print('-'*50)
     
     asyncio.run(test_moderation())
 
