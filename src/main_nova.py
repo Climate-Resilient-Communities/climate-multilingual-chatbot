@@ -41,11 +41,12 @@ if is_azure:
     # Azure-specific configurations are now handled in configure_for_azure()
 
 # Set environment variables explicitly as they might be needed specifically in this format
-os.environ['COHERE_API_KEY'] = os.getenv('COHERE_API_KEY')
-os.environ['LANGCHAIN_TRACING_V2'] = os.getenv('LANGCHAIN_TRACING_V2')
-os.environ['LANGCHAIN_API_KEY'] = os.getenv('LANGCHAIN_API_KEY')
+# Fix: Use empty string as default for environment variables to avoid None values
+os.environ['COHERE_API_KEY'] = os.getenv('COHERE_API_KEY') or ""
+os.environ['LANGCHAIN_TRACING_V2'] = os.getenv('LANGCHAIN_TRACING_V2') or ""
+os.environ['LANGCHAIN_API_KEY'] = os.getenv('LANGCHAIN_API_KEY') or ""
 os.environ['LANGCHAIN_PROJECT'] = os.getenv('LANGSMITH_PROJECT', "climate-chat-production")
-os.environ['TAVILY_API_KEY'] = os.getenv('TAVILY_API_KEY')
+os.environ['TAVILY_API_KEY'] = os.getenv('TAVILY_API_KEY') or ""
 
 # Import and configure torch before other imports
 import torch
@@ -649,10 +650,13 @@ class MultilingualClimateChatbot:
                     step_times['normalization'] = time.time() - norm_start
                     
                     # Topic moderation check using English query
-                    # Important: We only apply topic moderation to the current query, NOT to conversation history
                     validation_start = time.time()
-                    # Note: We deliberately don't pass conversation_history to topic_moderation
-                    topic_results = await topic_moderation(english_query, self.topic_moderation_pipe)
+                    # Pass conversation history to topic_moderation
+                    topic_results = await topic_moderation(
+                        query=english_query, 
+                        moderation_pipe=self.topic_moderation_pipe,
+                        conversation_history=conversation_history
+                    )
                     step_times['validation'] = time.time() - validation_start
                     
                     if not topic_results.get('passed', False):
