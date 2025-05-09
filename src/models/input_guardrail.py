@@ -48,17 +48,37 @@ async def topic_moderation(
         Dict[str, Any]: Result of moderation with passed flag
     """
     try:
-        # Lists of climate-related keywords
+        # Lists of climate-related keywords in multiple languages
         climate_keywords = [
+            # English
             'climate', 'weather', 'warming', 'carbon', 'emission', 'greenhouse', 
             'temperature', 'ocean', 'sea level', 'energy', 'sustainability',
             'renewable', 'arctic', 'icecap', 'glacier', 'environment', 
             'pollution', 'fossil fuel', 'solar', 'wind power', 'deforestation',
             'biodiversity', 'ecosystem', 'conservation', 'adaptation', 'resilience',
-            'methane', 'co2', 'atmosphere'
+            'methane', 'co2', 'atmosphere',
+            
+            # Chinese
+            '气候', '天气', '变暖', '全球变暖', '碳', '排放', '温室',
+            '温度', '海洋', '海平面', '能源', '可持续性', '再生能源',
+            '北极', '冰盖', '冰川', '环境', '污染', '化石燃料',
+            '太阳能', '风能', '森林砍伐', '生物多样性', '生态系统',
+            
+            # Spanish
+            'clima', 'tiempo', 'calentamiento', 'carbono', 'emisión', 'invernadero',
+            'temperatura', 'océano', 'nivel del mar', 'energía', 'sostenibilidad',
+            'renovable', 'ártico', 'casquete polar', 'glaciar', 'ambiente', 
+            'contaminación', 'combustible fósil', 'solar', 'eólica',
+            
+            # French
+            'climat', 'météo', 'réchauffement', 'carbone', 'émission', 'serre',
+            'température', 'océan', 'niveau de la mer', 'énergie', 'durabilité',
+            'renouvelable', 'arctique', 'calotte glaciaire', 'glacier', 'environnement',
+            'pollution', 'combustible fossile', 'solaire', 'éolienne'
         ]
         
         # List of off-topic keywords that should always be rejected
+        # (keeping these simple and primarily in English since they're less critical)
         off_topic_keywords = [
             'shoes', 'clothing', 'clothes', 'buy', 'purchase', 'shop', 'store', 'mall',
             'fashion', 'outfit', 'dress', 'wear', 'shirt', 'pants', 'jeans',
@@ -73,10 +93,16 @@ async def topic_moderation(
         
         # Second check: Is it a follow-up question? If yes, allow immediately
         follow_up_indicators = [
+            # English
             'else', 'more', 'another', 'additional', 'other', 'also', 'further', 
             'too', 'as well', 'next', 'again', 'they', 'their', 'that', 'this', 
             'those', 'these', 'it', 'them', 'explain', 'elaborate', 'detail',
-            'why', 'how', 'what about'
+            'why', 'how', 'what about',
+            
+            # Chinese
+            '还有', '更多', '另外', '其他', '也', '还', '进一步', 
+            '他们', '它们', '那个', '这个', '那些', '这些', '解释', 
+            '详述', '详细', '为什么', '怎样', '关于'
         ]
         
         is_follow_up = any(indicator in query.lower() for indicator in follow_up_indicators)
