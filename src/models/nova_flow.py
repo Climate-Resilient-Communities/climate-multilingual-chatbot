@@ -148,15 +148,48 @@ class BedrockModel:
             
             # Format conversation history for context if provided
             conversation_context = ""
-            if conversation_history:
-                conversation_context = "\n\nConversation History:\n"
-                for turn in conversation_history:
-                    user = turn.get('query', '')
-                    assistant = turn.get('response', '')
-                    if user:
-                        conversation_context += f"User: {user}\n"
-                    if assistant:
-                        conversation_context += f"Assistant: {assistant}\n"
+            enhanced_query = query  # Default to original query
+            
+            if conversation_history and len(conversation_history) > 0:
+                # Format the conversation history for the prompt
+                history_pairs = []
+                last_context = ""
+                
+                for i in range(0, len(conversation_history), 2):
+                    if i + 1 < len(conversation_history):
+                        user_msg = conversation_history[i].get('content', '')
+                        assistant_msg = conversation_history[i+1].get('content', '')
+                        history_pairs.append(f"User: {user_msg}\nAssistant: {assistant_msg}")
+                        
+                        # Keep track of the last conversation - useful for context
+                        last_context = f"{user_msg} {assistant_msg}"
+                
+                if history_pairs:
+                    conversation_context = "Previous conversation:\n" + "\n\n".join(history_pairs)
+                
+                # Check if current query is likely a follow-up
+                follow_up_indicators = ['else', 'more', 'another', 'they', 'their', 'that', 'this', 'those', 
+                                       'these', 'it', 'them', 'why', 'how', 'what about', 'explain']
+                
+                is_follow_up = any(indicator in query.lower() for indicator in follow_up_indicators)
+                
+                # For follow-up questions, create an enhanced query that includes previous context
+                if is_follow_up and last_context:
+                    # Extract topic name from previous context if available
+                    topic_match = None
+                    location_keywords = ['Rexdale', 'Toronto', 'Vancouver', 'Montreal', 'city', 'neighborhood', 
+                                        'community', 'region', 'area']
+                    
+                    # Look for location names in the previous context
+                    for keyword in location_keywords:
+                        if keyword.lower() in last_context.lower():
+                            topic_match = keyword
+                            break
+                    
+                    # Create an enhanced query with the topic/context
+                    if topic_match:
+                        enhanced_query = f"{query} about {topic_match}"
+                        logger.info(f"Enhanced follow-up query with context: '{enhanced_query}'")
             
             # Use system message from system_messages.py
             custom_instructions = description if description else "Provide a clear, accurate response based on the given context."
@@ -168,7 +201,7 @@ class BedrockModel:
                         "content": [
                             {"text": f"""[SYSTEM INSTRUCTION]: {CLIMATE_SYSTEM_MESSAGE}
 
-Based on the following documents, provide a direct answer to this question: {query}
+Based on the following documents and any relevant conversation history, provide a direct answer to this question: {enhanced_query}
 
 Documents for context:
 {formatted_docs}
@@ -177,11 +210,13 @@ Documents for context:
 Additional Instructions:
 1. {custom_instructions}
 2. Use proper markdown formatting with headers (e.g., # Main Title, ## Subtitle) for structure
-3. Remember to write in plain, conversational English
-4. Include relatable examples or analogies when appropriate
-5. Suggest realistic, low-cost actions people can take when relevant
-6. Ensure headers are properly formatted with a space after # symbols (e.g., "# Title" not "#Title")
-7. Start with a clear main header (# Title) that summarizes the topic"""}
+3. Use clear and readable headings that summarize the content, not just repeating the question
+4. Write in plain, conversational English
+5. Include relatable examples or analogies when appropriate
+6. Suggest realistic, low-cost actions people can take when relevant
+7. Ensure headers are properly formatted with a space after # symbols (e.g., "# Title" not "#Title")
+8. Start with a clear main header (# Title) that summarizes the topic, not just repeating the question
+9. DO NOT start your response by repeating the user's question in the header"""}
                         ]
                     }
                 ],
@@ -207,12 +242,14 @@ Additional Instructions:
                 )
                 response_body = await response['body'].read()
                 response_json = json.loads(response_body)
-                raw_response = response_json['output']['message']['content'][0]['text']
                 
-                # Ensure markdown headers are properly formatted
-                processed_response = self._ensure_proper_markdown(raw_response)
+                # Extract response text
+                response_text = response_json['output']['message']['content'][0]['text']
                 
-                return processed_response
+                # Process markdown headers to ensure they don't repeat the question
+                response_text = self._ensure_proper_markdown(response_text)
+                
+                return response_text
                     
         except Exception as e:
             logger.error(f"Error in generate_response: {str(e)}")
@@ -229,24 +266,17 @@ Additional Instructions:
         for line in lines:
             # Check for headers without proper spacing
             if line.strip().startswith('#'):
-                # Count the number of # symbols
-                header_level = 0
-                for char in line.strip():
-                    if char == '#':
-                        header_level += 1
-                    else:
-                        break
+                # Find the position of the last # in the sequence
+                pos = len(line) - len(line.lstrip('#'))
                 
-                # Extract the header text
-                header_text = line.strip()[header_level:].strip()
+                # Get the header level
+                header_level = pos
                 
-                # Reconstruct with proper spacing
-                if header_text:
-                    formatted_lines.append(f"{'#' * header_level} {header_text}")
-                else:
-                    formatted_lines.append(line)
-            else:
-                formatted_lines.append(line)
+                # Check if there's no space after the #s
+                if pos < len(line) and line[pos] != ' ':
+                    line = line[:pos] + ' ' + line[pos:]
+            
+            formatted_lines.append(line)
                 
         return "\n".join(formatted_lines)
 

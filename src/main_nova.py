@@ -734,9 +734,41 @@ class MultilingualClimateChatbot:
                                         user_msg = turn.get('query', '')
                                         assistant_msg = turn.get('response', '')
                                     
+                                    # Add properly formatted conversation turns
                                     formatted_history.append({"role": "user", "content": user_msg})
                                     formatted_history.append({"role": "assistant", "content": assistant_msg})
+                                
                                 logger.info(f"Formatted {len(formatted_history)//2} conversation turns for model context")
+                                
+                                # Log a sample of the conversation history for debugging
+                                if formatted_history:
+                                    logger.debug(f"Sample conversation turn: {formatted_history[:2]}")
+                            
+                            # Enhanced query for better retrieval with follow-up questions
+                            retrieval_query = english_query
+                            if conversation_history and len(conversation_history) > 0:
+                                # Check if current query is likely a follow-up
+                                follow_up_indicators = ['else', 'more', 'another', 'they', 'their', 'that', 'this', 'those', 
+                                                       'these', 'it', 'them', 'why', 'how', 'what about']
+                                
+                                is_follow_up = any(indicator in english_query.lower() for indicator in follow_up_indicators)
+                                
+                                # For follow-up questions, extract context from previous messages
+                                if is_follow_up:
+                                    last_turn = conversation_history[-1]
+                                    previous_query = last_turn.get('query', '')
+                                    previous_topic = ""
+                                    
+                                    # Try to extract topic names from previous queries
+                                    for word in previous_query.split():
+                                        if len(word) > 3 and word[0].isupper():  # Potential proper noun
+                                            previous_topic = word
+                                            break
+                                    
+                                    if previous_topic:
+                                        # Create a retrieval query that includes context from previous turns
+                                        retrieval_query = f"{english_query} about {previous_topic}"
+                                        logger.info(f"Enhanced retrieval query with context: '{retrieval_query}'")
                             
                             # Call nova_chat with conversation history
                             response, citations = await nova_chat(
