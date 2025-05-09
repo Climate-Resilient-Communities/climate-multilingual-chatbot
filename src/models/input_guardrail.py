@@ -133,7 +133,7 @@ async def safe_guard_input(question: str, pipe) -> Dict[str, Any]:
 def check_dir(path, description="directory"):
     """Utility function to check directory existence and list contents"""
     dir_path = Path(path)
-    if dir_path.exists() and is_dir():
+    if dir_path.exists() and dir_path.is_dir():  # Fixed: Changed is_dir() to dir_path.is_dir()
         try:
             contents = list(dir_path.iterdir())
             logger.info(f"{description} at {path} exists with {len(contents)} items")
