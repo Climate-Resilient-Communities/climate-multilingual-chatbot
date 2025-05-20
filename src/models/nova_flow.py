@@ -45,6 +45,136 @@ class BedrockModel:
             logger.error(f"Bedrock client initialization failed: {str(e)}")
             raise
 
+    async def nova_classification(self, prompt: str, system_message: str = None, options: List[str] = None) -> str:
+        """
+        Perform classification using Nova model.
+        
+        Args:
+            prompt (str): The input prompt for classification
+            system_message (str, optional): System message to guide the classification
+            options (List[str], optional): List of classification options
+            
+        Returns:
+            str: The classification result
+        """
+        try:
+            if not prompt:
+                return ""
+                
+            # Prepare system instruction
+            if not system_message:
+                system_message = "You are a helpful assistant that classifies text."
+                
+            # Prepare options instruction
+            options_instruction = ""
+            if options and len(options) > 0:
+                options_str = ", ".join(options)
+                options_instruction = f"Choose exactly one option from: {options_str}."
+                
+            payload = {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"text": f"""[SYSTEM INSTRUCTION]: {system_message}
+{prompt}
+{options_instruction}
+Answer with ONLY the classification result, no explanations or additional text."""}
+                        ]
+                    }
+                ],
+                "inferenceConfig": {
+                    "maxTokens": 100,
+                    "temperature": 0.1,
+                    "topP": 0.9
+                }
+            }
+            
+            async with self.session.client(
+                service_name='bedrock-runtime',
+                region_name='us-east-1',
+                config=Config(read_timeout=300, connect_timeout=300)
+            ) as bedrock:
+                response = await bedrock.invoke_model(
+                    body=json.dumps(payload),
+                    modelId=self.model_id,
+                    accept="application/json",
+                    contentType="application/json"
+                )
+                response_body = await response['body'].read()
+                response_json = json.loads(response_body)
+                result = response_json['output']['message']['content'][0]['text'].strip()
+                
+                # If options were provided, ensure the result is one of the options
+                if options and result not in options:
+                    # Try to extract one of the options from the result
+                    for option in options:
+                        if option.lower() in result.lower():
+                            return option
+                    # If no match found, return the first option as a fallback
+                    logger.warning(f"Classification result '{result}' not in options {options}, falling back to first option")
+                    return options[0]
+                    
+                return result
+        except Exception as e:
+            logger.error(f"Classification error: {str(e)}")
+            # Return safe fallback if options provided, otherwise empty string
+            return options[0] if options and len(options) > 0 else ""
+            
+    async def nova_content_generation(self, prompt: str, system_message: str = None) -> str:
+        """
+        Generate content using Nova model with a specific purpose.
+        
+        Args:
+            prompt (str): The input prompt for generation
+            system_message (str, optional): System message to guide the generation
+            
+        Returns:
+            str: The generated content
+        """
+        try:
+            if not prompt:
+                return ""
+                
+            # Default system message if none provided
+            if not system_message:
+                system_message = "You are a helpful assistant that provides accurate and concise information."
+                
+            payload = {
+                "messages": [
+                    {
+                        "role": "user", 
+                        "content": [
+                            {"text": f"""[SYSTEM INSTRUCTION]: {system_message}
+{prompt}"""}
+                        ]
+                    }
+                ],
+                "inferenceConfig": {
+                    "maxTokens": 1000,
+                    "temperature": 0.1,
+                    "topP": 0.9
+                }
+            }
+            
+            async with self.session.client(
+                service_name='bedrock-runtime',
+                region_name='us-east-1',
+                config=Config(read_timeout=300, connect_timeout=300)
+            ) as bedrock:
+                response = await bedrock.invoke_model(
+                    body=json.dumps(payload),
+                    modelId=self.model_id,
+                    accept="application/json",
+                    contentType="application/json"
+                )
+                response_body = await response['body'].read()
+                response_json = json.loads(response_body)
+                return response_json['output']['message']['content'][0]['text'].strip()
+        except Exception as e:
+            logger.error(f"Content generation error: {str(e)}")
+            return ""
+
     async def query_normalizer(self, query: str, language: str) -> str:
         """Normalize and simplify query using Nova model."""
         try:
@@ -167,29 +297,8 @@ class BedrockModel:
                 if history_pairs:
                     conversation_context = "Previous conversation:\n" + "\n\n".join(history_pairs)
                 
-                # Check if current query is likely a follow-up
-                follow_up_indicators = ['else', 'more', 'another', 'they', 'their', 'that', 'this', 'those', 
-                                       'these', 'it', 'them', 'why', 'how', 'what about', 'explain']
-                
-                is_follow_up = any(indicator in query.lower() for indicator in follow_up_indicators)
-                
-                # For follow-up questions, create an enhanced query that includes previous context
-                if is_follow_up and last_context:
-                    # Extract topic name from previous context if available
-                    topic_match = None
-                    location_keywords = ['Rexdale', 'Toronto', 'Vancouver', 'Montreal', 'city', 'neighborhood', 
-                                        'community', 'region', 'area']
-                    
-                    # Look for location names in the previous context
-                    for keyword in location_keywords:
-                        if keyword.lower() in last_context.lower():
-                            topic_match = keyword
-                            break
-                    
-                    # Create an enhanced query with the topic/context
-                    if topic_match:
-                        enhanced_query = f"{query} about {topic_match}"
-                        logger.info(f"Enhanced follow-up query with context: '{enhanced_query}'")
+                # Instead of using hardcoded follow-up indicators, we'll perform LLM-based classification
+                # This happens in the input_guardrail module now, using the nova_classification method
             
             # Use system message from system_messages.py
             custom_instructions = description if description else "Provide a clear, accurate response based on the given context."
@@ -306,3 +415,28 @@ if __name__ == "__main__":
         print(f"Spanish translation: {translation}")
     except Exception as e:
         print(f"Error in translation: {e}")
+    
+    # Test classification
+    print("\nTesting classification:")
+    test_classify = "Previous question: What is climate change? Current question: Tell me more about its effects."
+    try:
+        result = asyncio.run(model.nova_classification(
+            prompt=test_classify,
+            system_message="Determine if this is a follow-up question.",
+            options=["YES", "NO"]
+        ))
+        print(f"Classification result: {result}")
+    except Exception as e:
+        print(f"Error in classification: {e}")
+    
+    # Test content generation
+    print("\nTesting content generation:")
+    test_gen = "Extract the main topics from: Climate change affects weather patterns, sea levels, and biodiversity."
+    try:
+        result = asyncio.run(model.nova_content_generation(
+            prompt=test_gen,
+            system_message="Extract key topics concisely."
+        ))
+        print(f"Content generation result: {result}")
+    except Exception as e:
+        print(f"Error in content generation: {e}")

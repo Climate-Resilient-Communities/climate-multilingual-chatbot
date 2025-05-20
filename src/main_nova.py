@@ -77,7 +77,7 @@ from src.models.redis_cache import ClimateCache
 from src.models.nova_flow import BedrockModel
 from src.models.gen_response_nova import nova_chat
 from src.models.query_routing import MultilingualRouter
-from src.models.input_guardrail import topic_moderation
+from src.models.input_guardrail import topic_moderation, check_follow_up_with_llm
 from src.models.retrieval import get_documents
 from src.models.hallucination_guard import extract_contexts, check_hallucination
 from src.data.config.azure_config import get_azure_settings
@@ -625,7 +625,6 @@ class MultilingualClimateChatbot:
                 step_times = {}
                 translated_query = None
                 query_versions = {}
-
                 # Start pipeline with all query processing in one block
                 with trace(name="query_processing") as process_trace:
                     # Initialize timing
@@ -649,13 +648,14 @@ class MultilingualClimateChatbot:
                     }
                     step_times['normalization'] = time.time() - norm_start
                     
-                    # Topic moderation check using English query
+                    # Topic moderation check using English query - now passing the nova_model for LLM-based detection
                     validation_start = time.time()
-                    # Pass conversation history to topic_moderation
+                    # Pass conversation history to topic_moderation along with nova_model
                     topic_results = await topic_moderation(
                         query=english_query, 
                         moderation_pipe=self.topic_moderation_pipe,
-                        conversation_history=conversation_history
+                        conversation_history=conversation_history,
+                        nova_model=self.nova_model  # Pass the Nova model for LLM follow-up detection
                     )
                     step_times['validation'] = time.time() - validation_start
                     
@@ -670,7 +670,6 @@ class MultilingualClimateChatbot:
                             "trace_id": getattr(pipeline_trace, 'id', None)
                         }
                     logger.info("🔍 Input validation passed")
-
                     # Language routing with English query
                     with trace(name="language_routing") as route_trace:
                         route_start = time.time()
@@ -693,20 +692,68 @@ class MultilingualClimateChatbot:
                                 "trace_id": pipeline_trace.id
                             }
                         logger.info("🌐 Language routing complete")
-
-                    # 6. Document retrieval chain - Use English query for retrieval
+                    # Document retrieval chain - Use English query for retrieval
                     with trace(name="document_retrieval") as retrieval_trace:
                         retrieval_start = time.time()
                         try:
                             logger.info("📚 Starting retrieval and reranking...")
+                            
+                            # Enhanced query for better retrieval with follow-up questions
+                            retrieval_query = english_query
+                            
+                            # Determine if current query is a follow-up and enhance it with context if needed
+                            if conversation_history and len(conversation_history) > 0:
+                                # Use the improved follow-up detection with LLM
+                                follow_up_result = await check_follow_up_with_llm(
+                                    query=english_query, 
+                                    conversation_history=conversation_history,
+                                    nova_model=self.nova_model
+                                )
+                                
+                                is_follow_up = follow_up_result.get('is_follow_up', False)
+                                
+                                if is_follow_up:
+                                    # For follow-up questions, create an enhanced retrieval query that includes
+                                    # important context from the conversation history
+                                    
+                                    # Collect recent conversation context to help the LLM understand the topic
+                                    context_turns = conversation_history[-min(3, len(conversation_history)):]
+                                    context_text = ""
+                                    for turn in context_turns:
+                                        context_text += f"{turn.get('query', '')} {turn.get('response', '')} "
+                                    
+                                    # Use LLM to extract key topics from the conversation context
+                                    try:
+                                        topic_prompt = f"""Based on this conversation history and current query, extract 3-5 key 
+                                        topic keywords that would help retrieve relevant information:
+                                        
+                                        Conversation history: {context_text}
+                                        Current query: {english_query}
+                                        
+                                        Return only the most important keywords separated by commas. The keywords should help
+                                        retrieve relevant climate-related information for the current query.
+                                        """
+                                        
+                                        topic_result = await self.nova_model.nova_content_generation(
+                                            prompt=topic_prompt,
+                                            system_message="Extract key topics from text. Be brief and precise."
+                                        )
+                                        
+                                        # Use these extracted topics to enhance the current query
+                                        if topic_result and len(topic_result.strip()) > 0:
+                                            # Create a retrieval query that includes context from the conversation
+                                            retrieval_query = f"{english_query} {topic_result}"
+                                            logger.info(f"Enhanced retrieval query with conversation context: '{retrieval_query}'")
+                                    except Exception as topic_err:
+                                        logger.warning(f"Error extracting topics from conversation: {str(topic_err)}")
+                            
                             # Document retrieval includes hybrid search and reranking
-                            reranked_docs = await get_documents(english_query, self.index, self.embed_model, self.cohere_client)
+                            reranked_docs = await get_documents(retrieval_query, self.index, self.embed_model, self.cohere_client)
                             step_times['retrieval'] = time.time() - retrieval_start
                             logger.info(f"📚 Retrieved and reranked {len(reranked_docs)} documents")
                         except Exception as e:
                             logger.error(f"📚 Error in retrieval process: {str(e)}")
                             raise
-
                     # 7. Response generation chain - Use English query and include conversation history
                     with trace(name="response_generation") as gen_trace:
                         generation_start = time.time()
@@ -744,32 +791,6 @@ class MultilingualClimateChatbot:
                                 if formatted_history:
                                     logger.debug(f"Sample conversation turn: {formatted_history[:2]}")
                             
-                            # Enhanced query for better retrieval with follow-up questions
-                            retrieval_query = english_query
-                            if conversation_history and len(conversation_history) > 0:
-                                # Check if current query is likely a follow-up
-                                follow_up_indicators = ['else', 'more', 'another', 'they', 'their', 'that', 'this', 'those', 
-                                                       'these', 'it', 'them', 'why', 'how', 'what about']
-                                
-                                is_follow_up = any(indicator in english_query.lower() for indicator in follow_up_indicators)
-                                
-                                # For follow-up questions, extract context from previous messages
-                                if is_follow_up:
-                                    last_turn = conversation_history[-1]
-                                    previous_query = last_turn.get('query', '')
-                                    previous_topic = ""
-                                    
-                                    # Try to extract topic names from previous queries
-                                    for word in previous_query.split():
-                                        if len(word) > 3 and word[0].isupper():  # Potential proper noun
-                                            previous_topic = word
-                                            break
-                                    
-                                    if previous_topic:
-                                        # Create a retrieval query that includes context from previous turns
-                                        retrieval_query = f"{english_query} about {previous_topic}"
-                                        logger.info(f"Enhanced retrieval query with context: '{retrieval_query}'")
-                            
                             # Call nova_chat with conversation history
                             response, citations = await nova_chat(
                                 english_query, 
@@ -782,14 +803,12 @@ class MultilingualClimateChatbot:
                         except Exception as e:
                             logger.error(f"✍️ Error in response generation: {str(e)}")
                             raise
-
                     # 8. Quality checks chain - Using English query and response
                     with trace(name="quality_checks") as quality_trace:
                         quality_start = time.time()
                         logger.info("✔️ Starting quality checks...")
                         try:
                             contexts = extract_contexts(reranked_docs, max_contexts=5)
-
                             # For hallucination check - we already have english_query
                             with trace(name="hallucination_check") as hall_trace:
                                 faithfulness_score = await check_hallucination(
@@ -820,7 +839,6 @@ class MultilingualClimateChatbot:
                         except Exception as e:
                             logger.error(f"✔️ Error in quality checks: {str(e)}")
                             faithfulness_score = 0.0
-
                     # 9. Final translation if needed - translate from English to target language
                     with trace(name="final_translation") as trans_trace:
                         if route_result['routing_info']['needs_translation']:
@@ -829,7 +847,6 @@ class MultilingualClimateChatbot:
                             response = await self.nova_model.nova_translation(response, 'english', language_name)
                             step_times['translation'] = time.time() - translation_start
                             logger.info("🌐 Translation complete")
-
                     # 10. Store results - Use original normalized query for caching
                     with trace(name="result_storage") as storage_trace:
                         total_time = time.time() - start_time
@@ -853,10 +870,8 @@ class MultilingualClimateChatbot:
                             processing_time=total_time,
                             route_result=route_result
                         )
-
                         logger.info(f"Processing time: {total_time} seconds")
                         logger.info("✨ Processing complete!")
-
                         return {
                             "success": True,
                             "language_code": language_code,
