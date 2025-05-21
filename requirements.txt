@@ -34,7 +34,7 @@ ray>=2.38.0
 azure-storage-blob>=12.19.0
 streamlit>=1.40.1
 watchdog>=3.0.0
-pathlib>=1.0.1
+# pathlib>=1.0.1 - Removed as it's part of standard library and causes conflicts
 requests>=2.31.0
 
 # For testing
