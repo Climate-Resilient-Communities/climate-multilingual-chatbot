@@ -3,7 +3,7 @@ langchain>=0.3.7
 langchain-community>=0.3.5
 langchain-core>=0.1.10
 langsmith>=0.0.80
-transformers==4.35.2  # Pin transformers to avoid Gemma2 import error
+transformers>=4.44.2  # Updated from 4.35.2
 torch>=2.5.1
 numpy>=1.26.4
 pandas>=2.2.3
@@ -24,13 +24,11 @@ jq>=1.6.0
 pinecone-client>=5.0.1
 
 # Embedding models
-flagembedding==1.0.0  # Pin flagembedding to a compatible version with transformers
-BAAI-bge-m3>=0.1.0
+flagembedding>=1.2.0  # Updated to latest version for BGEM3FlagModel support
 
 # NLP and AI
 cohere>=5.11.3
 ray>=2.38.0
-inference_models==0.3.0
 
 # Azure specific
 azure-storage-blob>=12.19.0
@@ -48,12 +46,12 @@ jupyter>=1.0.0
 matplotlib>=3.8.0
 seaborn>=0.13.0
 
-# Additional dependencies needed for the application
+# Additional dependencies
 huggingface-hub>=0.23.5
 tqdm>=4.66.5
-typing-extensions>=4.12.0
+typing-extensions>=4.12.2
 jsonschema>=4.23.0
 ragas>=0.0.22
 datasets>=2.19.0
-tokenizers>=0.19.1
+tokenizers>=0.19.1  # Updated from tokenizers>=0.14.0,<0.19.0
 langchain_cohere>=0.4.2
