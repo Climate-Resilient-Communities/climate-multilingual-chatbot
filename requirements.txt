@@ -1,40 +1,40 @@
 # Core libraries
-langchain>=0.1.0
-langchain-community>=0.0.13
+langchain>=0.3.7
+langchain-community>=0.3.5
 langchain-core>=0.1.10
 langsmith>=0.0.80
-transformers==4.37.2  # Fixed version to ensure compatibility with FlagEmbedding
-torch>=2.0.0
-numpy>=1.24.0
-pandas>=2.0.0
+transformers==4.35.2  # Pin transformers to avoid Gemma2 import error
+torch>=2.5.1
+numpy>=1.26.4
+pandas>=2.2.3
 python-dotenv>=1.0.0
 pydantic>=2.5.0
-aiohttp>=3.9.0
+aiohttp>=3.10.10
 fastapi>=0.104.0
 uvicorn>=0.24.0
-aioboto3>=11.3.0
+aioboto3>=14.0.0
 botocore>=1.31.63
-boto3>=1.28.63
-redis>=5.0.1
+boto3>=1.34.0
+redis>=5.2.1
 python-json-logger>=2.0.7
 jinja2>=3.1.2
 jq>=1.6.0
 
 # Vector database
-pinecone-client>=2.2.4
+pinecone-client>=5.0.1
 
 # Embedding models
-FlagEmbedding==1.1.9  # Fixed version that works with transformers 4.37.2
+flagembedding==1.0.0  # Pin flagembedding to a compatible version with transformers
 BAAI-bge-m3>=0.1.0
 
 # NLP and AI
-cohere>=4.32
-ray>=2.9.0
+cohere>=5.11.3
+ray>=2.38.0
 inference_models==0.3.0
 
 # Azure specific
 azure-storage-blob>=12.19.0
-streamlit>=1.29.0
+streamlit>=1.40.1
 watchdog>=3.0.0
 pathlib>=1.0.1
 requests>=2.31.0
@@ -47,3 +47,13 @@ pytest-asyncio>=0.21.1
 jupyter>=1.0.0
 matplotlib>=3.8.0
 seaborn>=0.13.0
+
+# Additional dependencies needed for the application
+huggingface-hub>=0.23.5
+tqdm>=4.66.5
+typing-extensions>=4.12.0
+jsonschema>=4.23.0
+ragas>=0.0.22
+datasets>=2.19.0
+tokenizers>=0.19.1
+langchain_cohere>=0.4.2
