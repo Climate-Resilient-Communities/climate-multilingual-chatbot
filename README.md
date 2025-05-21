@@ -109,6 +109,73 @@ climate-multilingual-chatbot/
 └── README.md              # Project documentation
 ```
 
+## Application Flow
+
+<details>
+<summary>Click to view Application Flow Diagram</summary>
+
+```mermaid
+graph TD
+    subgraph User Interaction
+        A[User via Web UI (app_nova.py)] --> IA{Query Input};
+        B[User via CLI (main_nova.py)] --> IA;
+        IA -- Query & Language --> C[MultilingualClimateChatbot];
+    end
+
+    subgraph Core Chatbot Logic (MultilingualClimateChatbot in main_nova.py)
+        C -- Query, Language, History --> D{process_query};
+        D --> Cache{{Redis Cache Check}};
+        Cache -- Cache Miss --> D_PreProc[Query Preprocessing];
+        Cache -- Cache Hit --> D_End[Return Cached Response];
+
+        D_PreProc -- Normalized Query, Language --> IG[Input Guardrails (input_guardrail.py)];
+        IG -- topic_moderation (ClimateBERT & LLM Follow-up) --> IG_Decision{Query OK?};
+        IG_Decision -- No --> D_End_Reject[Return Rejection Message];
+        IG_Decision -- Yes --> QR[Query Routing (query_routing.py)];
+
+        QR -- route_query (Translate to English if needed via BedrockModel) --> QR_Result{English Query};
+
+        QR_Result -- English Query --> RET[Retrieval (retrieval.py)];
+        RET -- get_documents (Hybrid Search: Pinecone + BGEM3, Rerank: Cohere) --> RET_Docs[Ranked Documents];
+
+        subgraph Response Generation and Quality
+            RET_Docs -- Docs & English Query --> GEN[Response Generation (gen_response_nova.py)];
+            GEN -- nova_chat (BedrockModel from nova_flow.py) --> GEN_RawResp[Raw English Response & Citations];
+
+            GEN_RawResp -- Answer & Contexts --> HG[Hallucination Guard (hallucination_guard.py)];
+            HG -- check_hallucination (Cohere API) --> HG_Score{Faithfulness Score};
+
+            HG_Score -- Score < Threshold & Fallback Enabled --> FB_Search[Tavily Fallback Search];
+            FB_Search -- Fallback Results --> GEN;
+            HG_Score -- Score >= Threshold or No Fallback --> FIN_RESP[Final English Response];
+        end
+
+        FIN_RESP -- Potentially Translate to Original Language (BedrockModel) --> RESP_Translated[Translated Response];
+        RESP_Translated -- Response & Citations --> STORE_CACHE[Store in Redis Cache];
+        STORE_CACHE --> D_End;
+    end
+
+    subgraph Output
+        D_End --> O_Web[Display Response & Citations in Web UI];
+        D_End --> O_CLI[Print Response & Citations in CLI];
+        D_End_Reject --> O_Web;
+        D_End_Reject --> O_CLI;
+    end
+
+    %% Styling
+    classDef userInteraction fill:#D6EAF8,stroke:#3498DB;
+    classDef coreLogic fill:#E8F8F5,stroke:#1ABC9C;
+    classDef responseQuality fill:#FEF9E7,stroke:#F1C40F;
+    classDef output fill:#FDEDEC,stroke:#E74C3C;
+
+    class A,B,IA userInteraction;
+    class C,D,Cache,D_PreProc,IG,IG_Decision,QR,QR_Result,RET,RET_Docs,STORE_CACHE coreLogic;
+    class GEN,GEN_RawResp,HG,HG_Score,FB_Search,FIN_RESP,RESP_Translated responseQuality;
+    class O_Web,O_CLI,D_End,D_End_Reject output;
+```
+
+</details>
+
 ## Azure Deployment
 
 For Azure deployment, it's recommended to:
