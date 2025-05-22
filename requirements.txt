@@ -1,60 +1,29 @@
-# Core libraries
+aioboto3>=14.0.0
+boto3>=1.34.0
+cohere>=5.11.3
+python-dotenv>=1.0.0
+streamlit>=1.40.1
+torch>=2.5.1
+transformers>=4.44.2
+flagembedding>=1.3.2
+huggingface-hub>=0.23.5
 langchain>=0.3.7
 langchain-community>=0.3.5
-langchain-core>=0.1.10
-langsmith>=0.0.80
-
-# Embedding stack – keep these three together
-transformers==4.44.2   # Gemma‑2 symbols + BGEM3 compatible
-tokenizers>=0.15,<0.19 # satisfies 4.44.2; keeps Pip quiet
-flagembedding==1.3.4   # Requires specific transformers version
-
-torch>=2.5.1
+langchain_cohere>=0.4.2
+pinecone>=5.0.1
+redis>=5.2.1
 numpy>=1.26.4
 pandas>=2.2.3
-python-dotenv>=1.0.0
-pydantic>=2.5.0
-aiohttp>=3.10.10
-fastapi>=0.104.0
-uvicorn>=0.24.0
-aioboto3>=14.0.0
-botocore>=1.31.63
-boto3>=1.34.0
-redis>=5.2.1
-python-json-logger>=2.0.7
-jinja2>=3.1.2
-jq>=1.6.0
-
-# Vector database
-pinecone>=3.0.0  # Updated from pinecone-client to pinecone per official recommendation
-
-# NLP and AI
-# Removed explicit cohere pin to let langchain-cohere pull the right version
-ray>=2.38.0
-
-# Azure specific
-azure-storage-blob>=12.19.0
-opencensus>=0.11.0
-opencensus-ext-azure>=1.1.9
-opencensus-ext-logging>=0.1.0
-streamlit>=1.40.1
-watchdog>=3.0.0
-requests>=2.31.0
-
-# For testing
-pytest>=7.4.3
-pytest-asyncio>=0.21.1
-
-# Optional for development
-jupyter>=1.0.0
-matplotlib>=3.8.0
-seaborn>=0.13.0
-
-# Additional dependencies
-huggingface-hub>=0.23.5
 tqdm>=4.66.5
+aiohttp>=3.10.10
 typing-extensions>=4.12.2
 jsonschema>=4.23.0
 ragas>=0.0.22
 datasets>=2.19.0
-langchain_cohere>=0.4.2  # Updated to latest version to work with newer cohere
+tokenizers>=0.19.1
+# Azure deployment requirements
+opencensus-ext-azure>=1.1.9
+# For local model support
+safetensors>=0.4.1
+accelerate>=0.27.0
+protobuf>=4.24.4
