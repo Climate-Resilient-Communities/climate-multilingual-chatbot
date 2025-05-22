@@ -3,7 +3,7 @@ langchain>=0.3.7
 langchain-community>=0.3.5
 langchain-core>=0.1.10
 langsmith>=0.0.80
-transformers>=4.44.2  # Updated from 4.35.2
+transformers==4.44.2  # Pinned version to ensure compatibility with FlagEmbedding
 torch>=2.5.1
 numpy>=1.26.4
 pandas>=2.2.3
@@ -24,7 +24,7 @@ jq>=1.6.0
 pinecone>=3.0.0  # Updated from pinecone-client to pinecone per official recommendation
 
 # Embedding models
-flagembedding>=1.2.0  # Updated to latest version for BGEM3FlagModel support
+flagembedding==1.1.2  # Pinned to a specific version that's compatible with transformers 4.44.2
 
 # NLP and AI
 cohere>=5.11.3
@@ -37,7 +37,6 @@ opencensus-ext-azure>=1.1.9
 opencensus-ext-logging>=0.1.0
 streamlit>=1.40.1
 watchdog>=3.0.0
-# pathlib>=1.0.1 - Removed as it's part of standard library and causes conflicts
 requests>=2.31.0
 
 # For testing
@@ -56,5 +55,5 @@ typing-extensions>=4.12.2
 jsonschema>=4.23.0
 ragas>=0.0.22
 datasets>=2.19.0
-tokenizers>=0.19.1  # Updated from tokenizers>=0.14.0,<0.19.0
+tokenizers==0.19.1  # Pinned to version compatible with transformers 4.44.2
 langchain_cohere>=0.4.2
