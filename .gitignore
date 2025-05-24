@@ -195,3 +195,12 @@ cache/
 *_test_results.json
 rexdale_rag_test_results.json
 rag_test_results.json
+
+# Ignore coding guidelines file
+CODING_GUIDELINES.md
+
+# Ignore consent modal implementation plan
+CONSENT_MODAL_PLAN.md
+
+# Ignore development files
+src/webui/app_nova2.py

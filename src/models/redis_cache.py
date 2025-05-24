@@ -32,21 +32,25 @@ class RedisCache:
             self.port = port or int(os.getenv('REDIS_PORT', 6379))
             self.password = password or os.getenv('REDIS_PASSWORD')
             self.ssl = ssl or os.getenv('REDIS_SSL', '').lower() == 'true'
+            self.db = db
             
             logger.info(f"Initializing Redis connection to {self.host}:{self.port} (SSL: {self.ssl})")
             
+            # Store connection parameters for reconnection
+            self._connection_params = {
+                'host': self.host,
+                'port': self.port,
+                'db': self.db,
+                'password': self.password,
+                'ssl': self.ssl,
+                'decode_responses': True,
+                'socket_timeout': 5,
+                'socket_connect_timeout': 5,
+                'retry_on_timeout': True
+            }
+            
             # Initialize Redis client with SSL if needed
-            self.redis_client = redis.Redis(
-                host=self.host, 
-                port=self.port, 
-                db=db,
-                password=self.password,
-                ssl=self.ssl,
-                decode_responses=True,
-                socket_timeout=5,
-                socket_connect_timeout=5,
-                retry_on_timeout=True
-            )
+            self.redis_client = self._create_client()
             
             # Test connection but don't block initialization
             try:
@@ -63,15 +67,37 @@ class RedisCache:
             logger.error(f"Failed to initialize Redis cache: {str(e)}")
             self.redis_client = None
             self._closed = True
+    
+    def _create_client(self):
+        """Create a new Redis client with the stored connection parameters."""
+        return redis.Redis(**self._connection_params)
+    
+    def _get_client(self):
+        """Get a valid Redis client, reconnecting if necessary."""
+        if not self.redis_client or getattr(self.redis_client, 'closed', False):
+            logger.info(f"Reconnecting to Redis at {self.host}:{self.port}")
+            try:
+                self.redis_client = self._create_client()
+                self._closed = False
+            except Exception as e:
+                logger.error(f"Failed to reconnect to Redis: {str(e)}")
+                return None
+        return self.redis_client
 
     async def get(self, key: str) -> Optional[Any]:
         """Get value from cache with proper error handling."""
-        if self._closed or not self.redis_client:
+        if self._closed:
             logger.warning("Attempting to use closed Redis connection")
             return None
+            
         try:
+            # Get client with reconnection guard
+            client = self._get_client()
+            if not client:
+                return None
+                
             # Run Redis operation in thread to avoid blocking event loop
-            value = await asyncio.to_thread(self.redis_client.get, key)
+            value = await asyncio.to_thread(client.get, key)
             if value:
                 try:
                     decoded = json.loads(value)
@@ -80,7 +106,7 @@ class RedisCache:
                 except json.JSONDecodeError as e:
                     logger.error(f"Error decoding cached value: {str(e)}")
                     # Delete corrupt cache entry
-                    await asyncio.to_thread(self.redis_client.delete, key)
+                    await asyncio.to_thread(client.delete, key)
                     return None
             logger.debug(f"Cache miss for key: {key}")
             return None
@@ -90,15 +116,21 @@ class RedisCache:
 
     async def set(self, key: str, value: Any) -> bool:
         """Set value in cache with expiration."""
-        if self._closed or not self.redis_client:
+        if self._closed:
             logger.warning("Attempting to use closed Redis connection")
             return False
+            
         try:
+            # Get client with reconnection guard
+            client = self._get_client()
+            if not client:
+                return False
+                
             try:
                 # Ensure we only store strings, not bytes
                 serialized = json.dumps(value, ensure_ascii=False)
                 success = await asyncio.to_thread(
-                    lambda: self.redis_client.setex(key, self.expiration, serialized)
+                    lambda: client.setex(key, self.expiration, serialized)
                 )
                 if success:
                     logger.debug(f"Successfully cached value for key: {key}")
@@ -112,10 +144,16 @@ class RedisCache:
 
     async def delete(self, key: str) -> bool:
         """Delete value from cache."""
-        if self._closed or not self.redis_client:
+        if self._closed:
             return False
+            
         try:
-            return bool(await asyncio.to_thread(self.redis_client.delete, key))
+            # Get client with reconnection guard
+            client = self._get_client()
+            if not client:
+                return False
+                
+            return bool(await asyncio.to_thread(client.delete, key))
         except Exception as e:
             logger.error(f"Cache delete error: {str(e)}")
             return False
@@ -125,8 +163,9 @@ class RedisCache:
         if self._closed or not self.redis_client:
             return
         try:
-            if self.redis_client:
-                await asyncio.to_thread(self.redis_client.close)
+            client = self._get_client()
+            if client:
+                await asyncio.to_thread(client.close)
             self._closed = True
             logger.info("Redis connection closed")
         except Exception as e:
