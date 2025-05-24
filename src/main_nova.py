@@ -8,6 +8,13 @@ import time
 import warnings
 import json
 
+#remove deprecation warnings from transformers
+warnings.filterwarnings(
+    "ignore",
+    message="`torch.utils._pytree._register_pytree_node` is deprecated",
+    module="transformers.utils.generic",
+)
+
 # Configure environment variables first
 os.environ["PYTORCH_JIT"] = "0"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"

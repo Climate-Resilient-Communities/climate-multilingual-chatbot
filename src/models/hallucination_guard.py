@@ -109,7 +109,7 @@ async def check_hallucination(
                                     {"text": combined_context}
                                 ],
                                 top_n=2,
-                                model="rerank-english-v2.0"
+                                model="rerank-english-v3.0"
                             )
                         )
                         
