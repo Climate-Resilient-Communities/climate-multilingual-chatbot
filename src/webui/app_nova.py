@@ -8,6 +8,39 @@ from pathlib import Path
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="streamlit")
 
+# Patch PyTorch classes for Streamlit compatibility before imports
+# This prevents the "__path__._path" error in Azure deployments
+os.environ["STREAMLIT_WATCHER_TYPE"] = "none"  # Disable Streamlit file watcher
+os.environ["PYTORCH_JIT"] = "0"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["TORCH_USE_CUDA_DSA"] = "0"
+os.environ["TORCH_USE_RTLD_GLOBAL"] = "YES"  # Prevent _path issues
+
+# Monkey patch torch._classes before Streamlit loads it
+import sys
+import types
+
+class CustomPyTorchClassesMock:
+    def __getattr__(self, item):
+        if item == "__path__":
+            return types.SimpleNamespace(_path=[])
+        return None
+
+# Check if torch is already imported
+if "torch" in sys.modules:
+    if hasattr(sys.modules["torch"], "_classes"):
+        # Only patch if needed
+        sys.modules["torch"]._classes = CustomPyTorchClassesMock()
+else:
+    # Set up for when torch is imported
+    _old_import = __import__
+    def _patched_import(name, *args, **kwargs):
+        module = _old_import(name, *args, **kwargs)
+        if name == "torch" and hasattr(module, "_classes"):
+            module._classes = CustomPyTorchClassesMock()
+        return module
+    sys.modules["builtins"].__import__ = _patched_import
+
 # Initialize event loop properly at the very beginning
 import asyncio
 try:
@@ -18,7 +51,7 @@ try:
 except RuntimeError:
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-
+    
 # Set environment variables for Streamlit
 # scrap the old key
 os.environ.pop("STREAMLIT_WATCHER_TYPE", None)   
