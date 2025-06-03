@@ -1,47 +1,82 @@
-# Configure environment first
+# CRITICAL: This must be the very first code in your file
+# Place this at the absolute top, before ANY other imports
+
 import os
 import sys
-import logging
-from pathlib import Path
-
-# Suppress the StreamlitAPIWarning about missing ScriptRunContext
 import warnings
-warnings.filterwarnings("ignore", category=UserWarning, module="streamlit")
 
-# Patch PyTorch classes for Streamlit compatibility before imports
-# This prevents the "__path__._path" error in Azure deployments
-os.environ["STREAMLIT_WATCHER_TYPE"] = "none"  # Disable Streamlit file watcher
+# === STEP 1: DISABLE ALL STREAMLIT WATCHERS PERMANENTLY ===
+os.environ["STREAMLIT_WATCHER_TYPE"] = "none"
+os.environ["STREAMLIT_SERVER_WATCH_DIRS"] = "false"
+os.environ["STREAMLIT_SERVER_RUN_ON_SAVE"] = "false"
+os.environ["STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION"] = "false"
+os.environ["STREAMLIT_BROWSER_GATHER_USAGE_STATS"] = "false"
+
+# === STEP 2: DISABLE PYTORCH JIT AND PROBLEMATIC FEATURES ===
 os.environ["PYTORCH_JIT"] = "0"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["TORCH_USE_CUDA_DSA"] = "0"
-os.environ["TORCH_USE_RTLD_GLOBAL"] = "YES"  # Prevent _path issues
+os.environ["TORCH_USE_RTLD_GLOBAL"] = "YES"
+os.environ["HF_HOME"] = os.environ.get("TEMP", "/tmp") + "/huggingface"
 
-# Monkey patch torch._classes before Streamlit loads it
-import sys
+# === STEP 3: COMPREHENSIVE TORCH._CLASSES PATCH ===
 import types
+import builtins
 
-class CustomPyTorchClassesMock:
+class SafePyTorchClassesMock:
+    """Safe mock for torch._classes that prevents __path__ access issues"""
+    def __init__(self):
+        self._original_classes = None
+    
     def __getattr__(self, item):
         if item == "__path__":
+            # Return a mock path object that won't break Streamlit
             return types.SimpleNamespace(_path=[])
+        elif item == "_path":
+            return []
+        # For any other attributes, try to delegate to original if available
+        if self._original_classes and hasattr(self._original_classes, item):
+            return getattr(self._original_classes, item)
         return None
+    
+    def __setattr__(self, name, value):
+        if name.startswith('_'):
+            super().__setattr__(name, value)
+        # Ignore other attribute setting to prevent issues
 
-# Check if torch is already imported
+# Store the original import function
+_original_import = builtins.__import__
+
+def _patched_import(name, *args, **kwargs):
+    """Patched import that fixes torch._classes on import"""
+    module = _original_import(name, *args, **kwargs)
+    
+    if name == "torch" or name.startswith("torch."):
+        if hasattr(module, "_classes"):
+            # Store reference to original if it exists
+            mock = SafePyTorchClassesMock()
+            if hasattr(module._classes, '__dict__'):
+                mock._original_classes = module._classes
+            module._classes = mock
+    
+    return module
+
+# Apply the import patch
+builtins.__import__ = _patched_import
+
+# === STEP 4: HANDLE EXISTING TORCH IMPORTS ===
 if "torch" in sys.modules:
-    if hasattr(sys.modules["torch"], "_classes"):
-        # Only patch if needed
-        sys.modules["torch"]._classes = CustomPyTorchClassesMock()
-else:
-    # Set up for when torch is imported
-    _old_import = __import__
-    def _patched_import(name, *args, **kwargs):
-        module = _old_import(name, *args, **kwargs)
-        if name == "torch" and hasattr(module, "_classes"):
-            module._classes = CustomPyTorchClassesMock()
-        return module
-    sys.modules["builtins"].__import__ = _patched_import
+    torch_module = sys.modules["torch"]
+    if hasattr(torch_module, "_classes"):
+        mock = SafePyTorchClassesMock()
+        mock._original_classes = torch_module._classes
+        torch_module._classes = mock
 
-# Initialize event loop properly at the very beginning
+# === STEP 5: SUPPRESS WARNINGS ===
+warnings.filterwarnings("ignore", category=UserWarning, module="streamlit")
+warnings.filterwarnings("ignore", category=FutureWarning, module="transformers")
+
+# === STEP 6: SETUP EVENT LOOP BEFORE STREAMLIT ===
 import asyncio
 try:
     loop = asyncio.get_event_loop()
@@ -51,18 +86,40 @@ try:
 except RuntimeError:
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    
-# Set environment variables for Streamlit
-# scrap the old key
-os.environ.pop("STREAMLIT_WATCHER_TYPE", None)   
-os.environ["STREAMLIT_SERVER_RUN_ON_SAVE"] = "false"
-os.environ["HF_HOME"] = os.environ.get("TEMP", "/tmp") + "/huggingface"  # Replace deprecated TRANSFORMERS_CACHE
 
-# Configure torch environment variables before any imports
-os.environ["PYTORCH_JIT"] = "0"
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-os.environ["TORCH_USE_CUDA_DSA"] = "0"
-os.environ["TORCH_USE_RTLD_GLOBAL"] = "YES"  # Add this to prevent _path issues
+# === PREPARE VALUES FOR PAGE CONFIG (FAVICON) BEFORE STREAMLIT IMPORT ===
+from pathlib import Path
+import base64
+
+_APP_FILE_DIR = Path(__file__).resolve().parent
+ASSETS_DIR_FOR_FAVICON = _APP_FILE_DIR / "assets"
+TREE_ICON_PATH_FOR_FAVICON = str(ASSETS_DIR_FOR_FAVICON / "tree.ico")
+
+calculated_favicon = "🌳"  # Default emoji fallback
+if (ASSETS_DIR_FOR_FAVICON / "tree.ico").exists():
+    try:
+        with open(TREE_ICON_PATH_FOR_FAVICON, "rb") as f:
+            favicon_data = base64.b64encode(f.read()).decode()
+            calculated_favicon = f"data:image/x-icon;base64,{favicon_data}"
+    except Exception as e:
+        print(f"[CONFIG WARNING] Could not load favicon: {e}")
+
+print("✓ PyTorch-Streamlit compatibility patches applied successfully")
+
+# === NOW IMPORT STREAMLIT AND SET PAGE CONFIG (ONLY ONCE) ===
+import streamlit as st
+
+st.set_page_config(
+    layout="wide", 
+    page_title="Multilingual Climate Chatbot",
+    page_icon=calculated_favicon
+)
+
+# === NOW OTHER IMPORTS AND SETUP ===
+import logging
+import time
+import re
+from concurrent.futures import ThreadPoolExecutor
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -71,8 +128,25 @@ logger = logging.getLogger(__name__)
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.append(str(project_root))
 
-# Update asset paths using Path for cross-platform compatibility
-ASSETS_DIR = Path(__file__).parent / "assets"
+# Configure PyTorch after safe import
+import torch
+torch.set_num_threads(1)
+if torch.cuda.is_available():
+    torch.backends.cuda.matmul.allow_tf32 = True
+
+# Prevent any remaining torch path issues
+if hasattr(torch.utils.data, '_utils'):
+    torch.utils.data._utils.MP_STATUS_CHECK_INTERVAL = 0
+
+# NOW import your custom modules
+from src.utils.env_loader import load_environment
+from src.main_nova import MultilingualClimateChatbot
+
+# Load environment
+load_environment()
+
+# Asset paths for general use
+ASSETS_DIR = _APP_FILE_DIR / "assets"
 TREE_ICON = str(ASSETS_DIR / "tree.ico") if (ASSETS_DIR / "tree.ico").exists() else None
 CCC_ICON = str(ASSETS_DIR / "CCCicon.png") if (ASSETS_DIR / "CCCicon.png").exists() else None
 WALLPAPER = str(ASSETS_DIR / "wallpaper.png") if (ASSETS_DIR / "wallpaper.png").exists() else None
@@ -86,48 +160,20 @@ def get_base64_image(image_path):
         logger.error(f"Error loading image {image_path}: {str(e)}")
         return None
 
-# Load favicon
-favicon = None
-if TREE_ICON and Path(TREE_ICON).exists():
+def disable_streamlit_watcher():
+    """Additional runtime disabling of Streamlit file watcher"""
     try:
-        import base64
-        with open(TREE_ICON, "rb") as f:
-            favicon_data = base64.b64encode(f.read()).decode()
-            # Create a data URL for the favicon
-            favicon = f"data:image/x-icon;base64,{favicon_data}"
+        import streamlit.watcher
+        if hasattr(streamlit.watcher, 'LocalSourcesWatcher'):
+            original_get_module_paths = streamlit.watcher.local_sources_watcher.get_module_paths
+            def safe_get_module_paths(module):
+                try:
+                    return original_get_module_paths(module)
+                except (RuntimeError, AttributeError):
+                    return []
+            streamlit.watcher.local_sources_watcher.get_module_paths = safe_get_module_paths
     except Exception as e:
-        logger.warning(f"Could not load favicon: {e}")
-        favicon = "🌳"  # Fallback to emoji
-else:
-    favicon = "🌳"  # Default emoji if no icon file
-
-# Must be the first Streamlit command
-import streamlit as st
-st.set_page_config(
-    layout="wide", 
-    page_title="Multilingual Climate Chatbot",
-    page_icon=favicon  # This sets the favicon
-)
-
-# Now configure torch after environment setup
-import torch
-torch.set_num_threads(1)
-if torch.cuda.is_available():
-    torch.backends.cuda.matmul.allow_tf32 = True
-
-# Prevent torch path issues with Streamlit's file watcher
-torch.utils.data._utils.MP_STATUS_CHECK_INTERVAL = 0
-
-import time
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
-
-# Import after environment setup
-from src.utils.env_loader import load_environment
-from src.main_nova import MultilingualClimateChatbot
-
-# Load environment variables before initializing chatbot
-load_environment()
+        print(f"Warning: Could not patch Streamlit watcher: {e}")
 
 def create_event_loop():
     """Create and configure a new event loop."""
@@ -141,7 +187,7 @@ def create_event_loop():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             
-        loop.set_debug(False)  # Disable debug to reduce overhead
+        loop.set_debug(False)
         return loop
     except Exception as e:
         st.error(f"Failed to create event loop: {str(e)}")
@@ -153,7 +199,6 @@ def run_async(coro):
     try:
         loop = create_event_loop()
         
-        # Run in executor to prevent blocking
         with ThreadPoolExecutor() as pool:
             future = pool.submit(lambda: loop.run_until_complete(coro))
             return future.result()
@@ -163,11 +208,9 @@ def run_async(coro):
     finally:
         if loop and not loop.is_closed():
             try:
-                # Clean up any remaining tasks
                 pending = asyncio.all_tasks(loop)
                 for task in pending:
                     task.cancel()
-                # Use a timeout to prevent hanging
                 loop.run_until_complete(asyncio.wait_for(
                     asyncio.gather(*pending, return_exceptions=True),
                     timeout=2.0
@@ -185,22 +228,17 @@ def run_async(coro):
 def init_chatbot():
     """Initialize the chatbot with proper error handling."""
     try:
-        # Use a valid Pinecone index name or one that actually exists in your environment
-        # For local development, using a production index is recommended
         index_name = os.environ.get("PINECONE_INDEX_NAME", "climate-change-adaptation-index-10-24-prod")
-        
         chatbot = MultilingualClimateChatbot(index_name)
         return {"success": True, "chatbot": chatbot, "error": None}
     except Exception as e:
         error_message = str(e)
-        # Check if the error is specifically related to climatebert_tokenizer
         if "climatebert_tokenizer" in error_message:
             return {
                 "success": False,
                 "chatbot": None,
                 "error": f"Failed to initialize chatbot: 'MultilingualClimateChatbot' object has no attribute 'climatebert_tokenizer'"
             }
-        # For other errors, provide a more general message
         elif "404" in error_message and "Resource" in error_message and "not found" in error_message:
             return {
                 "success": False,
@@ -389,43 +427,15 @@ def display_chat_messages():
                 display_source_citations(message['citations'], base_idx=i)
 
 def load_custom_css():
-    # Get wallpaper CSS if available
-    wallpaper_css = ""
+    """SIMPLIFIED CSS - removed problematic JavaScript and complex theme detection"""
+    
+    # Get wallpaper if available
     wallpaper_base64 = None
     if WALLPAPER and Path(WALLPAPER).exists():
         wallpaper_base64 = get_base64_image(WALLPAPER)
     
-    # Theme detection and application
-    st.markdown("""
-    <script>
-    (function() {
-        // Detect theme from multiple sources
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const hasDarkReader = document.documentElement.getAttribute('data-darkreader-mode') !== null;
-        const hasExtension = hasDarkReader || document.documentElement.classList.contains('night-eye-active');
-        
-        // Apply theme
-        document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
-        document.documentElement.setAttribute('data-has-extension', hasExtension ? 'true' : 'false');
-        
-        // Listen for theme changes
-        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-            document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
-        });
-        
-        // Prevent flash of unstyled content
-        document.documentElement.style.visibility = 'hidden';
-        document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(() => {
-                document.documentElement.style.visibility = 'visible';
-            }, 100);
-        });
-    })();
-    </script>
-    """, unsafe_allow_html=True)
-    
     # Hide Streamlit header
-    hide_streamlit_header = """
+    st.markdown("""
     <style>
         header[data-testid="stHeader"] {
             display: none;
@@ -437,24 +447,12 @@ def load_custom_css():
             display: none;
         }
     </style>
-    """
-    st.markdown(hide_streamlit_header, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
     
-    # Wallpaper CSS - separate implementation for better rendering
+    # Basic wallpaper CSS (if available)
     if wallpaper_base64:
         st.markdown(f"""
         <style>
-        /* Make sure the stApp background is transparent to show wallpaper */
-        html, body {{
-            background-color: var(--background-secondary);
-        }}
-
-        .stApp {{
-            background-color: transparent !important;  /* This is important! */
-            position: relative;
-        }}
-
-        /* Wallpaper layer */
         .stApp::before {{
             content: '';
             position: fixed;
@@ -465,129 +463,26 @@ def load_custom_css():
             background-image: url('data:image/png;base64,{wallpaper_base64}');
             background-repeat: repeat;
             background-size: 1200px;
-            opacity: var(--wallpaper-opacity);
+            opacity: 0.1;
             pointer-events: none;
-            z-index: -1;  /* Changed from 0 to -1 to ensure it's behind */
-        }}
-
-        /* Main container needs relative positioning */
-        .main {{
-            position: relative;
-            z-index: 1;
+            z-index: -1;
         }}
         </style>
         """, unsafe_allow_html=True)
     
-    # Main CSS with theme variables
-    st.markdown(f"""
+    # SIMPLIFIED CSS - no complex theme detection, no visibility tricks
+    st.markdown("""
     <style>
-    /* Import fonts */
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&family=Open+Sans:wght@300;400;600;700&display=swap');
-    
-    /* Font families */
-    :root {{
-        --primary-font: 'Rocca Two', Merriweather, serif;
-        --secondary-font: 'Poppins', 'Open Sans', sans-serif;
-    }}
-    
-    /* Light theme colors (your current colors - unchanged) */
-    :root {{
-        --primary-color: #009376;
-        --primary-hover: #007e65;
-        --background-primary: #ffffff;
-        --background-secondary: #f8fafa;
-        --background-chat: #ffffff;
-        --background-user-message: #DCF8C6;
-        --background-consent: rgba(255, 255, 255, 0.95);
-        --text-primary: #333333;
-        --text-secondary: #666666;
-        --text-on-primary: #ffffff;
-        --border-color: #e0e0e0;
-        --shadow-light: rgba(0, 0, 0, 0.05);
-        --shadow-medium: rgba(0, 0, 0, 0.1);
-        --shadow-heavy: rgba(0, 0, 0, 0.3);
-        --overlay-color: rgba(0, 0, 0, 0.7);
-        --button-disabled-bg: #cccccc;
-        --button-disabled-text: #666666;
-        --warning-bg: #fff3cd;
-        --warning-text: #856404;
-        --warning-border: #ffeeba;
-        --success-bg: #d4edda;
-        --success-text: #155724;
-        --footer-border: #eeeeee;
-        --expander-bg: #f9f9f9;
-        --wallpaper-opacity: 0.15;
-    }}
-    
-    /* Dark theme colors */
-    [data-theme="dark"] {{
-        --primary-color: #00c896;
-        --primary-hover: #00b384;
-        --background-primary: #1a1a1a;
-        --background-secondary: #242424;
-        --background-chat: #2d2d2d;
-        --background-user-message: #1a4d1a;
-        --background-consent: rgba(42, 42, 42, 0.95);
-        --text-primary: #e8e8e8;
-        --text-secondary: #b0b0b0;
-        --text-on-primary: #ffffff;
-        --border-color: #3a3a3a;
-        --shadow-light: rgba(0, 0, 0, 0.2);
-        --shadow-medium: rgba(0, 0, 0, 0.4);
-        --shadow-heavy: rgba(0, 0, 0, 0.6);
-        --overlay-color: rgba(0, 0, 0, 0.85);
-        --button-disabled-bg: #4a4a4a;
-        --button-disabled-text: #888888;
-        --warning-bg: #523d0f;
-        --warning-text: #fff3cd;
-        --warning-border: #6b5810;
-        --success-bg: #1e4620;
-        --success-text: #a3d9a5;
-        --footer-border: #333333;
-        --expander-bg: #2a2a2a;
-        --wallpaper-opacity: 0.05;
-    }}
-    
-    /* Smooth transitions */
-    * {{
-        transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-    }}
-    
-    /* Prevent transition flash on load */
-    html[style*="visibility: hidden"] * {{
-        transition: none !important;
-    }}
-    
-    /* Apply fonts */
-    body {{
-        font-family: var(--secondary-font);
-        color: var(--text-primary);
-    }}
-    
-    h1, h2, h3, h4, h5, h6 {{
-        font-family: var(--primary-font);
-        color: var(--primary-color);
-    }}
-    
-    /* Remove padding */
-    .main .block-container {{
+    /* Basic styling */
+    .main .block-container {
         padding-top: 0 !important;
         margin-top: 0 !important;
-    }}
+    }
     
-    /* Sidebar styling */
-    section[data-testid="stSidebar"] > div {{
-        padding-top: 0 !important;
-    }}
-    
-    section[data-testid="stSidebar"] .element-container:first-child {{
-        display: none;
-    }}
-    
-    /* Button styling with theme support */
-    .stButton > button {{
-        background-color: var(--primary-color);
-        color: var(--text-on-primary);
+    /* Button styling */
+    .stButton > button {
+        background-color: #009376;
+        color: white;
         border-radius: 8px;
         border: none;
         padding: 10px 24px;
@@ -595,264 +490,36 @@ def load_custom_css():
         font-size: 16px;
         cursor: pointer;
         transition: all 0.3s ease;
-        box-shadow: 0 2px 5px var(--shadow-medium);
-        font-family: var(--secondary-font);
-    }}
+    }
     
-    .stButton > button:hover:not(:disabled) {{
-        background-color: var(--primary-hover);
+    .stButton > button:hover:not(:disabled) {
+        background-color: #007e65;
         transform: translateY(-2px);
-        box-shadow: 0 4px 8px var(--shadow-medium);
-    }}
+    }
     
-    .stButton > button:active:not(:disabled) {{
-        transform: translateY(0px);
-    }}
-    
-    .stButton > button:disabled {{
-        background-color: var(--button-disabled-bg) !important;
-        color: var(--button-disabled-text) !important;
+    .stButton > button:disabled {
+        background-color: #cccccc !important;
+        color: #666666 !important;
         cursor: not-allowed;
-        box-shadow: none;
-        opacity: 1;
-    }}
-    
-    /* Download button */
-    .download-button {{
-        display: inline-flex;
-        align-items: center;
-        padding: 0.5rem 1rem;
-        background-color: var(--primary-color);
-        color: var(--text-on-primary);
-        border-radius: 4px;
-        text-decoration: none;
-        margin-left: 10px;
-        box-shadow: 0 2px 5px var(--shadow-medium);
-        transition: all 0.3s ease;
-        font-family: var(--secondary-font);
-    }}
-    
-    .download-button:hover {{
-        background-color: var(--primary-hover);
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px var(--shadow-medium);
-    }}
-    
-    /* Consent form container */
-    .consent-form-container {{
-        background-color: var(--background-consent);
-        color: var(--text-primary);
-        padding: 40px;
-        margin: 20px auto;
-        max-width: 800px;
-        font-family: var(--secondary-font);
-        border-radius: 10px;
-        box-shadow: 0 4px 6px var(--shadow-light);
-    }}
-    
-    /* Checkbox styling */
-    .consent-checkbox label {{
-        font-weight: bold;
-        font-size: 16px;
-        color: var(--primary-color);
-        font-family: var(--secondary-font);
-    }}
-    
-    /* Expander styling */
-    .streamlit-expanderHeader {{
-        font-size: 16px;
-        font-weight: 600;
-        color: var(--primary-color);
-        font-family: var(--primary-font);
-    }}
-    
-    [data-testid="stExpander"] > div:last-child {{
-        max-height: 400px;
-        overflow-y: auto;
-        font-family: var(--secondary-font);
-    }}
-    
-    /* Sidebar content */
-    .sidebar-content {{
-        background-color: var(--background-primary);
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px var(--shadow-light);
-        font-family: var(--secondary-font);
-    }}
-    
-    .sidebar-content h1 {{
-        color: var(--primary-color);
-        font-size: 24px;
-        margin-bottom: 20px;
-        font-family: var(--primary-font);
-    }}
-    
-    .sidebar-content h2 {{
-        color: var(--primary-color);
-        font-size: 20px;
-        margin-top: 30px;
-        margin-bottom: 15px;
-        padding-bottom: 8px;
-        border-bottom: 2px solid var(--border-color);
-        font-family: var(--primary-font);
-    }}
-    
-    /* Features list */
-    .features-benefits ul {{
-        list-style-type: disc;
-        color: var(--text-primary);
-    }}
-    
-    .features-benefits li {{
-        margin-bottom: 10px;
-        font-size: 14px;
-        line-height: 1.6;
-        font-family: var(--secondary-font);
-    }}
-    
-    .features-benefits {{
-        font-size: 14px;
-        line-height: 1.4;
-        font-family: var(--secondary-font);
-    }}
+        transform: none;
+    }
     
     /* Chat messages */
-    [data-testid="stChatMessageContent"] {{
-        background-color: var(--background-chat);
-        border-radius: 15px;
-        padding: 15px;
-        box-shadow: 0 2px 5px var(--shadow-light);
-        font-family: var(--secondary-font);
-    }}
-    
-    /* User message styling - more modern bubble style */
-    [data-testid="stChatMessage"] [data-testid="stChatMessageContent"]:has(> div.user-message) {{
-        background-color: var(--background-user-message) !important;
-        border-radius: 18px !important;
-        padding: 12px 16px !important;
-        box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
-    }}
-    
-    /* Bot message styling - more modern bubble style */
-    [data-testid="stChatMessage"] [data-testid="stChatMessageContent"]:has(> div.bot-message) {{
-        background-color: var(--background-chat) !important;
-        border-radius: 18px !important;
-        padding: 12px 16px !important;
-        box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
-    }}
-    
-    /* Chat input */
-    .stChatInputContainer {{
-        padding: 10px;
-        background-color: var(--background-primary);
-        border-radius: 20px;
-        box-shadow: 0 2px 10px var(--shadow-light);
-        font-family: var(--secondary-font);
-    }}
-    
-    /* Source citations */
-    [data-testid="stExpander"] {{
-        background-color: var(--expander-bg);
-        border-left: 3px solid var(--primary-color);
-        padding: 10px;
-        margin-top: 15px;
-        border-radius: 5px;
-    }}
-    
-    /* Footer */
-    .footer {{
-        margin-top: 40px;
-        padding-top: 20px;
-        border-top: 1px solid var(--footer-border);
-        text-align: center;
-        font-size: 14px;
-        color: var(--text-secondary);
-        font-family: var(--secondary-font);
-    }}
-    
-    /* Warning/Alert styling */
-    .stAlert, [data-baseweb="notification"] {{
-        background-color: var(--warning-bg) !important;
-        color: var(--warning-text) !important;
-        border: 1px solid var(--warning-border) !important;
-    }}
-    
-    /* FAQ popup */
-    .faq-popup {{
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: var(--overlay-color);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 9999;
-    }}
-    
-    .faq-popup-content {{
-        background-color: var(--background-primary);
-        color: var(--text-primary);
-        padding: 30px;
-        border-radius: 10px;
-        width: 80%;
-        max-width: 800px;
-        max-height: 80vh;
-        overflow-y: auto;
-        position: relative;
-        box-shadow: 0 5px 15px var(--shadow-heavy);
-    }}
-    
-    .faq-close-btn {{
-        position: absolute;
-        top: 10px;
-        right: 15px;
-        font-size: 24px;
-        cursor: pointer;
-        background: none;
-        border: none;
-        color: var(--primary-color);
-    }}
-    
-    /* Headings in chat messages */
-    [data-testid="stChatMessage"] h1 {{font-size: 1.50rem !important;}}
-    [data-testid="stChatMessage"] h2 {{font-size: 1.25rem !important;}}
-    [data-testid="stChatMessage"] h3 {{font-size: 1.10rem !important;}}
+    [data-testid="stChatMessage"] h1 {font-size: 1.50rem !important;}
+    [data-testid="stChatMessage"] h2 {font-size: 1.25rem !important;}
+    [data-testid="stChatMessage"] h3 {font-size: 1.10rem !important;}
     [data-testid="stChatMessage"] h4,
     [data-testid="stChatMessage"] h5,
-    [data-testid="stChatMessage"] h6 {{font-size: 1rem !important;}}
+    [data-testid="stChatMessage"] h6 {font-size: 1rem !important;}
     
-    /* High contrast mode support */
-    @media (prefers-contrast: high) {{
-        :root {{
-            --primary-color: #00ff00;
-            --border-color: currentColor;
-        }}
-    }}
+    /* Sidebar styling */
+    section[data-testid="stSidebar"] > div {
+        padding-top: 0 !important;
+    }
     
-    /* Reduced motion support */
-    @media (prefers-reduced-motion: reduce) {{
-        * {{
-            transition: none !important;
-            animation: none !important;
-        }}
-    }}
-    
-    /* Handle extension overrides gracefully */
-    [data-has-extension="true"] {{
-        /* Don't fight the extension, just ensure readability */
-        --primary-color: #00c896;
-    }}
-    
-    /* Ensure critical elements remain visible */
-    .stButton > button,
-    .consent-form-container,
-    .stAlert {{
-        isolation: isolate;
-        contain: paint;
-    }}
+    section[data-testid="stSidebar"] .element-container:first-child {
+        display: none;
+    }
     </style>
     """, unsafe_allow_html=True)
     
@@ -1102,6 +769,9 @@ def display_consent_form():
                 st.warning("⚠️ Please check the box above to continue.")
 
 def main():
+    # Add this as the first line
+    disable_streamlit_watcher()
+    
     # Initialize session state first
     if 'selected_source' not in st.session_state:
         st.session_state.selected_source = None
