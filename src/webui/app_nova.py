@@ -356,31 +356,50 @@ def display_chat_messages():
                 display_source_citations(message['citations'], base_idx=i)
 
 def load_custom_css():
-    # Set the wallpaper background
+    # Get wallpaper CSS if available
     wallpaper_css = ""
+    wallpaper_base64 = None
     if WALLPAPER and Path(WALLPAPER).exists():
         wallpaper_base64 = get_base64_image(WALLPAPER)
-        if (wallpaper_base64):
-            # Define background with repeat pattern instead of stretching
-            wallpaper_css = f"""
-                background: #f8fafa url('data:image/png;base64,{wallpaper_base64}') repeat 0 0;
-                background-size: 1200px; /* Prevent extreme upscaling */
-            """
     
-    # Hide Streamlit toolbar/header
+    # Theme detection and application
+    st.markdown("""
+    <script>
+    (function() {
+        // Detect theme from multiple sources
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const hasDarkReader = document.documentElement.getAttribute('data-darkreader-mode') !== null;
+        const hasExtension = hasDarkReader || document.documentElement.classList.contains('night-eye-active');
+        
+        // Apply theme
+        document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-has-extension', hasExtension ? 'true' : 'false');
+        
+        // Listen for theme changes
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+            document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+        });
+        
+        // Prevent flash of unstyled content
+        document.documentElement.style.visibility = 'hidden';
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                document.documentElement.style.visibility = 'visible';
+            }, 100);
+        });
+    })();
+    </script>
+    """, unsafe_allow_html=True)
+    
+    # Hide Streamlit header
     hide_streamlit_header = """
     <style>
-        /* Hide the entire toolbar */
         header[data-testid="stHeader"] {
             display: none;
         }
-        
-        /* Alternative selectors that might work */
         .stToolbar {
             display: none;
         }
-        
-        /* Hide the Deploy button specifically */
         button[kind="header"] {
             display: none;
         }
@@ -388,60 +407,352 @@ def load_custom_css():
     """
     st.markdown(hide_streamlit_header, unsafe_allow_html=True)
     
+    # Wallpaper CSS - separate implementation for better rendering
+    if wallpaper_base64:
+        st.markdown(f"""
+        <style>
+        /* Make sure the stApp background is transparent to show wallpaper */
+        html, body {{
+            background-color: var(--background-secondary);
+        }}
+
+        .stApp {{
+            background-color: transparent !important;  /* This is important! */
+            position: relative;
+        }}
+
+        /* Wallpaper layer */
+        .stApp::before {{
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url('data:image/png;base64,{wallpaper_base64}');
+            background-repeat: repeat;
+            background-size: 1200px;
+            opacity: var(--wallpaper-opacity);
+            pointer-events: none;
+            z-index: -1;  /* Changed from 0 to -1 to ensure it's behind */
+        }}
+
+        /* Main container needs relative positioning */
+        .main {{
+            position: relative;
+            z-index: 1;
+        }}
+        </style>
+        """, unsafe_allow_html=True)
+    
+    # Main CSS with theme variables
     st.markdown(f"""
     <style>
-    /* Import custom fonts */
+    /* Import fonts */
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&family=Open+Sans:wght@300;400;600;700&display=swap');
     
-    /* Define font families */
+    /* Font families */
     :root {{
         --primary-font: 'Rocca Two', Merriweather, serif;
         --secondary-font: 'Poppins', 'Open Sans', sans-serif;
     }}
     
-    /* Apply fonts to elements */
+    /* Light theme colors (your current colors - unchanged) */
+    :root {{
+        --primary-color: #009376;
+        --primary-hover: #007e65;
+        --background-primary: #ffffff;
+        --background-secondary: #f8fafa;
+        --background-chat: #ffffff;
+        --background-user-message: #DCF8C6;
+        --background-consent: rgba(255, 255, 255, 0.95);
+        --text-primary: #333333;
+        --text-secondary: #666666;
+        --text-on-primary: #ffffff;
+        --border-color: #e0e0e0;
+        --shadow-light: rgba(0, 0, 0, 0.05);
+        --shadow-medium: rgba(0, 0, 0, 0.1);
+        --shadow-heavy: rgba(0, 0, 0, 0.3);
+        --overlay-color: rgba(0, 0, 0, 0.7);
+        --button-disabled-bg: #cccccc;
+        --button-disabled-text: #666666;
+        --warning-bg: #fff3cd;
+        --warning-text: #856404;
+        --warning-border: #ffeeba;
+        --success-bg: #d4edda;
+        --success-text: #155724;
+        --footer-border: #eeeeee;
+        --expander-bg: #f9f9f9;
+        --wallpaper-opacity: 0.15;
+    }}
+    
+    /* Dark theme colors */
+    [data-theme="dark"] {{
+        --primary-color: #00c896;
+        --primary-hover: #00b384;
+        --background-primary: #1a1a1a;
+        --background-secondary: #242424;
+        --background-chat: #2d2d2d;
+        --background-user-message: #1a4d1a;
+        --background-consent: rgba(42, 42, 42, 0.95);
+        --text-primary: #e8e8e8;
+        --text-secondary: #b0b0b0;
+        --text-on-primary: #ffffff;
+        --border-color: #3a3a3a;
+        --shadow-light: rgba(0, 0, 0, 0.2);
+        --shadow-medium: rgba(0, 0, 0, 0.4);
+        --shadow-heavy: rgba(0, 0, 0, 0.6);
+        --overlay-color: rgba(0, 0, 0, 0.85);
+        --button-disabled-bg: #4a4a4a;
+        --button-disabled-text: #888888;
+        --warning-bg: #523d0f;
+        --warning-text: #fff3cd;
+        --warning-border: #6b5810;
+        --success-bg: #1e4620;
+        --success-text: #a3d9a5;
+        --footer-border: #333333;
+        --expander-bg: #2a2a2a;
+        --wallpaper-opacity: 0.05;
+    }}
+    
+    /* Smooth transitions */
+    * {{
+        transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    }}
+    
+    /* Prevent transition flash on load */
+    html[style*="visibility: hidden"] * {{
+        transition: none !important;
+    }}
+    
+    /* Apply fonts */
     body {{
         font-family: var(--secondary-font);
+        color: var(--text-primary);
     }}
     
     h1, h2, h3, h4, h5, h6 {{
         font-family: var(--primary-font);
+        color: var(--primary-color);
     }}
     
-    /* Apply background to all relevant container elements to ensure full coverage */
-    html, body, .stApp, section[data-testid="stAppViewContainer"] {{
-        {wallpaper_css}
-    }}
-    
-    /* Remove padding at the top to eliminate the unwanted box */
+    /* Remove padding */
     .main .block-container {{
         padding-top: 0 !important;
         margin-top: 0 !important;
     }}
     
-    /* Add this CSS to remove any default Streamlit sidebar styling */
-    .sidebar .sidebar-content {{
-        padding-top: 0 !important;
-    }}
-
-    /* Remove any default header spacing in sidebar */
+    /* Sidebar styling */
     section[data-testid="stSidebar"] > div {{
         padding-top: 0 !important;
     }}
-
-    /* Remove the gray background box if present */
+    
     section[data-testid="stSidebar"] .element-container:first-child {{
         display: none;
     }}
     
-    /* FAQ Popup styling */
+    /* Button styling with theme support */
+    .stButton > button {{
+        background-color: var(--primary-color);
+        color: var(--text-on-primary);
+        border-radius: 8px;
+        border: none;
+        padding: 10px 24px;
+        font-weight: 600;
+        font-size: 16px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 5px var(--shadow-medium);
+        font-family: var(--secondary-font);
+    }}
+    
+    .stButton > button:hover:not(:disabled) {{
+        background-color: var(--primary-hover);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px var(--shadow-medium);
+    }}
+    
+    .stButton > button:active:not(:disabled) {{
+        transform: translateY(0px);
+    }}
+    
+    .stButton > button:disabled {{
+        background-color: var(--button-disabled-bg) !important;
+        color: var(--button-disabled-text) !important;
+        cursor: not-allowed;
+        box-shadow: none;
+        opacity: 1;
+    }}
+    
+    /* Download button */
+    .download-button {{
+        display: inline-flex;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        background-color: var(--primary-color);
+        color: var(--text-on-primary);
+        border-radius: 4px;
+        text-decoration: none;
+        margin-left: 10px;
+        box-shadow: 0 2px 5px var(--shadow-medium);
+        transition: all 0.3s ease;
+        font-family: var(--secondary-font);
+    }}
+    
+    .download-button:hover {{
+        background-color: var(--primary-hover);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px var(--shadow-medium);
+    }}
+    
+    /* Consent form container */
+    .consent-form-container {{
+        background-color: var(--background-consent);
+        color: var(--text-primary);
+        padding: 40px;
+        margin: 20px auto;
+        max-width: 800px;
+        font-family: var(--secondary-font);
+        border-radius: 10px;
+        box-shadow: 0 4px 6px var(--shadow-light);
+    }}
+    
+    /* Checkbox styling */
+    .consent-checkbox label {{
+        font-weight: bold;
+        font-size: 16px;
+        color: var(--primary-color);
+        font-family: var(--secondary-font);
+    }}
+    
+    /* Expander styling */
+    .streamlit-expanderHeader {{
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--primary-color);
+        font-family: var(--primary-font);
+    }}
+    
+    [data-testid="stExpander"] > div:last-child {{
+        max-height: 400px;
+        overflow-y: auto;
+        font-family: var(--secondary-font);
+    }}
+    
+    /* Sidebar content */
+    .sidebar-content {{
+        background-color: var(--background-primary);
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px var(--shadow-light);
+        font-family: var(--secondary-font);
+    }}
+    
+    .sidebar-content h1 {{
+        color: var(--primary-color);
+        font-size: 24px;
+        margin-bottom: 20px;
+        font-family: var(--primary-font);
+    }}
+    
+    .sidebar-content h2 {{
+        color: var(--primary-color);
+        font-size: 20px;
+        margin-top: 30px;
+        margin-bottom: 15px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid var(--border-color);
+        font-family: var(--primary-font);
+    }}
+    
+    /* Features list */
+    .features-benefits ul {{
+        list-style-type: disc;
+        color: var(--text-primary);
+    }}
+    
+    .features-benefits li {{
+        margin-bottom: 10px;
+        font-size: 14px;
+        line-height: 1.6;
+        font-family: var(--secondary-font);
+    }}
+    
+    .features-benefits {{
+        font-size: 14px;
+        line-height: 1.4;
+        font-family: var(--secondary-font);
+    }}
+    
+    /* Chat messages */
+    [data-testid="stChatMessageContent"] {{
+        background-color: var(--background-chat);
+        border-radius: 15px;
+        padding: 15px;
+        box-shadow: 0 2px 5px var(--shadow-light);
+        font-family: var(--secondary-font);
+    }}
+    
+    /* User message styling - more modern bubble style */
+    [data-testid="stChatMessage"] [data-testid="stChatMessageContent"]:has(> div.user-message) {{
+        background-color: var(--background-user-message) !important;
+        border-radius: 18px !important;
+        padding: 12px 16px !important;
+        box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
+    }}
+    
+    /* Bot message styling - more modern bubble style */
+    [data-testid="stChatMessage"] [data-testid="stChatMessageContent"]:has(> div.bot-message) {{
+        background-color: var(--background-chat) !important;
+        border-radius: 18px !important;
+        padding: 12px 16px !important;
+        box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
+    }}
+    
+    /* Chat input */
+    .stChatInputContainer {{
+        padding: 10px;
+        background-color: var(--background-primary);
+        border-radius: 20px;
+        box-shadow: 0 2px 10px var(--shadow-light);
+        font-family: var(--secondary-font);
+    }}
+    
+    /* Source citations */
+    [data-testid="stExpander"] {{
+        background-color: var(--expander-bg);
+        border-left: 3px solid var(--primary-color);
+        padding: 10px;
+        margin-top: 15px;
+        border-radius: 5px;
+    }}
+    
+    /* Footer */
+    .footer {{
+        margin-top: 40px;
+        padding-top: 20px;
+        border-top: 1px solid var(--footer-border);
+        text-align: center;
+        font-size: 14px;
+        color: var(--text-secondary);
+        font-family: var(--secondary-font);
+    }}
+    
+    /* Warning/Alert styling */
+    .stAlert, [data-baseweb="notification"] {{
+        background-color: var(--warning-bg) !important;
+        color: var(--warning-text) !important;
+        border: 1px solid var(--warning-border) !important;
+    }}
+    
+    /* FAQ popup */
     .faq-popup {{
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
-        background-color: rgba(0, 0, 0, 0.7);
+        background-color: var(--overlay-color);
         display: flex;
         justify-content: center;
         align-items: center;
@@ -449,7 +760,8 @@ def load_custom_css():
     }}
     
     .faq-popup-content {{
-        background-color: white;
+        background-color: var(--background-primary);
+        color: var(--text-primary);
         padding: 30px;
         border-radius: 10px;
         width: 80%;
@@ -457,7 +769,7 @@ def load_custom_css():
         max-height: 80vh;
         overflow-y: auto;
         position: relative;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        box-shadow: 0 5px 15px var(--shadow-heavy);
     }}
     
     .faq-close-btn {{
@@ -468,208 +780,50 @@ def load_custom_css():
         cursor: pointer;
         background: none;
         border: none;
-        color: #009376;
+        color: var(--primary-color);
     }}
     
-    /* General button styling with more modern look */
-    .stButton > button {{
-        background-color: #009376;
-        color: white;
-        border-radius: 8px;
-        border: none;
-        padding: 10px 24px;
-        font-weight: 600;
-        font-size: 16px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        font-family: var(--secondary-font);
+    /* Headings in chat messages */
+    [data-testid="stChatMessage"] h1 {{font-size: 1.50rem !important;}}
+    [data-testid="stChatMessage"] h2 {{font-size: 1.25rem !important;}}
+    [data-testid="stChatMessage"] h3 {{font-size: 1.10rem !important;}}
+    [data-testid="stChatMessage"] h4,
+    [data-testid="stChatMessage"] h5,
+    [data-testid="stChatMessage"] h6 {{font-size: 1rem !important;}}
+    
+    /* High contrast mode support */
+    @media (prefers-contrast: high) {{
+        :root {{
+            --primary-color: #00ff00;
+            --border-color: currentColor;
+        }}
     }}
     
-    .stButton > button:hover:not(:disabled) {{
-        background-color: #007e65;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    /* Reduced motion support */
+    @media (prefers-reduced-motion: reduce) {{
+        * {{
+            transition: none !important;
+            animation: none !important;
+        }}
     }}
     
-    .stButton > button:active:not(:disabled) {{
-        transform: translateY(0px);
+    /* Handle extension overrides gracefully */
+    [data-has-extension="true"] {{
+        /* Don't fight the extension, just ensure readability */
+        --primary-color: #00c896;
     }}
     
-    .stButton > button:disabled {{
-        background-color: #cccccc;
-        color: #666666;
-        cursor: not-allowed;
-        box-shadow: none;
-    }}
-    
-    /* Download button styling */
-    .download-button {{
-        display: inline-flex;
-        align-items: center;
-        padding: 0.5rem 1rem;
-        background-color: #009376;
-        color: white;
-        border-radius: 4px;
-        text-decoration: none;
-        margin-left: 10px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        transition: all 0.3s ease;
-        font-family: var(--secondary-font);
-    }}
-    
-    .download-button:hover {{
-        background-color: #007e65;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    }}
-    
-    /* Style the consent form container - REMOVED BORDER */
-    .consent-form-container {{
-        background-color: white;
-        padding: 40px;
-        margin: 20px auto;
-        max-width: 800px;
-        font-family: var(--secondary-font);
-    }}
-    
-    /* Checkbox styling in consent form */
-    .consent-checkbox label {{
-        font-weight: bold;
-        font-size: 16px;
-        color: #009376;
-        font-family: var(--secondary-font);
-    }}
-    
-    /* Policy expander styling */
-    .streamlit-expanderHeader {{
-        font-size: 16px;
-        font-weight: 600;
-        color: #009376;
-        font-family: var(--primary-font);
-    }}
-    
-    /* Ensure expander content is scrollable */
-    [data-testid="stExpander"] > div:last-child {{
-        max-height: 400px;
-        overflow-y: auto;
-        font-family: var(--secondary-font);
-    }}
-    
-    /* Enhance sidebar styling */
-    .sidebar-content {{
-        background-color: #ffffff;
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        font-family: var(--secondary-font);
-    }}
-    
-    .sidebar-content h1 {{
-        color: #009376;
-        font-size: 24px;
-        margin-bottom: 20px;
-        font-family: var(--primary-font);
-    }}
-    
-    .sidebar-content h2 {{
-        color: #009376;
-        font-size: 20px;
-        margin-top: 30px;
-        margin-bottom: 15px;
-        padding-bottom: 8px;
-        border-bottom: 2px solid #e0e0e0;
-        font-family: var(--primary-font);
-    }}
-    
-    /* Style the features list with disc bullets */
-    .features-benefits ul {{
-        list-style-type: disc;
-        color: #333;
-    }}
-    
-    .features-benefits li {{
-        margin-bottom: 10px;
-        font-size: 14px;
-        line-height: 1.6;
-        font-family: var(--secondary-font);
-    }}
-    
-    /* Make Features & Benefits section text smaller */
-    .features-benefits {{
-        font-size: 14px;
-        line-height: 1.4;
-        font-family: var (--secondary-font);
-    }}
-    
-    /* Main chat area styling */
-    [data-testid="stChatMessageContent"] {{
-        background-color: #ffffff;
-        border-radius: 15px;
-        padding: 15px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        font-family: var(--secondary-font);
-    }}
-    
-    /* User message styling - more modern bubble style */
-    [data-testid="stChatMessage"] [data-testid="stChatMessageContent"]:has(> div.user-message) {{
-        background-color: #DCF8C6 !important;
-        border-radius: 18px !important;
-        padding: 12px 16px !important;
-        box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
-    }}
-    
-    /* Bot message styling - more modern bubble style */
-    [data-testid="stChatMessage"] [data-testid="stChatMessageContent"]:has(> div.bot-message) {{
-        background-color: #FFFFFF !important;
-        border-radius: 18px !important;
-        padding: 12px 16px !important;
-        box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
-    }}
-    
-    /* Title styling */
-    h1, h2, h3 {{
-        color: #009376;
-        font-family: var(--primary-font);
-    }}
-    
-    /* Improve chat input styling */
-    .stChatInputContainer {{
-        padding: 10px;
-        background-color: #ffffff;
-        border-radius: 20px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        font-family: var (--secondary-font);
-    }}
-    
-    /* Source citation styling */
-    [data-testid="stExpander"] {{
-        background-color: #f9f9f9;
-        border-left: 3px solid #009376;
-        padding: 10px;
-        margin-top: 15px;
-        border-radius: 5px;
-    }}
-    
-    /* Footer styling */
-    .footer {{
-        margin-top: 40px;
-        padding-top: 20px;
-        border-top: 1px solid #eee;
-        text-align: center;
-        font-size: 14px;
-        color: #666;
-        font-family: var(--secondary-font);
-    }}
-
-    /* Set favicon */
-    [data-testid="stSidebarNavContainer"] {{
-        display: none
+    /* Ensure critical elements remain visible */
+    .stButton > button,
+    .consent-form-container,
+    .stAlert {{
+        isolation: isolate;
+        contain: paint;
     }}
     </style>
     """, unsafe_allow_html=True)
     
-    # Additional favicon setting for Streamlit
+    # Additional favicon setting
     if TREE_ICON:
         st.markdown(f'''
             <link rel="icon" href="{TREE_ICON}" type="image/x-icon">
