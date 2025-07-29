@@ -111,7 +111,7 @@ def get_citation_info(docs):
 class NovaChat(BedrockModel):
     """A class for generating responses using Nova."""
     
-    def __init__(self, model_id='amazon.nova-micro-v1:0', region_name='us-east-1'):
+    def __init__(self, model_id='amazon.nova-lite-v1:0', region_name='us-east-1'):
         """
         Initializes the NovaChat class, inheriting from BedrockModel.
         """

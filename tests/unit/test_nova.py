@@ -59,7 +59,7 @@ def test_nova_translation_success(nova_model, mock_bedrock_client, mock_successf
     
     # Verify the payload structure
     call_args = mock_bedrock_client.invoke_model.call_args[1]
-    assert call_args["modelId"] == "amazon.nova-micro-v1:0"
+    assert call_args["modelId"] == "amazon.nova-lite-v1:0"
     assert call_args["contentType"] == "application/json"
     assert call_args["accept"] == "application/json"
     

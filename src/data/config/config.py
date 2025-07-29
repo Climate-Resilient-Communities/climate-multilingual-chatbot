@@ -13,7 +13,7 @@ DATA_DIR = PROJECT_ROOT / "src" / "data"
 # Model configurations
 MODEL_CONFIG = {
     "nova": {
-        "model_id": "amazon.nova-micro-v1:0",
+        "model_id": "amazon.nova-lite-v1:0",
         "region": "us-east-1",
         "max_tokens": 2000,
         "temperature": 0.7,

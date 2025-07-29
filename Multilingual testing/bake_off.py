@@ -19,7 +19,7 @@ from collections import defaultdict
 # The script will automatically skip any that can't be accessed.
 MODELS_TO_TEST = {
     "Nova Pro": "amazon.nova-pro-v1:0",
-    "Nova Micro": "amazon.nova-micro-v1:0",
+    "Nova Micro": "amazon.nova-lite-v1:0",
     "Nova Lite": "amazon.nova-lite-v1:0",
     "Titan Text Premier": "amazon.titan-text-premier-v1:0"
 }

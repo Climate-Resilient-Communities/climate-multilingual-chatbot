@@ -721,7 +721,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Arabic",
         "Language_Code": "ar",
         "Source Text": "Climate change is a long-term shift in global weather patterns and temperatures.",
@@ -737,7 +737,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Arabic",
         "Language_Code": "ar",
         "Source Text": "What are the most effective strategies for mitigating the impacts of climate change in coastal communities?",
@@ -753,7 +753,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Arabic",
         "Language_Code": "ar",
         "Source Text": "Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.",
@@ -769,7 +769,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Arabic",
         "Language_Code": "ar",
         "Source Text": "The agricultural sector must adapt to changing climate conditions to ensure food security.",
@@ -785,7 +785,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Arabic",
         "Language_Code": "ar",
         "Source Text": "International cooperation is essential for addressing the global challenge of climate change.",
@@ -801,7 +801,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Chinese (Simplified)",
         "Language_Code": "zh",
         "Source Text": "Climate change is a long-term shift in global weather patterns and temperatures.",
@@ -817,7 +817,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Chinese (Simplified)",
         "Language_Code": "zh",
         "Source Text": "What are the most effective strategies for mitigating the impacts of climate change in coastal communities?",
@@ -833,7 +833,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Chinese (Simplified)",
         "Language_Code": "zh",
         "Source Text": "Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.",
@@ -849,7 +849,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Chinese (Simplified)",
         "Language_Code": "zh",
         "Source Text": "The agricultural sector must adapt to changing climate conditions to ensure food security.",
@@ -865,7 +865,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Chinese (Simplified)",
         "Language_Code": "zh",
         "Source Text": "International cooperation is essential for addressing the global challenge of climate change.",
@@ -881,7 +881,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Russian",
         "Language_Code": "ru",
         "Source Text": "Climate change is a long-term shift in global weather patterns and temperatures.",
@@ -897,7 +897,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Russian",
         "Language_Code": "ru",
         "Source Text": "What are the most effective strategies for mitigating the impacts of climate change in coastal communities?",
@@ -913,7 +913,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Russian",
         "Language_Code": "ru",
         "Source Text": "Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.",
@@ -929,7 +929,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Russian",
         "Language_Code": "ru",
         "Source Text": "The agricultural sector must adapt to changing climate conditions to ensure food security.",
@@ -945,7 +945,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Russian",
         "Language_Code": "ru",
         "Source Text": "International cooperation is essential for addressing the global challenge of climate change.",
@@ -961,7 +961,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Japanese",
         "Language_Code": "ja",
         "Source Text": "Climate change is a long-term shift in global weather patterns and temperatures.",
@@ -977,7 +977,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Japanese",
         "Language_Code": "ja",
         "Source Text": "What are the most effective strategies for mitigating the impacts of climate change in coastal communities?",
@@ -993,7 +993,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Japanese",
         "Language_Code": "ja",
         "Source Text": "Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.",
@@ -1009,7 +1009,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Japanese",
         "Language_Code": "ja",
         "Source Text": "The agricultural sector must adapt to changing climate conditions to ensure food security.",
@@ -1025,7 +1025,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Japanese",
         "Language_Code": "ja",
         "Source Text": "International cooperation is essential for addressing the global challenge of climate change.",
@@ -1041,7 +1041,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Hindi",
         "Language_Code": "hi",
         "Source Text": "Climate change is a long-term shift in global weather patterns and temperatures.",
@@ -1057,7 +1057,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Hindi",
         "Language_Code": "hi",
         "Source Text": "What are the most effective strategies for mitigating the impacts of climate change in coastal communities?",
@@ -1073,7 +1073,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Hindi",
         "Language_Code": "hi",
         "Source Text": "Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.",
@@ -1089,7 +1089,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Hindi",
         "Language_Code": "hi",
         "Source Text": "The agricultural sector must adapt to changing climate conditions to ensure food security.",
@@ -1105,7 +1105,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Hindi",
         "Language_Code": "hi",
         "Source Text": "International cooperation is essential for addressing the global challenge of climate change.",
@@ -1121,7 +1121,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "German",
         "Language_Code": "de",
         "Source Text": "Climate change is a long-term shift in global weather patterns and temperatures.",
@@ -1137,7 +1137,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "German",
         "Language_Code": "de",
         "Source Text": "What are the most effective strategies for mitigating the impacts of climate change in coastal communities?",
@@ -1153,7 +1153,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "German",
         "Language_Code": "de",
         "Source Text": "Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.",
@@ -1169,7 +1169,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "German",
         "Language_Code": "de",
         "Source Text": "The agricultural sector must adapt to changing climate conditions to ensure food security.",
@@ -1185,7 +1185,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "German",
         "Language_Code": "de",
         "Source Text": "International cooperation is essential for addressing the global challenge of climate change.",
@@ -1201,7 +1201,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "French",
         "Language_Code": "fr",
         "Source Text": "Climate change is a long-term shift in global weather patterns and temperatures.",
@@ -1217,7 +1217,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "French",
         "Language_Code": "fr",
         "Source Text": "What are the most effective strategies for mitigating the impacts of climate change in coastal communities?",
@@ -1233,7 +1233,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "French",
         "Language_Code": "fr",
         "Source Text": "Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.",
@@ -1249,7 +1249,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "French",
         "Language_Code": "fr",
         "Source Text": "The agricultural sector must adapt to changing climate conditions to ensure food security.",
@@ -1265,7 +1265,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "French",
         "Language_Code": "fr",
         "Source Text": "International cooperation is essential for addressing the global challenge of climate change.",
@@ -1281,7 +1281,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Spanish",
         "Language_Code": "es",
         "Source Text": "Climate change is a long-term shift in global weather patterns and temperatures.",
@@ -1297,7 +1297,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Spanish",
         "Language_Code": "es",
         "Source Text": "What are the most effective strategies for mitigating the impacts of climate change in coastal communities?",
@@ -1313,7 +1313,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Spanish",
         "Language_Code": "es",
         "Source Text": "Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.",
@@ -1329,7 +1329,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Spanish",
         "Language_Code": "es",
         "Source Text": "The agricultural sector must adapt to changing climate conditions to ensure food security.",
@@ -1345,7 +1345,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Spanish",
         "Language_Code": "es",
         "Source Text": "International cooperation is essential for addressing the global challenge of climate change.",
@@ -1361,7 +1361,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Filipino (Tagalog)",
         "Language_Code": "tl",
         "Source Text": "Climate change is a long-term shift in global weather patterns and temperatures.",
@@ -1377,7 +1377,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Filipino (Tagalog)",
         "Language_Code": "tl",
         "Source Text": "What are the most effective strategies for mitigating the impacts of climate change in coastal communities?",
@@ -1393,7 +1393,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Filipino (Tagalog)",
         "Language_Code": "tl",
         "Source Text": "Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.",
@@ -1409,7 +1409,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Filipino (Tagalog)",
         "Language_Code": "tl",
         "Source Text": "The agricultural sector must adapt to changing climate conditions to ensure food security.",
@@ -1425,7 +1425,7 @@
     },
     {
         "Model": "Nova Micro",
-        "Model ID": "amazon.nova-micro-v1:0",
+        "Model ID": "amazon.nova-lite-v1:0",
         "Language": "Filipino (Tagalog)",
         "Language_Code": "tl",
         "Source Text": "International cooperation is essential for addressing the global challenge of climate change.",

@@ -449,10 +449,21 @@ def load_custom_css():
     </style>
     """, unsafe_allow_html=True)
     
-    # Basic wallpaper CSS (if available)
+    # Basic wallpaper CSS (if available) - UPDATED for visibility
     if wallpaper_base64:
         st.markdown(f"""
         <style>
+        /* Make sure the stApp background is transparent to show wallpaper */
+        html, body {{
+            background-color: var(--background-secondary);
+        }}
+
+        .stApp {{
+            background-color: transparent !important;  /* This is important! */
+            position: relative;
+        }}
+
+        /* Wallpaper layer */
         .stApp::before {{
             content: '';
             position: fixed;
@@ -463,9 +474,16 @@ def load_custom_css():
             background-image: url('data:image/png;base64,{wallpaper_base64}');
             background-repeat: repeat;
             background-size: 1200px;
-            opacity: 0.1;
+            opacity: 0.15;
             pointer-events: none;
-            z-index: -1;
+            z-index: -1;  /* Behind content */
+        }}
+
+        /* Main container needs relative positioning */
+        .main {{
+            position: relative;
+            z-index: 1;
+            background-color: var(--background-secondary);
         }}
         </style>
         """, unsafe_allow_html=True)
@@ -869,24 +887,6 @@ def main():
 
                 if st.button("📚 Support & FAQs"):
                     st.session_state.show_faq_popup = True
-
-                # Move "Made by" section here
-                st.markdown('<div class="footer" style="margin-top: 20px; margin-bottom: 20px;">', unsafe_allow_html=True)
-                st.markdown('<div>Made by:</div>', unsafe_allow_html=True)
-                if TREE_ICON:
-                    st.image(TREE_ICON, width=40)
-                st.markdown('<div style="font-size: 18px;">Climate Resilient Communities</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-                st.markdown('</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-
-            # Main content
-            col1, col2 = st.columns([1, 8])
-            with col1:
-                if CCC_ICON:
-                    st.image(CCC_ICON, width=80)
-            with col2:
                 st.title("Multilingual Climate Chatbot")
                 st.write("Ask me anything about climate change!")
 
