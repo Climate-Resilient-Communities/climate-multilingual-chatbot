@@ -1,12 +1,7 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-
-# Ignore environment and secret files
-.env*
-
-# Ignore history and backup files
-.history/
+*$py.class
 
 # C extensions
 *.so
