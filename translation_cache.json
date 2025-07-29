@@ -1,0 +1,542 @@
+{
+    "amazon.nova-pro-v1:0_Arabic_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "تغير المناخ هو تحول طويل الأمد في أنماط الطقس العالمية ودرجات الحرارة.",
+        "response_time": 0.40986180305480957
+    },
+    "amazon.nova-pro-v1:0_Arabic_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "ما هي الإستراتيجيات الأكثر فعالية للتخفيف من آثار تغير المناخ في المجتمعات الساحلية؟\n\nفي سياق جهودنا المستمرة لمكافحة تغير المناخ، من الضروري تحديد وتنفيذ الإستراتيجيات الأكثر فعالية للحد من الآثار السلبية لتغير المناخ على المجتمعات الساحلية. هذه المجتمعات تواجه تحديات فريدة بسبب ارتفاع منسوب مياه البحر، وزيادة تواتر الظواهر الجوية القاسية، وتدهور النظم البيئية الساحلية. لذلك، يجب أن تركز الإستراتيجيات على خفض انبعاثات الكربون، وتعزيز القدرة على التكيف، وحماية البنية التحتية الحيوية.",
+        "response_time": 1.7487640380859375
+    },
+    "amazon.nova-pro-v1:0_Arabic_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "مصادر الطاقة المتجددة، مثل الطاقة الشمسية وطاقة الرياح، تعتبر ضرورية لخفض انبعاثات الكربون.",
+        "response_time": 0.3579740524291992
+    },
+    "amazon.nova-pro-v1:0_Arabic_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "يتعين على القطاع الزراعي التكيف مع الظروف المناخية المتغيرة لضمان الأمن الغذائي.\n\n---\n\nIn this translation, the formal style and informative tone are maintained to convey the importance of the agricultural sector's adaptation to climate change for ensuring food security. The terms \"climate change\" and \"carbon emissions\" have been translated consistently as \"الظروف المناخية المتغيرة\" and would be translated as \"انبعاثات الكربون\" respectively if they appeared in the text.",
+        "response_time": 0.7477672100067139
+    },
+    "amazon.nova-pro-v1:0_Arabic_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "التعاون الدولي ضروري لمواجهة التحدي العالمي المتمثل في تغير المناخ.",
+        "response_time": 0.3474090099334717
+    },
+    "amazon.nova-pro-v1:0_Chinese (Simplified)_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "气候变化是全球天气模式和温度的长期变化。\n\n---\n\n在这段翻译中，我们保持了“气候变化”和“全球”的一致性，以确保信息的准确传达。\"长期变化\" 准确反映了“long-term shift”的含义，同时保持了正式和信息化的语调。",
+        "response_time": 0.804297924041748
+    },
+    "amazon.nova-pro-v1:0_Chinese (Simplified)_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "在沿海社区中，哪些策略最为有效地减轻气候变化的影响？\n\n为了应对气候变化在沿海社区中的影响，各种策略被提出和实施。以下是一些被认为最为有效的策略：\n\n1. **加强基础设施建设**：通过建设更加坚固和适应气候变化的基础设施，如防洪堤、海堤和防波堤，来保护沿海社区免受海平面上升和极端天气事件的影响。\n\n2. **生态系统恢复**：恢复和保护沿海湿地、红树林和珊瑚礁等生态系统，这些自然屏障可以有效减缓海浪和风暴潮的影响，同时也有助于碳排放的吸收。\n\n3. **社区教育和参与**：通过教育和社区参与计划，提高居民对气候变化影响的认识，并鼓励他们采取个人和集体行动来减少碳排放和增强社区的韧性。\n\n4. **可再生能源的利用**：推广和使用太阳能、风能等可再生能源，以减少对化石燃料的依赖，从而降低碳排放。\n\n5. **政策和法规**：制定和实施严格的环境保护政策和法规，以限制碳排放，并推动可持续发展。\n\n6. **国际合作**：加强国际间的合作与信息共享，共同应对气候变化带来的全球挑战。\n\n通过综合运用上述策略，沿海社区可以更有效地减轻气候变化的影响，并为未来的可持续发展奠定基础。",
+        "response_time": 5.058647871017456
+    },
+    "amazon.nova-pro-v1:0_Chinese (Simplified)_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "可再生能源，如太阳能和风能，对于减少碳排放至关重要。",
+        "response_time": 0.49178218841552734
+    },
+    "amazon.nova-pro-v1:0_Chinese (Simplified)_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "为了确保粮食安全，农业部门必须适应不断变化的气候条件。\n\n---\n\nIn this translation, the formal style and informative tone are maintained to convey the importance and urgency of the message. The terms \"climate change\" and \"carbon emissions\" are translated consistently as \"气候条件\" (climate conditions) and there is no direct mention of \"carbon emissions\" in the provided text, so no specific translation for that term was necessary in this instance.",
+        "response_time": 1.167579174041748
+    },
+    "amazon.nova-pro-v1:0_Chinese (Simplified)_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "国际合作对于应对全球气候变化挑战至关重要。\n\n---\n\n在这段翻译中，我们保持了原文的正式风格和信息性基调。\"Climate change\" 一致翻译为 \"气候变化\"，\"Carbon emissions\" 虽然在原文中未出现，但在翻译中我们也确保一致性，如果需要的话可以翻译为 \"碳排放\"。",
+        "response_time": 1.1331229209899902
+    },
+    "amazon.nova-pro-v1:0_Russian_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "Изменение климата представляет собой долгосрочное изменение глобальных погодных паттернов и температур.",
+        "response_time": 0.6022651195526123
+    },
+    "amazon.nova-pro-v1:0_Russian_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "Каковы наиболее эффективные стратегии для смягчения воздействия изменения климата на прибрежные сообщества?\n\nДля достижения цели снижения негативных последствий изменения климата в прибрежных сообществах необходимо рассмотреть комплекс подходов. К числу наиболее эффективных стратегий относятся:\n\n1. **Укрепление береговых линий**: Использование естественных и инженерных сооружений для защиты от штормов и эрозии.\n   \n2. **Управление землепользованием**: Разработка и внедрение планов землепользования, которые учитывают будущие климатические условия и снижают риски для населения и инфраструктуры.\n\n3. **Экосистемный подход**: Восстановление и защита природных экосистем, таких как мангровые леса, солётные болота и коралловые рифы, которые действуют как естественные буферы против штормовых наводнений и эрозии.\n\n4. **Повышение осведомлённости и участия сообществ**: Проведение образовательных программ и инициатив, направленных на повышение осведомлённости населения о рисках, связанных с изменением климата, и вовлечение местных сообществ в процесс планирования и принятия решений.\n\n5. **Инвестиции в инфраструктуру**: Модернизация и укрепление инфраструктуры, включая системы водоснабжения, канализации и энергоснабжения, для повышения её устойчивости к климатическим воздействиям.\n\n6. **Мониторинг и адаптивное управление**: Регулярное наблюдение за изменениями в климате и их воздействием на прибрежные сообщества, а также корректировка стратегий в соответствии с новыми данными и условиями.\n\n7. **Снижение выбросов углерода**: Реализация мер по сокращению выбросов углерода на глобальном уровне, чтобы уменьшить темпы изменения климата и смягчить его последствия.\n\nКомплексное применение этих стратегий может значительно повысить устойчивость прибрежных сообществ к изменению климата и уменьшить риски, связанные с его негативными последствиями.",
+        "response_time": 6.329568862915039
+    },
+    "amazon.nova-pro-v1:0_Russian_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "Возобновляемые источники энергии, такие как солнечная и ветровая энергия, имеют решающее значение для сокращения выбросов углерода.",
+        "response_time": 0.6358180046081543
+    },
+    "amazon.nova-pro-v1:0_Russian_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "Аграрный сектор должен адаптироваться к меняющимся климатическим условиям для обеспечения продовольственной безопасности.\n\n---\n\nIn this translation, the formal style and informative tone are maintained. The terms \"climate change\" and \"carbon emissions\" are translated consistently as \"меняющимся климатическим условиям\" and would be translated as \"выбросы углерода\" if they appeared in the text.",
+        "response_time": 7.100516080856323
+    },
+    "amazon.nova-pro-v1:0_Russian_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "Международное сотрудничество имеет существенное значение для решения глобальной проблемы изменения климата.",
+        "response_time": 10.40882682800293
+    },
+    "amazon.nova-pro-v1:0_Japanese_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "気候変動は、世界的な気象パターンと気温の長期的な変化です。\n\n---\n\nこの文章は、気候変動が地球規模の気象パターンと気温の長期的な変化であることを説明しています。気候変動は、自然現象と人間活動の両方によって引き起こされる複雑なプロセスです。特に、炭素排出量の増加は気候変動の主な要因の一つとされています。国際社会は、気候変動の影響を緩和し、適応策を講じるために、様々な取り組みを行っています。",
+        "response_time": 1.554399013519287
+    },
+    "amazon.nova-pro-v1:0_Japanese_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "沿岸地域における気候変動の影響を緩和するための最も効果的な戦略は何でしょうか？\n\n---\n\nこの翻訳では、「climate change」を「気候変動」、「carbon emissions」を「炭素排出」と一貫して訳出しています。また、沿岸地域のコミュニティに焦点を当て、気候変動の影響を緩和するための戦略について問うている点を明確に表現しています。",
+        "response_time": 7.251738786697388
+    },
+    "amazon.nova-pro-v1:0_Japanese_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "太陽光発電や風力発電などの再生可能エネルギー源は、炭素排出量を削減するために極めて重要です。",
+        "response_time": 2.8825788497924805
+    },
+    "amazon.nova-pro-v1:0_Japanese_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "農業部門は、食料安全保障を確保するために、変化する気候条件に適応しなければなりません。\n\n農業部門は、食料安全保障を確保するために、気候変動に適応しなければなりません。",
+        "response_time": 7.721027851104736
+    },
+    "amazon.nova-pro-v1:0_Japanese_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "国際協力は、気候変動という地球規模の課題に取り組むために不可欠です。",
+        "response_time": 4.7121968269348145
+    },
+    "amazon.nova-pro-v1:0_Hindi_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "जलवायु परिवर्तन वैश्विक मौसम पैटर्न और तापमान में दीर्घकालिक बदलाव है।\n\n---\n\nइस अनुवाद में, \"Climate change\" को \"जलवायु परिवर्तन\" और \"global weather patterns and temperatures\" को \"वैश्विक मौसम पैटर्न और तापमान\" के रूप में अनुवादित किया गया है। यह सुनिश्चित करता है कि तकनीकी शब्दावली सुसंगत और सटीक बनी रहे।",
+        "response_time": 10.649659156799316
+    },
+    "amazon.nova-pro-v1:0_Hindi_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "तटीय समुदायों में जलवायु परिवर्तन के प्रभावों को कम करने के लिए सबसे प्रभावी रणनीतियाँ क्या हैं?\n\n---\n\nयहाँ प्रस्तुत किया गया है तटीय समुदायों में जलवायु परिवर्तन के प्रभावों को कम करने के लिए सबसे प्रभावी रणनीतियों का विवरण। जलवायु परिवर्तन एक वैश्विक चुनौती है जिसका प्रभाव तटीय क्षेत्रों में विशेष रूप से देखा जा सकता है। इन समुदायों में जलवायु परिवर्तन के प्रभावों को कम करने के लिए कुछ प्रमुख रणनीतियाँ निम्नलिखित हैं:\n\n1. **स्थायी विकास योजनाएँ**: तटीय क्षेत्रों में स्थायी विकास की योजनाएँ बनाना आवश्यक है जो पर्यावरणीय स्थिरता को सुनिश्चित करें।\n\n2. **कार्बन उत्सर्जन में कमी**: कार्बन उत्सर्जन को कम करने के लिए नवीकरणीय ऊर्जा स्रोतों का उपयोग बढ़ाना चाहिए और ऊर्जा दक्षता में सुधार करना चाहिए।\n\n3. **तटीय सुरक्षा उपाय**: तटीय सुरक्षा के लिए बाढ़ सुरक्षा ढाँचे, मैन्ग्रोव पुनर्स्थापन और अन्य प्राकृतिक अवरोधों का विकास करना चाहिए।\n\n4. **सामुदायिक जागरूकता और शिक्षा**: स्थानीय समुदायों को जलवायु परिवर्तन के प्रभावों और उनसे निपटने के तरीकों के बारे में शिक्षित करना महत्वपूर्ण है।\n\n5. **अनुसंधान और निगरानी**: जलवायु परिवर्तन के प्रभावों की निरंतर निगरानी और अनुसंधान करना आवश्यक है ताकि प्रभावी नीतियाँ बनाई जा सकें।\n\n6. **अंतरराष्ट्रीय सहयोग**: जलवायु परिवर्तन एक वैश्विक मुद्दा है, इसलिए अंतरराष्ट्रीय सहयोग और ज्ञान साझा करना महत्वपूर्ण है।\n\nइन रणनीतियों का समन्वित रूप से कार्यान्वयन तटीय समुदायों को जलवायु परिवर्तन के प्रभावों से बेहतर तरीके से निपटने में मदद कर सकता है।",
+        "response_time": 4.4981138706207275
+    },
+    "amazon.nova-pro-v1:0_Hindi_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "नवीकरणीय ऊर्जा स्रोत, जैसे सौर और पवन ऊर्जा, कार्बन उत्सर्जन को कम करने के लिए अत्यंत महत्वपूर्ण हैं।\n\n---\n\nयहाँ प्रस्तुत किया गया पाठ औपचारिक शैली में लिखा गया है और सूचनात्मक स्वर को दर्शाता है। \"Climate change\" को \"जलवायु परिवर्तन\" और \"Carbon emissions\" को \"कार्बन उत्सर्जन\" के रूप में सुसंगत रूप से अनुवादित किया गया है।",
+        "response_time": 2.8238558769226074
+    },
+    "amazon.nova-pro-v1:0_Hindi_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "कृषि क्षेत्र को खाद्य सुरक्षा सुनिश्चित करने के लिए बदलते जलवायु परिस्थितियों के अनुकूल होना चाहिए।\n\nयह महत्वपूर्ण है कि कृषि क्षेत्र जलवायु परिवर्तन के प्रभावों को ध्यान में रखते हुए अपनी रणनीतियों और प्रथाओं में आवश्यक समायोजन करे। कार्बन उत्सर्जन में कमी लाने और टिकाऊ कृषि विधियों को अपनाने से न केवल खाद्य सुरक्षा में सुधार होगा बल्कि पर्यावरण की सुरक्षा में भी योगदान मिलेगा।",
+        "response_time": 9.981763124465942
+    },
+    "amazon.nova-pro-v1:0_Hindi_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "जलवायु परिवर्तन की वैश्विक चुनौती का समाधान करने के लिए अंतर्राष्ट्रीय सहयोग आवश्यक है।",
+        "response_time": 0.9536340236663818
+    },
+    "amazon.nova-pro-v1:0_German_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "Der Klimawandel ist eine langfristige Verschiebung der globalen Wettermuster und Temperaturen.\n\n---\n\nIn this translation, \"Climate change\" has been consistently translated to \"Klimawandel,\" and the phrase maintains a formal and informative tone suitable for professional communication.",
+        "response_time": 11.833873987197876
+    },
+    "amazon.nova-pro-v1:0_German_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "Welches sind die effektivsten Strategien zur Minderung der Auswirkungen des Klimawandels in Küstengemeinden?\n\nEine detaillierte Betrachtung der effektivsten Strategien zur Minderung der Auswirkungen des Klimawandels in Küstengemeinden erfordert eine mehrdimensionale Herangehensweise. Diese sollte sowohl die Reduzierung von Kohlenstoffemissionen als auch die Anpassung an die unvermeidlichen Veränderungen des Klimas umfassen. \n\nZunächst ist es wichtig, Kohlenstoffemissionen drastisch zu reduzieren, um den globalen Temperaturanstieg zu begrenzen. Dies kann durch die Förderung erneuerbarer Energien, die Verbesserung der Energieeffizienz und die Implementierung strenger Emissionsstandards erreicht werden. \n\nGleichzeitig müssen Küstengemeinden Maßnahmen ergreifen, um sich an die bereits stattfindenden und zukünftigen Auswirkungen des Klimawandels anzupassen. Dazu gehören der Bau von Küstenschutzanlagen, die Entwicklung nachhaltiger Landnutzungspraktiken und die Implementierung von Frühwarnsystemen für Extremwetterereignisse.\n\nZusammenfassend lässt sich sagen, dass eine Kombination aus Emissionsreduzierung und Anpassungsmaßnahmen die effektivste Strategie zur Minderung der Auswirkungen des Klimawandels in Küstengemeinden darstellt.",
+        "response_time": 2.413041830062866
+    },
+    "amazon.nova-pro-v1:0_German_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "Erneuerbare Energiequellen, wie Solar- und Windkraft, sind entscheidend für die Reduzierung von Kohlenstoffemissionen.\n\n---\n\nIn this translation, I have maintained a formal style and an informative tone. The terms \"carbon emissions\" have been consistently translated as \"Kohlenstoffemissionen,\" and the concept of \"climate change\" was not present in the original text, but if it were, it would be consistently translated as \"Klimawandel.\"",
+        "response_time": 5.587076902389526
+    },
+    "amazon.nova-pro-v1:0_German_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "Der Agrarsektor muss sich an die sich verändernden Klimabedingungen anpassen, um die Ernährungssicherheit zu gewährleisten.\n\n---\n\nIn this translation, \"climate change\" is translated as \"sich verändernden Klimabedingungen\" to convey the dynamic nature of the changes. The phrase \"food security\" is translated as \"Ernährungssicherheit,\" which is the standard term used in German to refer to the availability and access to sufficient, safe, and nutritious food to meet dietary needs and food preferences for an active and healthy life.",
+        "response_time": 4.879150152206421
+    },
+    "amazon.nova-pro-v1:0_German_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "Internationale Zusammenarbeit ist unerlässlich, um die globale Herausforderung des Klimawandels anzugehen.\n\n---\n\nIn this translation, \"International cooperation\" is rendered as \"Internationale Zusammenarbeit,\" which is a formal and commonly used term in diplomatic and political contexts. \"Global challenge\" is translated to \"globale Herausforderung,\" maintaining the gravity and universality of the issue. \"Climate change\" is consistently translated as \"Klimawandel,\" which is the standard German term for this phenomenon. \n\nThis translation aims to preserve the informative tone and formal style of the original English text, ensuring clarity and precision in conveying the importance of collective action against climate change.",
+        "response_time": 10.861465215682983
+    },
+    "amazon.nova-pro-v1:0_French_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "Le changement climatique est une modification à long terme des modèles météorologiques mondiaux et des températures.\n\n---\n\nIn this translation, \"climate change\" has been consistently rendered as \"changement climatique,\" and the formal tone is maintained throughout the sentence to ensure clarity and professionalism. The phrase \"global weather patterns and temperatures\" is translated to \"modèles météorologiques mondiaux et des températures\" to accurately convey the original meaning.",
+        "response_time": 1.0352602005004883
+    },
+    "amazon.nova-pro-v1:0_French_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "Quelles sont les stratégies les plus efficaces pour atténuer les impacts du changement climatique dans les communautés côtières ?\n\nPour répondre à cette question, il est essentiel d'examiner une combinaison de mesures d'adaptation et d'atténuation. Les stratégies d'adaptation peuvent inclure le renforcement des infrastructures côtières, la mise en place de zones tampons naturelles telles que les mangroves et les marais salants, et la promotion de pratiques agricoles durables pour préserver les sols et réduire l'érosion. En ce qui concerne les mesures d'atténuation, il est crucial de réduire les émissions de carbone par la transition vers des sources d'énergie renouvelables, l'amélioration de l'efficacité énergétique et la promotion des transports durables. De plus, la sensibilisation et l'éducation des communautés locales sur les effets du changement climatique et les moyens de le combattre jouent un rôle essentiel dans la mise en œuvre réussie de ces stratégies. \n\nEn conclusion, une approche intégrée qui combine adaptation, atténuation et engagement communautaire offre les meilleures chances de réussite dans la lutte contre les impacts du changement climatique dans les communautés côtières.",
+        "response_time": 11.317988157272339
+    },
+    "amazon.nova-pro-v1:0_French_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "Les sources d'énergie renouvelable, telles que l'énergie solaire et éolienne, sont cruciales pour réduire les émissions de carbone.",
+        "response_time": 0.5900371074676514
+    },
+    "amazon.nova-pro-v1:0_French_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "Le secteur agricole doit s'adapter aux conditions climatiques changeantes pour assurer la sécurité alimentaire.\n\n---\n\nIn this translation, the formal style and informative tone are maintained to convey the importance and urgency of the subject matter. The terms \"climate change\" and \"carbon emissions\" have been carefully considered, although in this specific text, only \"climate change\" is relevant and has been translated as \"conditions climatiques changeantes.\"",
+        "response_time": 6.643054008483887
+    },
+    "amazon.nova-pro-v1:0_French_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "La coopération internationale est essentielle pour relever le défi mondial du changement climatique.",
+        "response_time": 8.797359943389893
+    },
+    "amazon.nova-pro-v1:0_Spanish_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "El cambio climático es un cambio a largo plazo en los patrones meteorológicos globales y las temperaturas.\n\n---\n\nIn this translation, I have ensured that \"climate change\" is consistently translated as \"cambio climático\" and that the tone remains formal and informative. The structure of the sentence has been maintained to convey the same meaning clearly in Spanish.",
+        "response_time": 2.349238157272339
+    },
+    "amazon.nova-pro-v1:0_Spanish_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "**¿Cuáles son las estrategias más efectivas para mitigar los impactos del cambio climático en las comunidades costeras?**\n\nEn el contexto de las preocupaciones globales sobre el cambio climático, es imperativo identificar y aplicar las estrategias más efectivas para mitigar sus impactos en las comunidades costeras. Estas áreas son particularmente vulnerables a los efectos del cambio climático, incluyendo el aumento del nivel del mar, la intensificación de tormentas y la erosión costera. \n\nUna estrategia clave es la reducción de las emisiones de carbono a través de la transición hacia fuentes de energía renovable y la implementación de tecnologías de eficiencia energética. Además, la restauración y protección de ecosistemas costeros, como los manglares y los arrecifes de coral, pueden actuar como barreras naturales contra las inundaciones y la erosión. \n\nTambién es crucial el desarrollo de infraestructura resiliente y la implementación de planes de gestión de riesgos que incluyan la evacuación y reubicación de comunidades en alto riesgo. La colaboración entre gobiernos, organizaciones no gubernamentales y comunidades locales es esencial para asegurar la efectividad y sostenibilidad de estas estrategias.\n\nEn resumen, mitigar los impactos del cambio climático en las comunidades costeras requiere un enfoque multifacético que integre la reducción de emisiones de carbono, la protección de ecosistemas, el desarrollo de infraestructura resiliente y la cooperación entre múltiples actores.",
+        "response_time": 8.970999002456665
+    },
+    "amazon.nova-pro-v1:0_Spanish_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "Las fuentes de energía renovable, como la energía solar y eólica, son cruciales para reducir las emisiones de carbono.\n\n---\n\nIn this translation, I have ensured that the terms \"renewable energy sources\" are accurately conveyed as \"fuentes de energía renovable,\" maintaining the formal style and informative tone. Additionally, \"carbon emissions\" have been consistently translated to \"emisiones de carbono,\" adhering to the specified glossary terms.",
+        "response_time": 3.126166820526123
+    },
+    "amazon.nova-pro-v1:0_Spanish_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "El sector agrícola debe adaptarse a las cambiantes condiciones climáticas para garantizar la seguridad alimentaria.\n\n---\n\nIn this translation, \"climate change\" is consistently translated as \"las cambiantes condiciones climáticas,\" which is a formal and precise way to refer to the variations in climate patterns. Similarly, although \"carbon emissions\" is not explicitly mentioned in the original text, if it were to appear, it should be consistently translated as \"emisiones de carbono.\" The tone remains informative and formal, suitable for a professional context.",
+        "response_time": 8.696587085723877
+    },
+    "amazon.nova-pro-v1:0_Spanish_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "La cooperación internacional es esencial para abordar el desafío global del cambio climático.\n\n---\n\nIn this translation, I have maintained a formal style and an informative tone, ensuring that the key terms \"climate change\" and \"carbon emissions\" are translated consistently as \"cambio climático\" and \"emisiones de carbono,\" respectively. The phrase \"International cooperation is essential\" has been rendered as \"La cooperación internacional es esencial,\" which conveys the same level of importance and urgency. The term \"addressing the global challenge\" has been translated to \"abordar el desafío global,\" which retains the formal and informative nature of the original text.",
+        "response_time": 4.767480134963989
+    },
+    "amazon.nova-pro-v1:0_Filipino (Tagalog)_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "Ang pagbabago ng klima ay isang pangmatagalang pagbabago sa pandaigdigang mga pattern ng panahon at temperatura.",
+        "response_time": 5.751316785812378
+    },
+    "amazon.nova-pro-v1:0_Filipino (Tagalog)_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "Ano ang mga pinaka-epektibong estratehiya para maibsan ang mga epekto ng pagbabago ng klima sa mga pamayanang pang-baybayin?\n\nUpang mas mabisang tugunan ang mga hamon na dulot ng pagbabago ng klima, mahalaga na kilalanin at ilapat ang mga estratehiya na naglalayong bawasan ang mga negatibong epekto nito sa mga pamayanang pang-baybayin. Kabilang sa mga estratehiya na ito ang pagpapatupad ng mga patakaran at programa na naglalayong bawasan ang mga emisyon ng karbon, pagpapalakas ng kakayahan ng mga pamayanan na umangkop sa mga pagbabago sa klima, at pagpapatupad ng mga hakbang na pang-proteksyon tulad ng pagtatayo ng mga hadlang laban sa pagtaas ng antas ng dagat.\n\nUna, ang pagbabawas ng mga emisyon ng karbon ay mahalaga upang mabagal ang proseso ng pag-init ng mundo. Maaaring isagawa ito sa pamamagitan ng paggamit ng mga mapagkukunang enerhiya na hindi nagdudulot ng polusyon tulad ng solar at wind power, pagpapatupad ng mga programa sa pag-iimpok ng enerhiya, at pagpapatupad ng mga regulasyon na nagbabawal sa mga aktibidad na nagdudulot ng mataas na emisyon ng karbon.\n\nPangalawa, ang pagpapalakas ng kakayahan ng mga pamayanan na umangkop sa mga pagbabago sa klima ay mahalaga upang mas mabisang tugunan ang mga hamon na dulot nito. Kabilang dito ang pagsasanay ng mga naninirahan sa mga pamayanan sa mga paraan upang maprotektahan ang kanilang mga ari-arian at buhay laban sa mga epekto ng pagbabago ng klima, pagpapatupad ng mga programa sa pagpapaunlad ng agrikultura na naglalayong bawasan ang pagtitiwala sa mga produktong pang-agrikultura na madaling maapektuhan ng mga pagbabago sa klima, at pagpapatupad ng mga programa sa pagpapaunlad ng turismo na naglalayong bawasan ang presyon sa mga likas na yaman.\n\nPanghul, ang pagpapatupad ng mga hakbang na pang-proteksyon tulad ng pagtatayo ng mga hadlang laban sa pagtaas ng antas ng dagat ay mahalaga upang maprotektahan ang mga pamayanan mula sa mga negatibong epekto ng pagbabago ng klima. Kabilang dito ang pagtatayo ng mga pader at dam na naglalayong bawasan ang epekto ng mga bagyo at pagbaha, pagpapatupad ng mga programa sa pagpapanatili ng mga kagubatan at mangrove na naglalayong bawasan ang pagkawala ng likas na yaman, at pagpapatupad ng mga programa sa pagpapaunlad ng agrikultura na naglalayong bawasan ang pagtitiwala sa mga produktong pang-agrikultura na madaling maapektuhan ng mga pagbabago sa klima.\n\nSa pangkalahatan, ang pagsasagawa ng mga estratehiya na ito ay mahalaga upang mas mabisang tugunan ang mga hamon na dulot ng pagbabago ng klima sa mga pamayanang pang-baybayin.",
+        "response_time": 17.82218289375305
+    },
+    "amazon.nova-pro-v1:0_Filipino (Tagalog)_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "Ang mga mapagkukunan ng enerhiya na muling mapagbubuo, tulad ng lakas ng araw at hangin, ay mahalaga para mabawasan ang mga emisyon ng karbon.\n\n---\n\nIn this translation, I have maintained the formal style and informative tone of the original text. The terms \"climate change\" and \"carbon emissions\" have been translated consistently as \"pagbabago ng klima\" and \"emisyon ng karbon,\" respectively, although in this specific text, only \"carbon emissions\" was present.",
+        "response_time": 1.1862022876739502
+    },
+    "amazon.nova-pro-v1:0_Filipino (Tagalog)_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "Ang sektor ng agrikultura ay dapat umangkop sa mga nagbabagong kondisyon ng klima upang matiyak ang seguridad ng pagkain.\n\n---\n\nTo provide further context, the agricultural sector plays a crucial role in ensuring food security, especially in the face of climate change. Adaptation strategies may include the adoption of climate-resilient crop varieties, efficient water management practices, and the integration of sustainable farming techniques. Additionally, reducing carbon emissions through the implementation of eco-friendly agricultural practices can contribute to mitigating the impacts of climate change.",
+        "response_time": 1.515014886856079
+    },
+    "amazon.nova-pro-v1:0_Filipino (Tagalog)_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "Ang pandaigdigang pakikipagtulungan ay mahalaga para tugunan ang pandaigdigang hamon ng pagbabago ng klima.",
+        "response_time": 3.030261993408203
+    },
+    "amazon.nova-lite-v1:0_Arabic_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "\"تغير المناخ هو تحول طويل الأمد في أنماط الطقس العالمية ودرجات الحرارة.\"",
+        "response_time": 0.2593233585357666
+    },
+    "amazon.nova-lite-v1:0_Arabic_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "ما هي أكثر الاستراتيجيات فعالية لتخفيف تأثيرات تغير المناخ في المجتمعات الساحلية؟",
+        "response_time": 0.24331402778625488
+    },
+    "amazon.nova-lite-v1:0_Arabic_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "\"تعتبر مصادر الطاقة المتجددة، مثل الطاقة الشمسية وطاقة الرياح، حيوية لتقليل انبعاثات الكربون.\"",
+        "response_time": 0.25837111473083496
+    },
+    "amazon.nova-lite-v1:0_Arabic_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "يجب على القطاع الزراعي التكيف مع ظروف المناخ المتغيرة لضمان الأمن الغذائي.\n\nGlossary:\n- \"Climate change\" is translated as \"ظروف المناخ المتغيرة\".\n- \"Carbon emissions\" is not mentioned in the provided text, so no translation is needed here.",
+        "response_time": 0.38249707221984863
+    },
+    "amazon.nova-lite-v1:0_Arabic_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "التعاون الدولي ضروري لمعالجة التحدي العالمي لتغير المناخ.\n\nGlossary:\n- \"Climate change\" is translated as \"تغير المناخ\".\n- \"Carbon emissions\" is translated as \"انبعاثات الكربون\".",
+        "response_time": 0.2970430850982666
+    },
+    "amazon.nova-lite-v1:0_Chinese (Simplified)_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "“气候变化是全球天气模式和温度的长期变化。”",
+        "response_time": 0.24515318870544434
+    },
+    "amazon.nova-lite-v1:0_Chinese (Simplified)_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "“在沿海社区中，减缓气候变化影响的最有效策略是什么？”\n\nGlossary:\n- \"Climate change\" is translated as “气候变化”。\n- \"Carbon emissions\" is translated as “碳排放”。",
+        "response_time": 0.3718681335449219
+    },
+    "amazon.nova-lite-v1:0_Chinese (Simplified)_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "“可再生能源，如太阳能和风能，对于减少碳排放至关重要。”",
+        "response_time": 0.27480483055114746
+    },
+    "amazon.nova-lite-v1:0_Chinese (Simplified)_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "农业部门必须适应不断变化的气候条件，以确保粮食安全。\n\nGlossary:\n- \"Climate change\" is translated as \"气候条件\" in this context.\n- \"Carbon emissions\" is not present in the provided text.",
+        "response_time": 0.31553077697753906
+    },
+    "amazon.nova-lite-v1:0_Chinese (Simplified)_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "国际合作对于应对全球气候变化挑战至关重要。",
+        "response_time": 0.2234790325164795
+    },
+    "amazon.nova-lite-v1:0_Russian_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "Изменение климата является долгосрочным изменением глобальных климатических условий и температурных режимов.",
+        "response_time": 0.28520894050598145
+    },
+    "amazon.nova-lite-v1:0_Russian_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "Какие наиболее эффективные стратегии для снижения воздействия изменения климата в прибрежных сообществах?",
+        "response_time": 0.28403496742248535
+    },
+    "amazon.nova-lite-v1:0_Russian_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "Возобновляемые источники энергии, такие как солнечная и ветровая энергия, играют решающую роль в сокращении выбросов углерода.",
+        "response_time": 0.3532428741455078
+    },
+    "amazon.nova-lite-v1:0_Russian_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "Сельскохозяйственный сектор должен адаптироваться к изменяющимся климатическим условиям для обеспечения продовольственной безопасности.",
+        "response_time": 0.332974910736084
+    },
+    "amazon.nova-lite-v1:0_Russian_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "Международное сотрудничество является необходимым для решения глобальной проблемы изменения климата.",
+        "response_time": 0.2633991241455078
+    },
+    "amazon.nova-lite-v1:0_Japanese_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "気候変動は、世界の気象パターンと温度における長期的な変化です。\n\nTranslation note: The term \"climate change\" is translated as \"気候変動\" consistently, and \"global weather patterns and temperatures\" is translated to convey the same meaning in a formal and informative tone.",
+        "response_time": 0.3315918445587158
+    },
+    "amazon.nova-lite-v1:0_Japanese_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "「沿岸コミュニティにおける気候変動の影響を緩和するための最も効果的な戦略は何でしょうか？」",
+        "response_time": 0.2489478588104248
+    },
+    "amazon.nova-lite-v1:0_Japanese_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "再生可能エネルギー源、例えば太陽光発電や風力発電は、炭素排出量を削減するために極めて重要です。",
+        "response_time": 0.41546201705932617
+    },
+    "amazon.nova-lite-v1:0_Japanese_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "農業部門は、食料の安全保障を確保するために、変化する気候条件に適応しなければなりません。\n\n(Note: In Japanese, it is common to use the term \"気候変動\" for \"climate change\" and \"炭素排出\" for \"carbon emissions,\" but based on your glossary, \"気候変動\" is used consistently here for \"climate change.\")",
+        "response_time": 0.47966980934143066
+    },
+    "amazon.nova-lite-v1:0_Japanese_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "国際協力は、気候変動という世界的な課題に取り組むために不可欠です。",
+        "response_time": 0.22445297241210938
+    },
+    "amazon.nova-lite-v1:0_Hindi_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "जलवायु परिवर्तन वैश्विक मौसम पैटर्न और तापमान में दीर्घकालिक बदलाव है।\n\nGlossary:\n- \"Climate change\" → \"जलवायु परिवर्तन\"\n- \"Carbon emissions\" → \"कार्बन उत्सर्जन\"",
+        "response_time": 0.2860720157623291
+    },
+    "amazon.nova-lite-v1:0_Hindi_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "\"सामुद्रिक समुदायों में जलवायु परिवर्तन के प्रभावों को कम करने के लिए सबसे प्रभावी रणनीतियाँ क्या हैं?\"\n\nGlossary:\n- \"Climate change\" = जलवायु परिवर्तन\n- \"Carbon emissions\" = कार्बन उत्सर्जन",
+        "response_time": 0.31821703910827637
+    },
+    "amazon.nova-lite-v1:0_Hindi_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "नवीकरणीय ऊर्जा स्रोत, जैसे सौर और पवन ऊर्जा, कार्बन उत्सर्जन को कम करने के लिए महत्वपूर्ण हैं।\n\n(Note: In Hindi, \"renewable energy sources\" translates to \"नवीकरणीय ऊर्जा स्रोत,\" \"solar power\" translates to \"सौर ऊर्जा,\" \"wind power\" translates to \"पवन ऊर्जा,\" \"crucial\" translates to \"महत्वपूर्ण,\" \"reducing\" translates to \"कम करने के लिए,\" and \"carbon emissions\" translates to \"कार्बन उत्सर्जन.\")",
+        "response_time": 0.5102040767669678
+    },
+    "amazon.nova-lite-v1:0_Hindi_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "कृषि क्षेत्र को खाद्य सुरक्षा सुनिश्चित करने के लिए बदलते जलवायु परिस्थितियों के अनुकूल होना चाहिए।\n\n(Note: In Hindi, \"climate change\" is translated as \"जलवायु परिवर्तन\" and \"carbon emissions\" as \"कार्बन उत्सर्जन,\" but since these terms were not explicitly mentioned in the provided text, they have not been included in the translation.)",
+        "response_time": 0.45278310775756836
+    },
+    "amazon.nova-lite-v1:0_Hindi_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "अंतर्राष्ट्रीय सहयोग जलवायु परिवर्तन के वैश्विक चुनौती का सामना करने के लिए आवश्यक है।\n\nGlossary:\n- \"Climate change\" = जलवायु परिवर्तन\n- \"Carbon emissions\" = कार्बन उत्सर्जन",
+        "response_time": 0.33095312118530273
+    },
+    "amazon.nova-lite-v1:0_German_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "\"Der Klimawandel ist eine langfristige Veränderung der globalen Wettermuster und Temperaturen.\"\n\nIn this translation, \"Climate change\" is consistently translated as \"Klimawandel,\" and \"global weather patterns and temperatures\" is translated to \"globale Wettermuster und Temperaturen.\" The formal style and informative tone are maintained throughout the sentence.",
+        "response_time": 0.36075592041015625
+    },
+    "amazon.nova-lite-v1:0_German_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "\"Welche sind die effektivsten Strategien zur Minderung der Auswirkungen des Klimawandels in Küstengemeinden?\"\n\nGlossary:\n- \"Climate change\" = \"Klimawandel\"\n- \"Carbon emissions\" = \"Kohlenstoffemissionen\"",
+        "response_time": 0.3311178684234619
+    },
+    "amazon.nova-lite-v1:0_German_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "Erneuerbare Energiequellen wie Solar- und Windenergie sind entscheidend für die Reduzierung von Kohlenstoffemissionen.",
+        "response_time": 0.2288529872894287
+    },
+    "amazon.nova-lite-v1:0_German_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "Der Agrarsektor muss sich an veränderte klimatische Bedingungen anpassen, um die Ernährungssicherheit zu gewährleisten.\n\n---\n\nIn this translation, \"The agricultural sector\" is translated as \"Der Agrarsektor,\" \"must adapt\" as \"muss sich anpassen,\" \"to changing climate conditions\" as \"an veränderte klimatische Bedingungen,\" \"to ensure\" as \"um zu gewährleisten,\" and \"food security\" as \"die Ernährungssicherheit.\" The glossary terms \"climate change\" and \"carbon emissions\" are not present in the provided text, but if they were, they would be translated as \"Klimawandel\" and \"Kohlenstoffemissionen,\" respectively, consistently throughout the translation.",
+        "response_time": 0.6385469436645508
+    },
+    "amazon.nova-lite-v1:0_German_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "Internationale Zusammenarbeit ist unerlässlich, um die globale Herausforderung des Klimawandels anzugehen.\n\nGlossary:\n- \"Climate change\" = \"Klimawandel\"\n- \"Carbon emissions\" = \"Kohlenstoffemissionen\"",
+        "response_time": 0.317486047744751
+    },
+    "amazon.nova-lite-v1:0_French_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "Le changement climatique est un changement à long terme des modèles météorologiques mondiaux et des températures.",
+        "response_time": 0.23383116722106934
+    },
+    "amazon.nova-lite-v1:0_French_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "Quelles sont les stratégies les plus efficaces pour atténuer les impacts du changement climatique dans les communautés côtières ?\n\nNote: In French, \"climate change\" is translated as \"changement climatique\" and \"carbon emissions\" as \"émissions de carbone.\" These terms should be consistently used in the context of the translation.",
+        "response_time": 0.3771488666534424
+    },
+    "amazon.nova-lite-v1:0_French_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "Les sources d'énergie renouvelable, telles que l'énergie solaire et éolienne, sont cruciales pour réduire les émissions de carbone.",
+        "response_time": 0.24124789237976074
+    },
+    "amazon.nova-lite-v1:0_French_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "Le secteur agricole doit s'adapter aux conditions climatiques changeantes pour assurer la sécurité alimentaire.\n\n---\n\nNote: In French, \"climate change\" is translated as \"conditions climatiques changeantes\" and \"carbon emissions\" as \"émissions de carbone,\" but since these terms were not explicitly mentioned in the provided text, they were not included in the translation. If they were to appear in the original text, they would be translated consistently as per the glossary.",
+        "response_time": 0.5180370807647705
+    },
+    "amazon.nova-lite-v1:0_French_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "La coopération internationale est essentielle pour relever le défi mondial du changement climatique.",
+        "response_time": 0.2247622013092041
+    },
+    "amazon.nova-lite-v1:0_Spanish_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "El cambio climático es un cambio a largo plazo en los patrones climáticos globales y las temperaturas.\n\n---\n\nIn this translation, \"cambio climático\" is used consistently for \"climate change,\" and \"patrones climáticos globales\" and \"temperaturas\" are used to convey \"global weather patterns and temperatures\" in a formal and informative tone.",
+        "response_time": 0.38750529289245605
+    },
+    "amazon.nova-lite-v1:0_Spanish_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "\"¿Cuáles son las estrategias más efectivas para mitigar los impactos del cambio climático en las comunidades costeras?\"",
+        "response_time": 0.22273612022399902
+    },
+    "amazon.nova-lite-v1:0_Spanish_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "Las fuentes de energía renovable, como la energía solar y eólica, son cruciales para reducir las emisiones de carbono.",
+        "response_time": 0.2164759635925293
+    },
+    "amazon.nova-lite-v1:0_Spanish_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "El sector agrícola debe adaptarse a las cambiantes condiciones climáticas para garantizar la seguridad alimentaria.\n\n---\n\nIn this translation, \"climate change\" is translated as \"cambiantes condiciones climáticas\" and \"carbon emissions\" was not present in the original text, so it was not included. The formal style and informative tone have been maintained.",
+        "response_time": 0.3538820743560791
+    },
+    "amazon.nova-lite-v1:0_Spanish_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "La cooperación internacional es esencial para abordar el desafío global del cambio climático.",
+        "response_time": 0.19339299201965332
+    },
+    "amazon.nova-lite-v1:0_Filipino (Tagalog)_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "Ang pagbabago ng klima ay isang mahabang panahon na pagbabago sa mga pang-daigdig na mga pattern ng panahon at temperatura.",
+        "response_time": 0.4156830310821533
+    },
+    "amazon.nova-lite-v1:0_Filipino (Tagalog)_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "\"Ano ang mga pinakamabisang estratehiya para maiwasan ang mga epekto ng pagbabago ng klima sa mga coastal na komunidad?\"",
+        "response_time": 0.3845658302307129
+    },
+    "amazon.nova-lite-v1:0_Filipino (Tagalog)_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "Ang mga pinagkukunan ng tamayang enerhiya, tulad ng enerhiya mula sa araw at hangin, ay mahalaga para sa pagbawas ng mga carbon emissions.",
+        "response_time": 0.4708869457244873
+    },
+    "amazon.nova-lite-v1:0_Filipino (Tagalog)_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "\"Kailangan ang sektor ng agrikultura na umaangkin sa nagbabagong kondisyon ng klima upang mabatid ang seguridad sa pagkain.\"",
+        "response_time": 0.40805816650390625
+    },
+    "amazon.nova-lite-v1:0_Filipino (Tagalog)_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "Ang pakikipagtulungan sa antas ng pandaigdig ay mahalaga para sa paghaharap sa pandaigdigang hamon ng pagbabago sa klima.",
+        "response_time": 0.44155192375183105
+    },
+    "amazon.nova-lite-v1:0_Arabic_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "التغير المناخي هو تحول طويل الأمد في أنماط الطقس العالمية ودرجات الحرارة.",
+        "response_time": 0.30680274963378906
+    },
+    "amazon.nova-lite-v1:0_Arabic_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "ما هي أكثر الاستراتيجيات فعالية لتخفيف آثار تغير المناخ في المجتمعات الساحلية؟",
+        "response_time": 0.3492112159729004
+    },
+    "amazon.nova-lite-v1:0_Arabic_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "تعد مصادر الطاقة المتجددة، مثل الطاقة الشمسية وطاقة الرياح، ضرورية لتقليل انبعاثات الكربون.",
+        "response_time": 0.3452451229095459
+    },
+    "amazon.nova-lite-v1:0_Arabic_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "يجب على قطاع الزراعة التكيف مع ظروف المناخ المتغيرة لضمان الأمن الغذائي.",
+        "response_time": 0.32518911361694336
+    },
+    "amazon.nova-lite-v1:0_Arabic_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "التعاون الدولي ضروري لمعالجة التحدي العالمي المتمثل في تغير المناخ.",
+        "response_time": 0.2525901794433594
+    },
+    "amazon.nova-lite-v1:0_Chinese (Simplified)_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "气候变化是全球天气模式和温度的长期变化。",
+        "response_time": 0.2670750617980957
+    },
+    "amazon.nova-lite-v1:0_Chinese (Simplified)_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "\"在缓解气候变化对沿海社区影响方面，最有效的策略是什么？\"",
+        "response_time": 0.31984901428222656
+    },
+    "amazon.nova-lite-v1:0_Chinese (Simplified)_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "可再生能源，如太阳能和风能，对于减少碳排放至关重要。",
+        "response_time": 0.319242000579834
+    },
+    "amazon.nova-lite-v1:0_Chinese (Simplified)_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "农业部门必须适应不断变化的气候条件，以确保粮食安全。",
+        "response_time": 0.37221717834472656
+    },
+    "amazon.nova-lite-v1:0_Chinese (Simplified)_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "国际合作对于应对气候变化的全球挑战至关重要。",
+        "response_time": 0.25909900665283203
+    },
+    "amazon.nova-lite-v1:0_Russian_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "Изменение климата представляет собой долгосрочное изменение глобальных погодных закономерностей и температур.",
+        "response_time": 0.3309659957885742
+    },
+    "amazon.nova-lite-v1:0_Russian_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "Какие самые эффективные стратегии для смягчения воздействия изменения климата в прибрежных сообществах?",
+        "response_time": 0.3769857883453369
+    },
+    "amazon.nova-lite-v1:0_Russian_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "Возобновляемые источники энергии, такие как солнечная и ветровая энергия, играют решающую роль в снижении уровня выбросов углекислого газа.",
+        "response_time": 0.5466830730438232
+    },
+    "amazon.nova-lite-v1:0_Russian_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "Сельскохозяйственный сектор должен адаптироваться к изменяющимся климатическим условиям, чтобы обеспечить продовольственную безопасность.",
+        "response_time": 0.42650794982910156
+    },
+    "amazon.nova-lite-v1:0_Russian_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "Международное сотрудничество имеет важное значение для решения глобальной проблемы изменения климата.",
+        "response_time": 0.32362794876098633
+    },
+    "amazon.nova-lite-v1:0_Japanese_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "気候変動は、地球規模の気象パターンと気温の長期的な変化です。",
+        "response_time": 0.30371975898742676
+    },
+    "amazon.nova-lite-v1:0_Japanese_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "沿岸コミュニティにおける気候変動の影響を緩和するための最も効果的な戦略は何ですか？",
+        "response_time": 0.2815732955932617
+    },
+    "amazon.nova-lite-v1:0_Japanese_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "太陽光や風力などの再生可能エネルギー源は、炭素排出量を削減する上で極めて重要です。",
+        "response_time": 0.3015871047973633
+    },
+    "amazon.nova-lite-v1:0_Japanese_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "農業部門は、食料安全保障を確保するために、変化する気候条件に適応しなければなりません。",
+        "response_time": 0.278228759765625
+    },
+    "amazon.nova-lite-v1:0_Japanese_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "国際的な協力は、気候変動という世界的な課題に取り組むために不可欠です。",
+        "response_time": 0.3115980625152588
+    },
+    "amazon.nova-lite-v1:0_Hindi_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "जलवायु परिवर्तन वैश्विक मौसम पैटर्न और तापमान में दीर्घकालिक बदलाव है।",
+        "response_time": 0.33927011489868164
+    },
+    "amazon.nova-lite-v1:0_Hindi_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "\"तटीय समुदायों में जलवायु परिवर्तन के प्रभावों को कम करने के लिए सबसे प्रभावी रणनीतियाँ क्या हैं?\"",
+        "response_time": 0.309830904006958
+    },
+    "amazon.nova-lite-v1:0_Hindi_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "नवीकरणीय ऊर्जा स्रोत, जैसे सौर और पवन ऊर्जा, कार्बन उत्सर्जन को कम करने के लिए महत्वपूर्ण हैं।",
+        "response_time": 0.46725010871887207
+    },
+    "amazon.nova-lite-v1:0_Hindi_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "कृषि क्षेत्र को खाद्य सुरक्षा सुनिश्चित करने के लिए बदलती जलवायु परिस्थितियों के अनुकूल होना चाहिए।",
+        "response_time": 0.2738208770751953
+    },
+    "amazon.nova-lite-v1:0_Hindi_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "अंतर्राष्ट्रीय सहयोग जलवायु परिवर्तन की वैश्विक चुनौती को संबोधित करने के लिए आवश्यक है।",
+        "response_time": 0.29422593116760254
+    },
+    "amazon.nova-lite-v1:0_German_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "Der Klimawandel ist eine langfristige Veränderung der globalen Wettermuster und Temperaturen.",
+        "response_time": 0.24044299125671387
+    },
+    "amazon.nova-lite-v1:0_German_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "Welches sind die wirksamsten Strategien zur Minderung der Auswirkungen des Klimawandels in Küstengemeinschaften?",
+        "response_time": 0.3048849105834961
+    },
+    "amazon.nova-lite-v1:0_German_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "Erneuerbare Energiequellen, wie Solar- und Windenergie, sind entscheidend für die Reduzierung von Kohlenstoffemissionen.",
+        "response_time": 0.2881319522857666
+    },
+    "amazon.nova-lite-v1:0_German_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "Der Agrarsektor muss sich an die sich ändernden Klimabedingungen anpassen, um die Ernährungssicherheit zu gewährleisten.",
+        "response_time": 0.2670590877532959
+    },
+    "amazon.nova-lite-v1:0_German_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "Internationale Zusammenarbeit ist unerlässlich, um die globale Herausforderung des Klimawandels anzugehen.",
+        "response_time": 0.2937190532684326
+    },
+    "amazon.nova-lite-v1:0_French_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "Le changement climatique est un changement à long terme des régimes météorologiques mondiaux et des températures.",
+        "response_time": 0.3381800651550293
+    },
+    "amazon.nova-lite-v1:0_French_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "Quelles sont les stratégies les plus efficaces pour atténuer les impacts du changement climatique dans les communautés côtières?",
+        "response_time": 0.28386712074279785
+    },
+    "amazon.nova-lite-v1:0_French_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "Les sources d'énergie renouvelables, telles que l'énergie solaire et éolienne, sont cruciales pour réduire les émissions de carbone.",
+        "response_time": 0.30777597427368164
+    },
+    "amazon.nova-lite-v1:0_French_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "Le secteur agricole doit s'adapter aux conditions climatiques changeantes pour assurer la sécurité alimentaire.",
+        "response_time": 0.2683098316192627
+    },
+    "amazon.nova-lite-v1:0_French_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "La coopération internationale est essentielle pour relever le défi mondial du changement climatique.",
+        "response_time": 0.25975823402404785
+    },
+    "amazon.nova-lite-v1:0_Spanish_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "El cambio climático es un cambio a largo plazo en los patrones climáticos globales y las temperaturas.",
+        "response_time": 0.2810828685760498
+    },
+    "amazon.nova-lite-v1:0_Spanish_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "¿Cuáles son las estrategias más efectivas para mitigar los impactos del cambio climático en las comunidades costeras?",
+        "response_time": 0.26016807556152344
+    },
+    "amazon.nova-lite-v1:0_Spanish_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "Las fuentes de energía renovable, como la energía solar y eólica, son cruciales para reducir las emisiones de carbono.",
+        "response_time": 0.28075313568115234
+    },
+    "amazon.nova-lite-v1:0_Spanish_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "El sector agrícola debe adaptarse a las condiciones climáticas cambiantes para garantizar la seguridad alimentaria.",
+        "response_time": 0.23398184776306152
+    },
+    "amazon.nova-lite-v1:0_Spanish_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "La cooperación internacional es esencial para abordar el desafío global del cambio climático.",
+        "response_time": 0.23299789428710938
+    },
+    "amazon.nova-lite-v1:0_Filipino (Tagalog)_Climate change is a long-term shift in global weather patterns and temperatures.": {
+        "translation": "Ang pagbabago sa klima ay isang mahabang panahong pagbabago sa mga pattern ng panahon at temperatura sa buong mundo.",
+        "response_time": 0.4682939052581787
+    },
+    "amazon.nova-lite-v1:0_Filipino (Tagalog)_What are the most effective strategies for mitigating the impacts of climate change in coastal communities?": {
+        "translation": "Ano ang mga pinakamabisang estratehiya para mapabawas ang epekto ng pagbabago ng klima sa mga komunidad sa baybayin?",
+        "response_time": 1.1061580181121826
+    },
+    "amazon.nova-lite-v1:0_Filipino (Tagalog)_Renewable energy sources, such as solar and wind power, are crucial for reducing carbon emissions.": {
+        "translation": "Ang mga mapag-mulang pinagkukunan ng enerhiya, tulad ng enerhiya ng solar at hangin, ay mahalaga para sa pagbawas ng mga emisyon ng carbon.",
+        "response_time": 0.5719771385192871
+    },
+    "amazon.nova-lite-v1:0_Filipino (Tagalog)_The agricultural sector must adapt to changing climate conditions to ensure food security.": {
+        "translation": "Ang sektor ng agrikultura ay dapat umangkop sa nagbabagong kondisyon ng klima upang matiyak ang seguridad ng pagkain.",
+        "response_time": 0.5715088844299316
+    },
+    "amazon.nova-lite-v1:0_Filipino (Tagalog)_International cooperation is essential for addressing the global challenge of climate change.": {
+        "translation": "Ang pakikipagtulungan sa internasyonal ay mahalaga para tugunan ang pandaigdigang hamon ng pagbabago ng klima.",
+        "response_time": 0.47362709045410156
+    }
+}

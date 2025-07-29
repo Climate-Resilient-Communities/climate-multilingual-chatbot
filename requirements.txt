@@ -70,3 +70,5 @@ langchain_cohere>=0.4.2  # Updated to latest version to work with newer cohere
 safetensors>=0.4.1
 accelerate>=0.27.0
 protobuf>=4.24.4
+evaluate>=0.4.0
+sacrebleu>=2.4.0

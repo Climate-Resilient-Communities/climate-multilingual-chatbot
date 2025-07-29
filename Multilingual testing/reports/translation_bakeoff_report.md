@@ -15,7 +15,7 @@ Based on a weighted score combining:
 
 ## Models Tested
 - **Nova Pro**: `amazon.nova-pro-v1:0`
-- **Nova Micro**: `amazon.nova-micro-v1:0`
+- **Nova Lite**: `amazon.nova-lite-v1:0`
 - **Nova Lite**: `amazon.nova-lite-v1:0`
 - **Titan Text Premier**: `amazon.titan-text-premier-v1:0`
 

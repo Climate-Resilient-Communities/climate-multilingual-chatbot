@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, patch
 @pytest.mark.asyncio
 async def test_chinese_response_not_abrupt(chatbot):
     """Test that Chinese responses are complete and not abruptly cut off."""
-    query = "什么是气候变化？"
+    query = "“我是说多伦多四月下雪和全球变暖有关吗？” “有什么我们能做的来应对全球变暖”"
     result = await chatbot.process_query(query=query, language_name="chinese")
     assert result["success"]
     # TODO: Add more robust check for abrupt ending (e.g., incomplete sentence)

@@ -1,0 +1,74 @@
+// Multilingual Climate Chatbot with LLM Follow-up Detection
+digraph "Climate Chatbot Architecture" {
+	bgcolor=white fontname=Arial nodesep=0.5 rankdir=TB ranksep=0.8 size="11,8"
+	node [fillcolor="#E5F2FF" fontname=Arial fontsize=14 margin="0.3,0.1" shape=box style=filled]
+	edge [fontname=Arial fontsize=11]
+	subgraph cluster_user {
+		fillcolor="#F5F5F5" label="User Interface" style=filled
+		user_query [label="User Query
+(Any Language)"]
+		user_response [label="User Response
+(Translated if needed)"]
+	}
+	subgraph cluster_input {
+		fillcolor="#EDF7ED" label="Query Processing & Follow-up Detection" style=filled
+		llm_classifier [label="LLM-based
+Follow-up Detection" fillcolor="#98FB98" shape=box style=filled]
+		topic_moderation [label="ClimateBERT
+Topic Moderation"]
+		query_processing [label="Query Normalization"]
+		translation [label="Query Translation"]
+		conversation_history [label="Conversation History"]
+	}
+	subgraph cluster_retrieval {
+		fillcolor="#EBF5FA" label="Enhanced Retrieval System" style=filled
+		topic_extraction [label="Topic Extraction" fillcolor="#98FB98" style=filled]
+		query_enrichment [label="Query Enrichment" fillcolor="#98FB98" style=filled]
+		hybrid_search [label="Hybrid Search"]
+		reranking [label=Reranking]
+		pinecone [label="Pinecone Vector DB"]
+	}
+	subgraph cluster_generation {
+		fillcolor="#FFF8DC" label="Response Generation" style=filled
+		relevance_scoring [label="Conversation
+Relevance Scoring" fillcolor="#98FB98" style=filled]
+		context_optimization [label="Context Optimization" fillcolor="#98FB98" style=filled]
+		rag_system [label="RAG System"]
+		nova_llm [label="Nova LLM"]
+		hallucination_check [label="Hallucination Detection"]
+	}
+	subgraph cluster_output {
+		fillcolor="#FFE4E1" label="Response Processing" style=filled
+		response_translation [label="Response Translation"]
+		citation_generator [label="Citation Generator"]
+		redis_cache [label="Redis Cache"]
+	}
+	user_query -> query_processing
+	redis_cache -> user_response
+	query_processing -> topic_moderation
+	query_processing -> translation
+	conversation_history -> llm_classifier [label="Historical context"]
+	user_response -> conversation_history [label=Feedback color=red style=dashed]
+	llm_classifier -> topic_moderation [label="Informs context"]
+	llm_classifier -> topic_extraction [label="If follow-up" color=blue style=dashed]
+	topic_extraction -> query_enrichment [label="Add context"]
+	query_enrichment -> hybrid_search
+	hybrid_search -> pinecone
+	pinecone -> reranking
+	llm_classifier -> relevance_scoring [color=green style=dotted]
+	relevance_scoring -> context_optimization
+	reranking -> rag_system
+	context_optimization -> rag_system
+	rag_system -> nova_llm
+	nova_llm -> hallucination_check
+	hallucination_check -> response_translation
+	hallucination_check -> citation_generator
+	response_translation -> redis_cache
+	citation_generator -> redis_cache
+	fontsize=20 label="Multilingual Climate Chatbot Architecture
+with LLM-based Follow-up Detection" labelloc=t
+	subgraph cluster_legend {
+		fillcolor=white label=Legend labelloc=b style=filled
+		new_feature [label="New Features" fillcolor="#98FB98" style=filled]
+	}
+}

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class BedrockModel:
     """Nova Generation model using Bedrock API."""
     
-    def __init__(self, model_id="amazon.nova-micro-v1:0"):
+    def __init__(self, model_id="amazon.nova-lite-v1:0"):
         """Initialize BedrockModel with session and client."""
         try:
             # Load environment variables
