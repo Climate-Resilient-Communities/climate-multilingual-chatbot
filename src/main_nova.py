@@ -87,6 +87,7 @@ from src.models.query_routing import MultilingualRouter
 from src.models.input_guardrail import topic_moderation, check_follow_up_with_llm
 from src.models.retrieval import get_documents
 from src.models.hallucination_guard import extract_contexts, check_hallucination
+from src.models.query_rewriter import query_rewriter
 from src.data.config.azure_config import get_azure_settings
 
 # Configure logging
@@ -305,6 +306,24 @@ class MultilingualClimateChatbot:
                 max_length=512
             )
             logger.info("✓ Topic moderation pipeline initialized successfully")
+            
+            # Initialize sentence transformer model for semantic similarity
+            logger.info("Initializing sentence transformer model for semantic similarity...")
+            try:
+                from sentence_transformers import SentenceTransformer
+                # Use a compact but effective multilingual model
+                self.similarity_model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+                logger.info("✓ Successfully initialized semantic similarity model")
+            except Exception as sim_err:
+                logger.warning(f"Failed to initialize similarity model: {str(sim_err)}")
+                logger.info("Falling back to basic multilingual model...")
+                try:
+                    # Fallback to an even smaller model
+                    self.similarity_model = SentenceTransformer('paraphrase-MiniLM-L6-v2')
+                    logger.info("✓ Successfully initialized fallback similarity model")
+                except Exception as fallback_err:
+                    logger.error(f"Failed to initialize any similarity model: {str(fallback_err)}")
+                    self.similarity_model = None
         except Exception as e:
             logger.error(f"Error initializing models: {str(e)}")
             raise ValueError(f"Failed to initialize ClimateBERT model: {str(e)}")
@@ -420,12 +439,13 @@ class MultilingualClimateChatbot:
         )
         
     @traceable(name="process_input_guards")
-    async def process_input_guards(self, query: str) -> Dict[str, Any]:
+    async def process_input_guards(self, query: str, conversation_history: List[Dict] = None) -> Dict[str, Any]:
         """
         Process input validation and topic moderation.
         
         Args:
             query (str): The normalized user query
+            conversation_history (List[Dict], optional): The conversation history for follow-up detection
             
         Returns:
             Dict[str, Any]: Results of input validation with 'passed' flag
@@ -449,8 +469,14 @@ class MultilingualClimateChatbot:
                 
            
             try:
-                # Direct topic moderation call 
-                topic_results = await topic_moderation(query, self.topic_moderation_pipe)
+                # Direct topic moderation call with similarity model and conversation history
+                topic_results = await topic_moderation(
+                    query, 
+                    self.topic_moderation_pipe, 
+                    conversation_history=conversation_history,
+                    nova_model=getattr(self, 'nova_model', None),  # Pass the Nova model for LLM follow-up detection
+                    similarity_model=getattr(self, 'similarity_model', None)
+                )
                 
                 if not topic_results or not topic_results.get('passed', False):
                     result_reason = topic_results.get('reason', 'not_climate_related')
@@ -602,12 +628,13 @@ class MultilingualClimateChatbot:
                     
                     # Topic moderation check using English query - now passing the nova_model for LLM-based detection
                     validation_start = time.time()
-                    # Pass conversation history to topic_moderation along with nova_model
+                    # Pass conversation history to topic_moderation along with nova_model and similarity_model
                     topic_results = await topic_moderation(
                         query=english_query, 
                         moderation_pipe=self.topic_moderation_pipe,
                         conversation_history=conversation_history,
-                        nova_model=self.nova_model  # Pass the Nova model for LLM follow-up detection
+                        nova_model=self.nova_model,  # Pass the Nova model for LLM follow-up detection
+                        similarity_model=getattr(self, 'similarity_model', None)  # Pass the similarity model
                     )
                     step_times['validation'] = time.time() - validation_start
                     
@@ -665,39 +692,72 @@ class MultilingualClimateChatbot:
                                 is_follow_up = follow_up_result.get('is_follow_up', False)
                                 
                                 if is_follow_up:
-                                    # For follow-up questions, create an enhanced retrieval query that includes
-                                    # important context from the conversation history
+                                    logger.info("🔄 Follow-up detected - using query rewriter for context enhancement")
                                     
-                                    # Collect recent conversation context to help the LLM understand the topic
-                                    context_turns = conversation_history[-min(3, len(conversation_history)):]
-                                    context_text = ""
-                                    for turn in context_turns:
-                                        context_text += f"{turn.get('query', '')} {turn.get('response', '')} "
-                                    
-                                    # Use LLM to extract key topics from the conversation context
+                                    # Use the proper query rewriter to expand the query with conversation context
                                     try:
-                                        topic_prompt = f"""Based on this conversation history and current query, extract 3-5 key 
-                                        topic keywords that would help retrieve relevant information:
+                                        # Format conversation history for the query rewriter
+                                        history_for_rewriter = []
+                                        for turn in conversation_history[-min(3, len(conversation_history)):]:
+                                            if turn.get('query'):
+                                                history_for_rewriter.append(f"User: {turn['query']}")
+                                            if turn.get('response'):
+                                                # Truncate long responses to avoid overwhelming the prompt
+                                                response = turn['response']
+                                                if len(response) > 300:
+                                                    response = response[:300] + "..."
+                                                history_for_rewriter.append(f"AI: {response}")
                                         
-                                        Conversation history: {context_text}
-                                        Current query: {english_query}
-                                        
-                                        Return only the most important keywords separated by commas. The keywords should help
-                                        retrieve relevant climate-related information for the current query.
-                                        """
-                                        
-                                        topic_result = await self.nova_model.nova_content_generation(
-                                            prompt=topic_prompt,
-                                            system_message="Extract key topics from text. Be brief and precise."
+                                        # Rewrite the query with proper context
+                                        rewritten_result = await query_rewriter(
+                                            conversation_history=history_for_rewriter,
+                                            user_query=english_query,
+                                            nova_model=self.nova_model
                                         )
                                         
-                                        # Use these extracted topics to enhance the current query
-                                        if topic_result and len(topic_result.strip()) > 0:
-                                            # Create a retrieval query that includes context from the conversation
-                                            retrieval_query = f"{english_query} {topic_result}"
-                                            logger.info(f"Enhanced retrieval query with conversation context: '{retrieval_query}'")
-                                    except Exception as topic_err:
-                                        logger.warning(f"Error extracting topics from conversation: {str(topic_err)}")
+                                        # Check if the query was successfully rewritten (not classified as off-topic or harmful)
+                                        if not rewritten_result.startswith("Classification:"):
+                                            retrieval_query = rewritten_result.strip()
+                                            logger.info(f"✅ Query rewritten with context: '{retrieval_query}'")
+                                        else:
+                                            logger.info(f"⚠️ Query rewriter classification: {rewritten_result}")
+                                            # Fall back to original query if rewriter rejects it
+                                            retrieval_query = english_query
+                                            
+                                    except Exception as rewriter_err:
+                                        logger.warning(f"❌ Error in query rewriter: {str(rewriter_err)}")
+                                        # Fall back to the original basic enhancement if rewriter fails
+                                        try:
+                                            # Collect recent conversation context to help the LLM understand the topic
+                                            context_turns = conversation_history[-min(3, len(conversation_history)):]
+                                            context_text = ""
+                                            for turn in context_turns:
+                                                context_text += f"{turn.get('query', '')} {turn.get('response', '')} "
+                                            
+                                            # Use LLM to extract key topics from the conversation context
+                                            topic_prompt = f"""Based on this conversation history and current query, extract 3-5 key 
+                                            topic keywords that would help retrieve relevant information:
+                                            
+                                            Conversation history: {context_text}
+                                            Current query: {english_query}
+                                            
+                                            Return only the most important keywords separated by commas. The keywords should help
+                                            retrieve relevant climate-related information for the current query.
+                                            """
+                                            
+                                            topic_result = await self.nova_model.nova_content_generation(
+                                                prompt=topic_prompt,
+                                                system_message="Extract key topics from text. Be brief and precise."
+                                            )
+                                            
+                                            # Use these extracted topics to enhance the current query
+                                            if topic_result and len(topic_result.strip()) > 0:
+                                                # Create a retrieval query that includes context from the conversation
+                                                retrieval_query = f"{english_query} {topic_result}"
+                                                logger.info(f"🔧 Fallback: Enhanced retrieval query with conversation context: '{retrieval_query}'")
+                                        except Exception as fallback_err:
+                                            logger.warning(f"❌ Error in fallback topic extraction: {str(fallback_err)}")
+                                            retrieval_query = english_query
                             
                             # Document retrieval includes hybrid search and reranking
                             reranked_docs = await get_documents(retrieval_query, self.index, self.embed_model, self.cohere_client)
@@ -781,7 +841,8 @@ class MultilingualClimateChatbot:
                                     fallback_response, fallback_citations, fallback_score = await self._try_tavily_fallback(
                                         query=norm_query,  # Use normalized query for display
                                         english_query=english_query,  # Use English for processing
-                                        language_name=language_name
+                                        language_name=language_name,
+                                        conversation_history=formatted_history  # Pass conversation history to fallback
                                     )
                                     step_times['fallback'] = time.time() - fallback_start
                                     if fallback_score > faithfulness_score:
@@ -847,7 +908,7 @@ class MultilingualClimateChatbot:
                     "trace_id": getattr(pipeline_trace, 'id', None) if 'pipeline_trace' in locals() else None
                 }
 
-    async def _try_tavily_fallback(self, query: str, english_query: str, language_name: str) -> Tuple[Optional[str], Optional[List], float]:
+    async def _try_tavily_fallback(self, query: str, english_query: str, language_name: str, conversation_history: List = None) -> Tuple[Optional[str], Optional[List], float]:
         """
         Attempt to get a response using Tavily search when primary response fails verification.
         """
@@ -878,7 +939,8 @@ class MultilingualClimateChatbot:
                 query=query, 
                 documents=documents_for_nova, 
                 nova_model=self.nova_model, 
-                description=description
+                description=description,
+                conversation_history=conversation_history
             )
             
             # Verify fallback response

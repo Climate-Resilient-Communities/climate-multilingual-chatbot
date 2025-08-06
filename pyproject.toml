@@ -32,12 +32,14 @@ jsonschema = "^4.23.0"
 ragas = "^0.0.22"
 datasets = "^2.19.0"
 tokenizers = "^0.19.1"
+opencensus-ext-azure = "^1.1.15"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0"
 black = "^24.2"
 isort = "^5.13"
 flake8 = "^7.0"
+pytest-asyncio = "<1.0"
 
 [build-system]
 requires = ["poetry-core"]

@@ -196,66 +196,14 @@ async def _process_documents_and_generate(
         
         # If we have conversation history, check if we should prioritize the most recent context
         if conversation_history and len(conversation_history) > 1:
-            # Extract the most salient part of the conversation history
-            try:
-                # Only if we have at least 4 conversation turns (2 exchanges), try to optimize context
-                if len(conversation_history) >= 4:
-                    # Use Nova to identify which parts of the conversation are most relevant to current query
-                    context_prompt = f"""Based on this conversation history and current query, determine which parts
-                    of the conversation are most relevant to answering the current query.
-                    
-                    Current query: {query}
-                    
-                    For each conversation turn, rate its relevance to the current query on a scale of 1-5,
-                    where 5 is "highly relevant" and 1 is "not relevant at all".
-                    
-                    Return ONLY the list of relevance scores, separated by commas, with no explanation.
-                    Example: 2,4,5,1,3
-                    """
-                    
-                    # The relevance scores will be used to optimize the conversation history
-                    try:
-                        relevance_result = await nova_model.nova_content_generation(
-                            prompt=context_prompt,
-                            system_message="Rate the relevance of conversation turns to the current query"
-                        )
-                        
-                        logger.debug(f"Relevance scores for conversation history: {relevance_result}")
-                        
-                        # If we were able to get relevance scores, prioritize the most relevant parts
-                        if relevance_result:
-                            # Try to parse the relevance scores
-                            try:
-                                scores = [int(s.strip()) for s in relevance_result.split(',')]
-                                if len(scores) >= len(conversation_history) // 2:  # We need at least one score per exchange
-                                    # Keep conversation pairs with scores >= 3 (at least moderately relevant)
-                                    relevant_turns = []
-                                    for i in range(min(len(scores), len(conversation_history) // 2)):
-                                        if scores[i] >= 3:
-                                            user_idx = i * 2
-                                            asst_idx = user_idx + 1
-                                            if asst_idx < len(conversation_history):
-                                                relevant_turns.append(conversation_history[user_idx])
-                                                relevant_turns.append(conversation_history[asst_idx])
-                                    
-                                    logger.info(f"Identified {len(relevant_turns) // 2} relevant conversation exchanges")
-                                    
-                                    # Always include at least the most recent exchange
-                                    if len(relevant_turns) < 2 and len(conversation_history) >= 2:
-                                        relevant_turns = conversation_history[-2:]
-                                    
-                                    # Replace conversation history with optimized version if we found relevant turns
-                                    if relevant_turns:
-                                        conversation_history = relevant_turns
-                                        logger.info("Successfully optimized conversation history for relevance")
-                            except Exception as parse_err:
-                                logger.warning(f"Error parsing relevance scores: {str(parse_err)}") 
-                    except Exception as rel_err:
-                        logger.warning(f"Error determining conversation relevance: {str(rel_err)}")
-                
-            except Exception as ctx_err:
-                logger.warning(f"Error optimizing conversation context: {str(ctx_err)}")
-                # Continue with the original conversation history
+            # For now, let's keep all conversation history to ensure context is preserved
+            # The relevance optimization was being too aggressive and removing important context
+            logger.info(f"Using full conversation history: {len(conversation_history)} turns")
+            
+            # Only keep the most recent conversation if we have too many turns (>10)
+            if len(conversation_history) > 10:
+                logger.info("Conversation history too long, keeping only the most recent 6 turns")
+                conversation_history = conversation_history[-6:]
         
         # Generate response with Nova, now passing optimized conversation_history
         response = await nova_model.generate_response(

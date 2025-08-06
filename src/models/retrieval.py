@@ -200,6 +200,9 @@ def process_search_results(search_results) -> List[Dict]:
             # Get and clean content
             content = match.metadata.get('chunk_text', '')
             if not content:
+                # Fallback to 'content' key if 'chunk_text' doesn't exist
+                content = match.metadata.get('content', '')
+            if not content:
                 logger.warning(f"No content found for document: {title}")
                 continue
                 

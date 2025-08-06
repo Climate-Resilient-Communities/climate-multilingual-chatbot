@@ -227,18 +227,35 @@ Answer with ONLY the classification result, no explanations or additional text."
             if not text or source_lang == target_lang:
                 return text
 
+            # Preprocess text to help with translation quality
+            processed_text = text.strip()
+            
+            # If it looks like a question but doesn't have proper punctuation, add it
+            question_words = ['what', 'how', 'why', 'when', 'where', 'who', 'which', 'can', 'do', 'does', 'is', 'are']
+            if (processed_text.lower().split()[0] in question_words and 
+                not processed_text.endswith('?') and 
+                not processed_text.endswith('.')):
+                processed_text += '?'
+            
+            # Capitalize first letter if it's not already
+            if processed_text and not processed_text[0].isupper():
+                processed_text = processed_text[0].upper() + processed_text[1:]
+
+            # Simple and clear prompt
+            prompt = f"Translate from {source_lang} to {target_lang}: {processed_text}"
+
             payload = {
                 "messages": [
                     {
                         "role": "user",
                         "content": [
-                            {"text": f"Provide ONLY a direct translation of {text} from {source_lang} to {target_lang}"}
+                            {"text": prompt}
                         ]
                     }
                 ],
                 "inferenceConfig": {
                     "maxTokens": 10000,
-                    "temperature": 0.1
+                    "temperature": 0.2  # Slightly higher for better natural language handling
                 }
             }
 
@@ -281,6 +298,9 @@ Answer with ONLY the classification result, no explanations or additional text."
             enhanced_query = query  # Default to original query
             
             if conversation_history and len(conversation_history) > 0:
+                logger.info(f"Processing conversation history: {len(conversation_history)} turns")
+                logger.info(f"Conversation history sample: {conversation_history[:2] if len(conversation_history) >= 2 else conversation_history}")
+                
                 # Format the conversation history for the prompt
                 history_pairs = []
                 last_context = ""
@@ -289,32 +309,38 @@ Answer with ONLY the classification result, no explanations or additional text."
                     if i + 1 < len(conversation_history):
                         user_msg = conversation_history[i].get('content', '')
                         assistant_msg = conversation_history[i+1].get('content', '')
+                        
+                        logger.info(f"Processing turn {i//2 + 1}: User='{user_msg[:100]}...', Assistant='{assistant_msg[:100]}...'")
+                        
                         history_pairs.append(f"User: {user_msg}\nAssistant: {assistant_msg}")
                         
                         # Keep track of the last conversation - useful for context
                         last_context = f"{user_msg} {assistant_msg}"
                 
                 if history_pairs:
-                    conversation_context = "Previous conversation:\n" + "\n\n".join(history_pairs)
+                    conversation_context = "CONVERSATION HISTORY (use this context for follow-up questions):\n" + "\n\n".join(history_pairs) + "\n\n"
+                    logger.info(f"Formatted conversation context: {len(conversation_context)} characters")
+                    logger.info(f"Conversation context preview: {conversation_context[:200]}...")
                 
                 # Instead of using hardcoded follow-up indicators, we'll perform LLM-based classification
                 # This happens in the input_guardrail module now, using the nova_classification method
+            else:
+                logger.info("No conversation history provided")
             
             # Use system message from system_messages.py
             custom_instructions = description if description else "Provide a clear, accurate response based on the given context."
             
-            prompt = {
-                "messages": [
-                    {
-                        "role": "user", 
-                        "content": [
-                            {"text": f"""[SYSTEM INSTRUCTION]: {CLIMATE_SYSTEM_MESSAGE}
+            # Create the full prompt text for logging
+            full_prompt_text = f"""[SYSTEM INSTRUCTION]: {CLIMATE_SYSTEM_MESSAGE}
 
-Based on the following documents and any relevant conversation history, provide a direct answer to this question: {enhanced_query}
+{conversation_context}
+
+Based on the above conversation history and the following documents, provide a direct answer to this question: {enhanced_query}
+
+IMPORTANT: If this question relates to something discussed in the conversation history (like "why is this important?" referring to wetlands), make sure to reference and build upon that specific context from the conversation.
 
 Documents for context:
 {formatted_docs}
-{conversation_context}
 
 Additional Instructions:
 1. {custom_instructions}
@@ -325,7 +351,17 @@ Additional Instructions:
 6. Suggest realistic, low-cost actions people can take when relevant
 7. Ensure headers are properly formatted with a space after # symbols (e.g., "# Title" not "#Title")
 8. Start with a clear main header (# Title) that summarizes the topic, not just repeating the question
-9. DO NOT start your response by repeating the user's question in the header"""}
+9. DO NOT start your response by repeating the user's question in the header
+10. If the question refers to something from the previous conversation (using words like "this", "they", "it"), make sure to clearly identify what is being referenced and provide context-aware answers."""
+
+            logger.info(f"Full prompt being sent to Nova (first 500 chars): {full_prompt_text[:500]}...")
+            
+            prompt = {
+                "messages": [
+                    {
+                        "role": "user", 
+                        "content": [
+                            {"text": full_prompt_text}
                         ]
                     }
                 ],
