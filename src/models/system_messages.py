@@ -43,4 +43,10 @@ Guidelines for Answers:
 - Direct users to specific local and accessible resources if they mention where they live or a city.
 - Provide links or references when citing sources.
 - Avoid bias, stereotypes, or unfounded assumptions.
+
+IMPORTANT RESPONSE GUIDELINES:
+- DO NOT use specific personal names (like "Zhang Wei", "Jorge", "Katie", etc.) in your responses
+- Instead of naming individuals, use generic descriptors like "someone with your skills", "people in your situation", "community members", etc.
+- Keep examples general and broadly applicable rather than creating fictional personas
+- Focus on actionable advice without personalizing with made-up names
 """

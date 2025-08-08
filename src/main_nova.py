@@ -344,11 +344,11 @@ class MultilingualClimateChatbot:
         """
         try:
             # Input validation checks
-            if not query or len(query.strip()) < 3:
+            if not query or len(query.strip()) == 0:
                 return {
                     "passed": False,
-                    "message": "Please provide a more detailed question.",
-                    "reason": "too_short"
+                    "message": "Please provide a question.",
+                    "reason": "empty_query"
                 }
                 
             # Check for very long queries
