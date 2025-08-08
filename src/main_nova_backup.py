@@ -68,18 +68,26 @@ if 'torch' in sys.modules:
 
 # Third-party imports
 import cohere
+from huggingface_hub import login
+from transformers import (
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+    pipeline
+)
+from pinecone import Pinecone
+from FlagEmbedding import BGEM3FlagModel
 from langsmith import Client, traceable, trace
+from langchain_community.tools.tavily_search import TavilySearchResults
 
 # Local imports
 from src.models.redis_cache import ClimateCache
 from src.models.nova_flow import BedrockModel
-from src.models.gen_response_nova import generate_chat_response  # Fixed import
+from src.models.gen_response_nova import nova_chat
 from src.models.query_routing import MultilingualRouter
-from src.models.retrieval import get_documents
-from src.models.hallucination_guard import extract_contexts, check_hallucination, evaluate_faithfulness_threshold
-from src.models.climate_pipeline import ClimateQueryPipeline  # NEW: Integrated pipeline
-from src.data.config.azure_config import get_azure_settings
 from src.models.input_guardrail import topic_moderation, check_follow_up_with_llm
+from src.models.retrieval import get_documents
+from src.models.hallucination_guard import extract_contexts, check_hallucination
+from src.data.config.azure_config import get_azure_settings
 
 # Configure logging
 logging.basicConfig(
@@ -160,31 +168,39 @@ class MultilingualClimateChatbot:
             raise
 
     def _initialize_api_keys(self) -> None:
-        """Initialize and validate API keys with minimal side effects for faster startup."""
+        """Initialize and validate API keys."""
         required_keys = {
             'PINECONE_API_KEY': os.getenv('PINECONE_API_KEY'),
             'COHERE_API_KEY': os.getenv('COHERE_API_KEY'),
             'TAVILY_API_KEY': os.getenv('TAVILY_API_KEY'),
-        }
-        optional_keys = {
             'HF_API_TOKEN': os.getenv('HF_API_TOKEN')
         }
 
         # Validate all required keys exist
         missing_keys = [key for key, value in required_keys.items() if not value]
-        if missing_keys:
+        if (missing_keys):
             raise ValueError(f"Missing required API keys: {', '.join(missing_keys)}")
-
         # Store keys as instance variables
         for key, value in required_keys.items():
             setattr(self, key, value)
-        for key, value in optional_keys.items():
-            setattr(self, key, value)
 
-        # Initialize clients (lightweight)
+        # Initialize clients
         self.cohere_client = cohere.Client(api_key=self.COHERE_API_KEY)
+        
+        # Login to Hugging Face - make it optional in Azure environments
+        try:
+            if is_running_in_azure():
+                logger.info("Running in Azure - skipping Hugging Face git credential setup")
+                # Use simple login without git credential helper
+                login(token=self.HF_API_TOKEN, add_to_git_credential=False)
+            else:
+                # Regular login with git credential helper
+                login(token=self.HF_API_TOKEN, add_to_git_credential=True)
+        except Exception as e:
+            logger.warning(f"Hugging Face login warning: {str(e)}")
+            logger.info("Continuing without HF login - some features may be limited")
 
-        # Skip Hugging Face login at startup to speed load; legacy paths will handle if needed
+        # Set environment variables
         os.environ.update({
             'PINECONE_API_KEY': self.PINECONE_API_KEY,
             'COHERE_API_KEY': self.COHERE_API_KEY,
@@ -194,20 +210,11 @@ class MultilingualClimateChatbot:
     def _initialize_components(self, index_name: str) -> None:
         """Initialize all required components."""
         logger.info("Initializing components...")
-        
-        # NEW: Initialize the unified pipeline
-        try:
-            self.pipeline = ClimateQueryPipeline(index_name=index_name)
-            logger.info("✓ ClimateQueryPipeline initialized")
-        except Exception as e:
-            logger.error(f"Failed to initialize ClimateQueryPipeline: {str(e)}")
-            # Fall back to individual components (without legacy BERT)
-            logger.info("Falling back to individual component initialization...")
-            self._initialize_retrieval(index_name)
-            self._initialize_language_router()
-            self._initialize_nova_flow()
-            self._initialize_redis()
-        
+        self._initialize_models()
+        self._initialize_retrieval(index_name)
+        self._initialize_language_router()
+        self._initialize_nova_flow()
+        self._initialize_redis()
         self._initialize_langsmith()
         
         # Initialize storage
@@ -215,14 +222,95 @@ class MultilingualClimateChatbot:
         self.conversation_history = []
         self.feedback_metrics = []
 
-    # Legacy BERT initialization removed
+    def _initialize_models(self) -> None:
+        """Initialize all ML models."""
+        try:
+            logger.info("Checking model directories...")
+            model_name = "climatebert/distilroberta-base-climate-f"
+            
+            # Check for models in Azure App Service path first
+            azure_model_path = Path("/home/site/wwwroot/models/climatebert")
+            local_model_path = Path(__file__).resolve().parent.parent / "models" / "climatebert"
+            
+            model_loaded = False
+            
+            # Try Azure path first, then local path, then fallback to HF download
+            if is_running_in_azure() and azure_model_path.exists() and azure_model_path.is_dir():
+                logger.info(f"Loading ClimateBERT model from Azure path: {azure_model_path}")
+                try:
+                    # Set offline mode to force local file usage
+                    os.environ["HF_HUB_OFFLINE"] = "1"
+                    self.climatebert_model = AutoModelForSequenceClassification.from_pretrained(
+                        str(azure_model_path),
+                        local_files_only=True
+                    )
+                    self.climatebert_tokenizer = AutoTokenizer.from_pretrained(
+                        str(azure_model_path),
+                        max_length=512,
+                        local_files_only=True
+                    )
+                    os.environ.pop("HF_HUB_OFFLINE", None)  # Remove offline mode
+                    logger.info("✓ Successfully loaded ClimateBERT from Azure directory")
+                    model_loaded = True
+                except Exception as azure_err:
+                    os.environ.pop("HF_HUB_OFFLINE", None)  # Remove offline mode
+                    logger.warning(f"Failed to load from Azure path: {str(azure_err)}")
+            
+            # If model still not loaded, try local path
+            if not model_loaded and local_model_path.exists() and local_model_path.is_dir():
+                logger.info(f"Loading ClimateBERT model from local path: {local_model_path}")
+                try:
+                    # Set offline mode to force local file usage
+                    os.environ["HF_HUB_OFFLINE"] = "1"
+                    self.climatebert_model = AutoModelForSequenceClassification.from_pretrained(
+                        str(local_model_path),
+                        local_files_only=True
+                    )
+                    self.climatebert_tokenizer = AutoTokenizer.from_pretrained(
+                        str(local_model_path),
+                        max_length=512,
+                        local_files_only=True
+                    )
+                    os.environ.pop("HF_HUB_OFFLINE", None)  # Remove offline mode
+                    logger.info("✓ Successfully loaded ClimateBERT from local directory")
+                    model_loaded = True
+                except Exception as local_err:
+                    os.environ.pop("HF_HUB_OFFLINE", None)  # Remove offline mode
+                    logger.warning(f"Failed to load from local path: {str(local_err)}")
+            
+            # If model still not loaded, download from Hugging Face
+            if not model_loaded:
+                logger.info(f"Local model not found. Downloading from Hugging Face.")
+                try:
+                    self.climatebert_model = AutoModelForSequenceClassification.from_pretrained(model_name)
+                    self.climatebert_tokenizer = AutoTokenizer.from_pretrained(model_name, max_length=512)
+                    model_loaded = True
+                    logger.info("✓ Successfully loaded ClimateBERT from Hugging Face")
+                except Exception as hf_err:
+                    logger.error(f"Failed to download model from Hugging Face: {str(hf_err)}")
+                    raise ValueError("Failed to initialize ClimateBERT model from any source")
+            
+            # Final check to ensure model and tokenizer were loaded
+            if not hasattr(self, 'climatebert_model') or not hasattr(self, 'climatebert_tokenizer'):
+                raise ValueError("ClimateBERT model or tokenizer not properly initialized")
+                
+            # Set up pipeline
+            device = 0 if torch.cuda.is_available() else -1 
+            self.topic_moderation_pipe = pipeline(
+                "text-classification",
+                model=self.climatebert_model,
+                tokenizer=self.climatebert_tokenizer,
+                device=device,
+                truncation=True,
+                max_length=512
+            )
+            logger.info("✓ Topic moderation pipeline initialized successfully")
+        except Exception as e:
+            logger.error(f"Error initializing models: {str(e)}")
+            raise ValueError(f"Failed to initialize ClimateBERT model: {str(e)}")
 
     def _initialize_retrieval(self, index_name: str) -> None:
         """Initialize retrieval components."""
-        # Lazy imports to avoid heavy libs at module import
-        from pinecone import Pinecone
-        from FlagEmbedding import BGEM3FlagModel
-
         self.pinecone_client = Pinecone(api_key=self.PINECONE_API_KEY)
         self.index = self.pinecone_client.Index(index_name)
         self.embed_model = BGEM3FlagModel('BAAI/bge-m3', use_fp16=False)
@@ -414,38 +502,6 @@ class MultilingualClimateChatbot:
                 "error": str(e)
             }
 
-    @traceable(name="unified_pipeline_processing")
-    async def process_query_with_pipeline(
-        self,
-        query: str,
-        language_name: str,
-        conversation_history: Optional[List[Dict[str, Any]]] = None
-    ) -> Dict[str, Any]:
-        """
-        Process query using the new unified pipeline.
-        
-        This is the new preferred method that uses ClimateQueryPipeline.
-        """
-        if hasattr(self, 'pipeline'):
-            logger.info("Using ClimateQueryPipeline for processing")
-            return await self.pipeline.process_query(
-                query=query,
-                language_name=language_name,
-                conversation_history=conversation_history
-            )
-        else:
-            logger.info("Pipeline not available, falling back to legacy processing")
-            return await self.process_query(query, language_name, conversation_history)
-
-    async def _process_query_internal(
-        self,
-        query: str,
-        language_name: str,
-        run_manager=None
-    ) -> Dict[str, Any]:
-        """Backwards compatibility method for QueryProcessingChain."""
-        return await self.process_query(query, language_name, [])
-
     @traceable(name="main_query_processing")
     async def process_query(
             self,
@@ -464,21 +520,6 @@ class MultilingualClimateChatbot:
             Returns:
                 Dict[str, Any]: The processing results including the response
             """
-            
-            # NEW: Try to use the unified pipeline first
-            if hasattr(self, 'pipeline') and self.pipeline:
-                try:
-                    logger.info("🚀 Using ClimateQueryPipeline for processing")
-                    return await self.pipeline.process_query(
-                        query=query,
-                        language_name=language_name,
-                        conversation_history=conversation_history
-                    )
-                except Exception as e:
-                    logger.warning(f"Pipeline processing failed, falling back to legacy: {str(e)}")
-            
-            # FALLBACK: Legacy processing logic
-            logger.info("Using legacy processing pipeline")
             try:
                 start_time = time.time()
                 step_times = {}
@@ -562,12 +603,11 @@ class MultilingualClimateChatbot:
                     # Topic moderation check using English query - now passing the nova_model for LLM-based detection
                     validation_start = time.time()
                     # Pass conversation history to topic_moderation along with nova_model
-                    # Use lightweight, LLM-based moderation without legacy BERT pipeline
                     topic_results = await topic_moderation(
-                        query=english_query,
-                        moderation_pipe=None,
+                        query=english_query, 
+                        moderation_pipe=self.topic_moderation_pipe,
                         conversation_history=conversation_history,
-                        nova_model=self.nova_model
+                        nova_model=self.nova_model  # Pass the Nova model for LLM follow-up detection
                     )
                     step_times['validation'] = time.time() - validation_start
                     
@@ -704,7 +744,7 @@ class MultilingualClimateChatbot:
                                     logger.debug(f"Sample conversation turn: {formatted_history[:2]}")
                             
                             # Call nova_chat with conversation history
-                            response, citations = await generate_chat_response(
+                            response, citations = await nova_chat(
                                 english_query, 
                                 reranked_docs, 
                                 self.nova_model,
@@ -727,21 +767,11 @@ class MultilingualClimateChatbot:
                                     question=english_query,
                                     answer=response,  # Response is already in English at this point
                                     contexts=contexts,
-                                    cohere_api_key=self.COHERE_API_KEY,
-                                    threshold=0.7  # Set proper threshold for faithfulness
+                                    cohere_api_key=self.COHERE_API_KEY
                                 )
                             
-                            # Evaluate against threshold and log detailed results
-                            evaluation = evaluate_faithfulness_threshold(faithfulness_score, threshold=0.7)
-                            
                             step_times['quality_check'] = time.time() - quality_start
-                            logger.info(f"✔️ Hallucination check complete - Score: {faithfulness_score:.3f}")
-                            logger.info(f"✔️ Assessment: {evaluation['assessment']}")
-                            logger.info(f"✔️ Recommendation: {evaluation['recommendation']}")
-                            
-                            # If faithfulness is too low, add warning
-                            if not evaluation['is_faithful']:
-                                logger.warning(f"Nova response faithfulness below threshold: {faithfulness_score:.3f} < 0.7")
+                            logger.info(f"✔️ Hallucination check complete - Score: {faithfulness_score}")
                             
                             # Fallback to web search if needed
                             if faithfulness_score < 0.1:
@@ -822,8 +852,6 @@ class MultilingualClimateChatbot:
         Attempt to get a response using Tavily search when primary response fails verification.
         """
         try:
-            # Lazy import to avoid cost until needed
-            from langchain_community.tools.tavily_search import TavilySearchResults
             logger.info("Attempting Tavily fallback search")
             tavily_search = TavilySearchResults()
 
@@ -846,10 +874,10 @@ class MultilingualClimateChatbot:
             
             # Generate new response with Tavily results
             description = """Please provide accurate information based on the search results. Always cite your sources. Ensure strict factual accuracy"""
-            fallback_response, fallback_citations = await generate_chat_response(
+            fallback_response, fallback_citations = await nova_chat(
                 query=query, 
                 documents=documents_for_nova, 
-                model=self.nova_model,  # Fixed parameter name
+                nova_model=self.nova_model, 
                 description=description
             )
             
@@ -864,18 +892,13 @@ class MultilingualClimateChatbot:
                 processed_response = fallback_response
                 processed_context = web_contexts
             
-            # Check faithfulness with proper threshold
+            # Check faithfulness
             fallback_score = await check_hallucination(
                 question=english_query,
                 answer=processed_response,
                 contexts=processed_context,
-                cohere_api_key=self.COHERE_API_KEY,
-                threshold=0.7
+                cohere_api_key=self.COHERE_API_KEY
             )
-            
-            # Evaluate and log fallback faithfulness
-            evaluation = evaluate_faithfulness_threshold(fallback_score, threshold=0.7)
-            logger.info(f"✔️ Fallback faithfulness: {fallback_score:.3f} ({evaluation['assessment']})")
             
             return fallback_response, fallback_citations, fallback_score
             

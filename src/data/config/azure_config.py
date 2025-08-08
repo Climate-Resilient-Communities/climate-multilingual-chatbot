@@ -5,7 +5,14 @@ Azure-specific configuration settings for the Climate Multilingual Chatbot
 import os
 from typing import Dict, Any, Optional
 import logging
-from opencensus.ext.azure.log_exporter import AzureLogHandler
+
+# Try to import Azure-specific dependencies, but make them optional
+try:
+    from opencensus.ext.azure.log_exporter import AzureLogHandler
+    AZURE_LOGGING_AVAILABLE = True
+except ImportError:
+    AzureLogHandler = None
+    AZURE_LOGGING_AVAILABLE = False
 
 # Configure logging
 logging.basicConfig(
@@ -42,7 +49,7 @@ def configure_for_azure() -> None:
     """
     try:
         # Set up Application Insights if available
-        if os.getenv("APPINSIGHTS_INSTRUMENTATIONKEY"):
+        if os.getenv("APPINSIGHTS_INSTRUMENTATIONKEY") and AZURE_LOGGING_AVAILABLE:
             try:
                 logger.addHandler(
                     AzureLogHandler(
@@ -50,8 +57,10 @@ def configure_for_azure() -> None:
                     )
                 )
                 logger.info(f"Application Insights telemetry enabled. Application started in Azure environment: {os.getenv('WEBSITE_SITE_NAME')}")
-            except ImportError:
-                logger.warning("Application Insights SDK not installed. Install opencensus-ext-azure for telemetry support.")
+            except Exception as e:
+                logger.warning(f"Failed to set up Application Insights: {str(e)}")
+        elif os.getenv("APPINSIGHTS_INSTRUMENTATIONKEY") and not AZURE_LOGGING_AVAILABLE:
+            logger.warning("Application Insights SDK not available. Install opencensus-ext-azure for telemetry support.")
         
         # Configure AWS credentials for Bedrock access in Azure
         if os.getenv('AWS_ACCESS_KEY_ID') and os.getenv('AWS_SECRET_ACCESS_KEY'):

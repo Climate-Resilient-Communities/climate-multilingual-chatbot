@@ -11,14 +11,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class RedisCache:
-    _instance = None
     _lock = Lock()
-    
-    def __new__(cls, *args, **kwargs):
-        with cls._lock:
-            if cls._instance is None:
-                cls._instance = super().__new__(cls)
-            return cls._instance
 
     def __init__(self, host=None, port=None, db=0, expiration=3600, password=None, ssl=False):
         """Initialize Redis cache with configurable expiration time."""
@@ -67,6 +60,7 @@ class RedisCache:
             logger.error(f"Failed to initialize Redis cache: {str(e)}")
             self.redis_client = None
             self._closed = True
+            self._initialized = True
     
     def _create_client(self):
         """Create a new Redis client with the stored connection parameters."""
@@ -170,6 +164,61 @@ class RedisCache:
             logger.info("Redis connection closed")
         except Exception as e:
             logger.error(f"Error closing Redis connection: {str(e)}")
+
+    # --- Synchronous helper methods for testing and compatibility ---
+    def save_to_cache(self, key: str, value: Any) -> bool:
+        """Synchronous cache set (used in unit tests)."""
+        if self._closed or not self.redis_client:
+            return False
+        try:
+            serialized = json.dumps(value, ensure_ascii=False)
+            # Some Redis clients expect seconds as int
+            ttl = int(self.expiration) if isinstance(self.expiration, (int, float)) else 3600
+            return bool(self.redis_client.setex(key, ttl, serialized))
+        except Exception as e:
+            logger.error(f"save_to_cache error: {str(e)}")
+            return False
+
+    def get_from_cache(self, key: str) -> Optional[Any]:
+        """Synchronous cache get (used in unit tests)."""
+        if self._closed or not self.redis_client:
+            return None
+        try:
+            value = self.redis_client.get(key)
+            if value is None:
+                return None
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                # Clean up corrupt entry
+                try:
+                    self.redis_client.delete(key)
+                except Exception:
+                    pass
+                return None
+        except Exception as e:
+            logger.error(f"get_from_cache error: {str(e)}")
+            return None
+
+    def delete_cache(self, key: str) -> bool:
+        """Synchronous cache delete (used in unit tests)."""
+        if self._closed or not self.redis_client:
+            return False
+        try:
+            return bool(self.redis_client.delete(key))
+        except Exception as e:
+            logger.error(f"delete_cache error: {str(e)}")
+            return False
+
+    def clear_cache(self) -> bool:
+        """Synchronous cache clear (used in unit tests)."""
+        if self._closed or not self.redis_client:
+            return False
+        try:
+            return bool(self.redis_client.flushdb())
+        except Exception as e:
+            logger.error(f"clear_cache error: {str(e)}")
+            return False
 
     def __del__(self):
         """Ensure resources are cleaned up."""
