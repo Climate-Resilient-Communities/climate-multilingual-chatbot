@@ -1,3 +1,38 @@
+import asyncio
+import os
+import pytest
+
+from src.models.redis_cache import ClimateCache
+
+
+@pytest.mark.asyncio
+async def test_redis_cache_roundtrip(monkeypatch):
+    # Ensure redis points to localhost test instance
+    monkeypatch.setenv("REDIS_HOST", os.getenv("REDIS_HOST", "localhost"))
+    monkeypatch.setenv("REDIS_PORT", os.getenv("REDIS_PORT", "6379"))
+
+    cache = ClimateCache()
+
+    key = "test:key:redis_roundtrip"
+    value = {"success": True, "response": "hello", "citations": []}
+
+    # Clean slate
+    await cache.delete(key)
+
+    # Miss first
+    assert await cache.get(key) is None
+
+    # Set and get
+    ok = await cache.set(key, value)
+    assert ok is True
+
+    got = await cache.get(key)
+    assert got == value
+
+    # Delete and miss again
+    await cache.delete(key)
+    assert await cache.get(key) is None
+
 import pytest
 from unittest.mock import Mock, patch
 import json

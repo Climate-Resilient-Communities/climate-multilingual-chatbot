@@ -20,21 +20,21 @@ logger = logging.getLogger(__name__)
 class CohereModel:
     """Cohere Generation model using Cohere API."""
     
-    def __init__(self, model_id="command-r-plus"):
+    def __init__(self, model_id="command-a-03-2025"):
         """Initialize CohereModel with client."""
         try:
             # Load environment variables
             load_environment()
             
-            # Initialize cohere client
-            self.client = cohere.AsyncClient(os.getenv("COHERE_API_KEY"))
+            # Initialize synchronous cohere client to avoid event loop issues in Streamlit
+            self.client = cohere.Client(os.getenv("COHERE_API_KEY"))
             self.model_id = model_id
             logger.info("✓ Cohere client initialized")
         except Exception as e:
             logger.error(f"Cohere client initialization failed: {str(e)}")
             raise
 
-    async def cohere_classification(self, prompt: str, system_message: str = None, options: List[str] = None) -> str:
+    async def classify(self, prompt: str, system_message: Optional[str] = None, options: Optional[List[str]] = None) -> str:
         """
         Perform classification using Cohere model.
         
@@ -64,12 +64,15 @@ class CohereModel:
 {options_instruction}
 Answer with ONLY the classification result, no explanations or additional text."""
 
-            response = await self.client.chat(
-                model=self.model_id,
-                message=user_message,
-                temperature=0.1,
-            )
-            result = response.text.strip()
+            loop = asyncio.get_event_loop()
+            def _call():
+                return self.client.chat(
+                    model=self.model_id,
+                    message=user_message,
+                    temperature=0.1,
+                )
+            response = await loop.run_in_executor(None, _call)
+            result = (response.text or "").strip()
             
             # If options were provided, ensure the result is one of the options
             if options and result not in options:
@@ -87,7 +90,7 @@ Answer with ONLY the classification result, no explanations or additional text."
             # Return safe fallback if options provided, otherwise empty string
             return options[0] if options and len(options) > 0 else ""
             
-    async def cohere_content_generation(self, prompt: str, system_message: str = None) -> str:
+    async def content_generation(self, prompt: str, system_message: Optional[str] = None) -> str:
         """
         Generate content using Cohere model with a specific purpose.
         
@@ -106,12 +109,15 @@ Answer with ONLY the classification result, no explanations or additional text."
             if not system_message:
                 system_message = "You are a helpful assistant that provides accurate and concise information."
 
-            response = await self.client.chat(
-                model=self.model_id,
-                message=prompt,
-                temperature=0.1,
-            )
-            return response.text.strip()
+            loop = asyncio.get_event_loop()
+            def _call():
+                return self.client.chat(
+                    model=self.model_id,
+                    message=prompt,
+                    temperature=0.1,
+                )
+            response = await loop.run_in_executor(None, _call)
+            return (response.text or "").strip()
         except Exception as e:
             logger.error(f"Content generation error: {str(e)}")
             return ""
@@ -127,18 +133,21 @@ Answer with ONLY the classification result, no explanations or additional text."
                                     Respond with ONLY the rephrased query in {language}.
                                     Query: {query}"""
 
-            response = await self.client.chat(
-                model=self.model_id,
-                message=user_message,
-                temperature=0.1,
-            )
+            loop = asyncio.get_event_loop()
+            def _call():
+                return self.client.chat(
+                    model=self.model_id,
+                    message=user_message,
+                    temperature=0.1,
+                )
+            response = await loop.run_in_executor(None, _call)
             return response.text
 
         except Exception as e:
             logger.error(f"Query normalization error: {str(e)}")
             return query.lower().strip()
 
-    async def cohere_translation(self, text: str, source_lang: str = None, target_lang: str = None) -> str:
+    async def translate(self, text: str, source_lang: Optional[str] = None, target_lang: Optional[str] = None) -> str:
         """
         Translate text using Cohere model.
         """
@@ -165,12 +174,33 @@ Translation:"""
             logger.error(f"Translation error: {str(e)}")
             return text
 
+    async def cohere_translation(self, text: str, source_lang: str, target_lang: str) -> str:
+        """
+        Cohere translation method for compatibility with existing codebase.
+        This is an alias for the translate method with the expected signature.
+        """
+        return await self.translate(text, source_lang, target_lang)
+
+    async def cohere_classification(self, prompt: str, system_message: Optional[str] = None, options: Optional[List[str]] = None) -> str:
+        """
+        Cohere classification method for compatibility with existing codebase.
+        This is an alias for the classify method.
+        """
+        return await self.classify(prompt, system_message, options)
+
+    async def cohere_content_generation(self, prompt: str, system_message: Optional[str] = None) -> str:
+        """
+        Cohere content generation method for compatibility with existing codebase.
+        This is an alias for the content_generation method.
+        """
+        return await self.content_generation(prompt, system_message)
+
     async def generate_response(
         self,
         query: str,
         documents: List[dict],
-        description: str = None,
-        conversation_history: List[dict] = None,
+        description: Optional[str] = None,
+        conversation_history: Optional[List[dict]] = None,
     ) -> str:
         """Generate a response using Cohere."""
         try:
@@ -203,20 +233,37 @@ Additional Instructions:
             chat_history = []
             if conversation_history:
                 for msg in conversation_history:
-                    role = "USER" if msg.get("role") == "user" else "CHATBOT"
-                    chat_history.append({"role": role, "message": msg.get("content")})
+                    # Handle different conversation history formats
+                    if "user" in msg and "assistant" in msg:
+                        # Format: {"user": "query", "assistant": "response"}
+                        chat_history.append({"role": "USER", "message": str(msg["user"]) if msg["user"] else "No message"})
+                        chat_history.append({"role": "CHATBOT", "message": str(msg["assistant"]) if msg["assistant"] else "No response"})
+                    elif msg.get("role") == "user":
+                        # Format: {"role": "user", "content": "message"}
+                        content = msg.get("content") or msg.get("message") or "No message"
+                        chat_history.append({"role": "USER", "message": str(content)})
+                    elif msg.get("role") == "assistant" or msg.get("role") == "chatbot":
+                        # Format: {"role": "assistant", "content": "message"}
+                        content = msg.get("content") or msg.get("message") or "No response"
+                        chat_history.append({"role": "CHATBOT", "message": str(content)})
+                    
+                # Ensure all messages have content
+                chat_history = [msg for msg in chat_history if msg.get("message") and str(msg["message"]).strip()]
 
             # Call Cohere
-            response = await self.client.chat(
-                model=self.model_id,
-                message=user_message,
-                chat_history=chat_history,
-                preamble=CLIMATE_SYSTEM_MESSAGE,
-                temperature=0.1,
-            )
+            loop = asyncio.get_event_loop()
+            def _call():
+                return self.client.chat(
+                    model=self.model_id,
+                    message=user_message,
+                    chat_history=chat_history,
+                    preamble=CLIMATE_SYSTEM_MESSAGE,
+                    temperature=0.1,
+                )
+            response = await loop.run_in_executor(None, _call)
             
             # Extract response text
-            response_text = response.text
+            response_text = response.text or ""
             
             # Process markdown headers to ensure they don't repeat the question
             response_text = self._ensure_proper_markdown(response_text)

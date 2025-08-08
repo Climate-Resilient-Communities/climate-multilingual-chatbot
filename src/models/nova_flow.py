@@ -45,7 +45,7 @@ class BedrockModel:
             logger.error(f"Bedrock client initialization failed: {str(e)}")
             raise
 
-    async def nova_classification(self, prompt: str, system_message: str = None, options: List[str] = None) -> str:
+    async def classify(self, prompt: str, system_message: str = None, options: List[str] = None) -> str:
         """
         Perform classification using Nova model.
         
@@ -121,7 +121,7 @@ Answer with ONLY the classification result, no explanations or additional text."
             # Return safe fallback if options provided, otherwise empty string
             return options[0] if options and len(options) > 0 else ""
             
-    async def nova_content_generation(self, prompt: str, system_message: str = None) -> str:
+    async def content_generation(self, prompt: str, system_message: str = None, max_tokens: int = 800) -> str:
         """
         Generate content using Nova model with a specific purpose.
         
@@ -151,7 +151,7 @@ Answer with ONLY the classification result, no explanations or additional text."
                     }
                 ],
                 "inferenceConfig": {
-                    "maxTokens": 1000,
+                    "maxTokens": max_tokens,
                     "temperature": 0.1,
                     "topP": 0.9
                 }
@@ -219,7 +219,7 @@ Answer with ONLY the classification result, no explanations or additional text."
             logger.error(f"Query normalization error: {str(e)}")
             return query.lower().strip()
 
-    async def nova_translation(self, text: str, source_lang: str = None, target_lang: str = None) -> str:
+    async def translate(self, text: str, source_lang: str = None, target_lang: str = None) -> str:
         """
         Translate text using Nova model.
         """
@@ -260,6 +260,20 @@ Answer with ONLY the classification result, no explanations or additional text."
         except Exception as e:
             logger.error(f"Translation error: {str(e)}")
             return text
+
+    async def nova_translation(self, text: str, source_lang: str, target_lang: str) -> str:
+        """
+        Nova translation method for compatibility with existing codebase.
+        This is an alias for the translate method with the expected signature.
+        """
+        return await self.translate(text, source_lang, target_lang)
+
+    async def nova_classification(self, prompt: str, system_message: str = None, options: List[str] = None) -> str:
+        """
+        Nova classification method for compatibility with existing codebase.
+        This is an alias for the classify method.
+        """
+        return await self.classify(prompt, system_message, options)
 
     async def generate_response(
         self,
@@ -330,7 +344,7 @@ Additional Instructions:
                     }
                 ],
                 "inferenceConfig": {
-                    "maxTokens": 10000,
+                    "maxTokens": 1500,
                     "temperature": 0.1,
                     "topP": 0.9,
                     "stopSequences": []

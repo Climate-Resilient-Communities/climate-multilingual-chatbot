@@ -83,7 +83,7 @@ def generate_cache_key(query: str, docs: List[Dict]) -> str:
     query_key = hash(query.lower().strip())
     return f"nova_response:{query_key}:{doc_key}"
 
-async def nova_chat(query, documents, nova_model, description=None, conversation_history=None):
+async def generate_chat_response(query, documents, model, description=None, conversation_history=None):
     """
     Generate a response from Nova model using a query and retrieved documents.
     
@@ -140,7 +140,7 @@ async def nova_chat(query, documents, nova_model, description=None, conversation
                     response, citations = await _process_documents_and_generate(
                         query=query,
                         documents=documents,
-                        nova_model=nova_model,
+                        model=model,
                         description=description,
                         conversation_history=conversation_history
                     )
@@ -170,7 +170,7 @@ async def nova_chat(query, documents, nova_model, description=None, conversation
 async def _process_documents_and_generate(
     query: str,
     documents: List[Dict[str, Any]],
-    nova_model,
+    model,
     description: str = None,
     conversation_history: list = None
 ) -> Tuple[str, List[Dict[str, str]]]:
@@ -215,7 +215,7 @@ async def _process_documents_and_generate(
                     
                     # The relevance scores will be used to optimize the conversation history
                     try:
-                        relevance_result = await nova_model.nova_content_generation(
+                        relevance_result = await model.content_generation(
                             prompt=context_prompt,
                             system_message="Rate the relevance of conversation turns to the current query"
                         )
@@ -258,7 +258,7 @@ async def _process_documents_and_generate(
                 # Continue with the original conversation history
         
         # Generate response with Nova, now passing optimized conversation_history
-        response = await nova_model.generate_response(
+        response = await model.generate_response(
             query=query,
             documents=processed_docs,
             description=description,

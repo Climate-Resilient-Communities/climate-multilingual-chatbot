@@ -76,6 +76,40 @@ if "torch" in sys.modules:
 warnings.filterwarnings("ignore", category=UserWarning, module="streamlit")
 warnings.filterwarnings("ignore", category=FutureWarning, module="transformers")
 
+# === STEP 5.1: FILE LOGGING SETUP (before importing app modules) ===
+from pathlib import Path  # already used below
+import logging
+from logging.handlers import RotatingFileHandler
+
+LOG_DIR = Path.home() / ".streamlit/logs"
+try:
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+except Exception:
+    pass
+
+# Fallback to /tmp if home-based log dir is unavailable
+if not LOG_DIR.exists():
+    LOG_DIR = Path("/tmp/streamlit_logs")
+    try:
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+
+LOG_FILE = LOG_DIR / "app.log"
+
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+
+# Avoid duplicating file handlers across reruns
+_has_file_handler = any(
+    isinstance(h, RotatingFileHandler) and getattr(h, "baseFilename", None) == str(LOG_FILE)
+    for h in root_logger.handlers
+)
+if not _has_file_handler:
+    _fh = RotatingFileHandler(str(LOG_FILE), maxBytes=5 * 1024 * 1024, backupCount=3)
+    _fh.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+    root_logger.addHandler(_fh)
+
 # === STEP 6: SETUP EVENT LOOP BEFORE STREAMLIT ===
 import asyncio
 try:
@@ -230,6 +264,7 @@ def init_chatbot():
     try:
         index_name = os.environ.get("PINECONE_INDEX_NAME", "climate-change-adaptation-index-10-24-prod")
         chatbot = MultilingualClimateChatbot(index_name)
+        # Eager init: pipeline now initializes heavy components on construction
         return {"success": True, "chatbot": chatbot, "error": None}
     except Exception as e:
         error_message = str(e)
@@ -403,7 +438,7 @@ def display_chat_messages():
                 # For RTL languages, we need the HTML wrapper
                 if is_rtl_language(language_code):
                     assistant_message.markdown(
-                        f"""<div style="direction: {direction}; text-align: {text_align}">
+                        f"""<div style=\"direction: {direction}; text-align: {text_align}\">
                         {content}
                         </div>""",
                         unsafe_allow_html=True
@@ -599,18 +634,18 @@ def display_consent_form():
         with st.container():
             # Header
             st.markdown("""
-            <div style="text-align: center; padding-bottom: 20px; margin-bottom: 25px; border-bottom: 1px solid #eee;">
-                <h1 style="margin: 0; color: #009376; font-size: 36px; font-weight: bold;">
+            <div style=\"text-align: center; padding-bottom: 20px; margin-bottom: 25px; border-bottom: 1px solid #eee;">
+                <h1 style=\"margin: 0; color: #009376; font-size: 36px; font-weight: bold;">
                     MLCC Climate Chatbot
                 </h1>
-                <h3 style="margin: 10px 0 0 0; color: #666; font-size: 18px; font-weight: normal;">
+                <h3 style=\"margin: 10px 0 0 0; color: #666; font-size: 18px; font-weight: normal;">
                     Connecting Toronto Communities to Climate Knowledge
                 </h3>
             </div>
             """, unsafe_allow_html=True)
             
             st.markdown("""
-            <p style="text-align: center; margin-bottom: 30px; font-size: 16px;">
+            <p style=\"text-align: center; margin-bottom: 30px; font-size: 16px;">
                 Welcome! The purpose of this app is to educate people about climate change and build a community of informed citizens. 
                 It provides clear, accurate info on climate impacts and encourages local action.
             </p>
@@ -626,14 +661,17 @@ def display_consent_form():
             st.session_state.main_consent = main_consent
             
             # Bullet points - directly added without border
-            st.markdown("""
-            <ul style="margin: 15px 0; font-size: 15px;">
+            st.markdown(
+                """
+            <ul style=\"margin: 15px 0; font-size: 15px;">
                 <li>I certify that I meet the age requirements <em>(13+ or with parental/guardian consent if under 18)</em></li>
                 <li>I have read and agreed to the Privacy Policy</li>
                 <li>I have read and agreed to the Terms of Use</li>
                 <li>I have read and understood the Disclaimer</li>
             </ul>
-            """, unsafe_allow_html=True)
+            """,
+                unsafe_allow_html=True
+            )
             
             # Policy expanders - all three buttons in one row
             col_a, col_b, col_c = st.columns(3)
@@ -683,7 +721,7 @@ def display_consent_form():
 
                     #### Contact Information
                     For privacy-related questions or concerns, contact us at info@crcgreen.com
-                    """)
+                    """, unsafe_allow_html=True)
             
             with col_b:
                 with st.expander("📄 Terms of Use"):
@@ -725,7 +763,7 @@ def display_consent_form():
                     - Reliance on information provided
                     - Decisions made based on chatbot interactions
                     - Technical issues or service interruptions
-                    """)
+                    """, unsafe_allow_html=True)
             
             with col_c:
                 with st.expander("📄 Disclaimer"):
@@ -747,7 +785,7 @@ def display_consent_form():
 
                     #### Third-Party Content
                     Citations and references to third-party content are provided for transparency and verification. Climate Resilience Communities does not endorse and is not responsible for the accuracy, completeness, or reliability of third-party information.
-                    """)
+                    """, unsafe_allow_html=True)
             
             # Divider
             st.markdown("---")
@@ -796,15 +834,17 @@ def main():
     # Load CSS
     load_custom_css()
     
-    # Start chatbot initialization immediately (runs in background due to @st.cache_resource)
-    if st.session_state.chatbot_init is None:
-        # This will run in the background while the consent form is shown
+    # Defer chatbot initialization until after consent to speed first paint
+    if st.session_state.chatbot_init is None and st.session_state.get('consent_given', False):
         st.session_state.chatbot_init = init_chatbot()
     
     # Check consent status and display consent form if needed
     if not st.session_state.consent_given:
         display_consent_form()
     else:
+        # Initialize chatbot at the moment consent is granted
+        if st.session_state.chatbot_init is None:
+            st.session_state.chatbot_init = init_chatbot()
         # Main app content (only shown after consent)
         try:
             # Get the already-initialized chatbot
@@ -845,17 +885,20 @@ def main():
                 # FIXED: Using chat_history length instead of has_asked_question
                 if len(st.session_state.chat_history) == 0:
                     # Remove the green banner from sidebar - it will only be in main content area
-                    st.markdown("""
-                    <div style="margin-top: 10px;">
-                    <h3 style="color: #009376; font-size: 20px; margin-bottom: 10px;">How It Works</h3>
+                    st.markdown(
+                        """
+                    <div style=\"margin-top: 10px;">
+                    <h3 style=\"color: #009376; font-size: 20px; margin-bottom: 10px;">How It Works</h3>
                     
-                    <ul style="padding-left: 20px; margin-bottom: 20px; font-size: 14px;">
-                        <li style="margin-bottom: 8px;"><b>Choose Language</b>: Select from 200+ options.</li>
-                        <li style="margin-bottom: 8px;"><b>Ask Questions</b>: <i>"What are the local impacts of climate change in Toronto?"</i> or <i>"Why is summer so hot now in Toronto?"</i></li>
-                        <li style="margin-bottom: 8px;"><b>Act</b>: Ask about actionable steps such as <i>"What can I do about flooding in Toronto?"</i> or <i>"How to reduce my carbon footprint?"</i> and receive links to local resources (e.g., city programs, community groups).</li>
+                    <ul style=\"padding-left: 20px; margin-bottom: 20px; font-size: 14px;">
+                        <li style=\"margin-bottom: 8px;"><b>Choose Language</b>: Select from 200+ options.</li>
+                        <li style=\"margin-bottom: 8px;"><b>Ask Questions</b>: <i>"What are the local impacts of climate change in Toronto?"</i> or <i>"Why is summer so hot now in Toronto?"</i></li>
+                        <li style=\"margin-bottom: 8px;"><b>Act</b>: Ask about actionable steps such as <i>"What can I do about flooding in Toronto?"</i> or <i>"How to reduce my carbon footprint?"</i> and receive links to local resources (e.g., city programs, community groups).</li>
                     </ul>
                     </div>
-                    """, unsafe_allow_html=True)
+                    """,
+                        unsafe_allow_html=True
+                    )
 
                 # FIXED: Show chat history if there are any messages
                 if len(st.session_state.chat_history) > 0:
@@ -893,7 +936,8 @@ def main():
             # FAQ Popup Modal using Streamlit native components
             if st.session_state.show_faq_popup:
                 # Create a full-screen overlay effect using CSS
-                st.markdown("""
+                st.markdown(
+                    """
                 <style>
                 /* Create overlay effect */
                 .stApp > div > div > div > div > div > section > div {
@@ -910,7 +954,9 @@ def main():
                     overflow-y: auto;
                 }
                 </style>
-                """, unsafe_allow_html=True)
+                """,
+                    unsafe_allow_html=True,
+                )
                 
                 # Create centered columns for the popup
                 col1, col2, col3 = st.columns([1, 6, 1])
@@ -935,19 +981,23 @@ def main():
                         st.markdown("## 📊 Information Accuracy")
                         
                         with st.expander("How accurate is the information provided by the chatbot?", expanded=True):
-                            st.write("""
+                            st.write(
+                                """
                             Our chatbot uses Retrieval-Augmented Generation (RAG) technology to provide verified information exclusively 
                             from government reports, academic research, and established non-profit organizations' publications. Every 
                             response includes citations to original sources, allowing you to verify the information directly. The system 
                             matches your questions with relevant, verified information rather than generating content independently.
-                            """)
+                            """
+                            )
                         
                         with st.expander("What sources does the chatbot use?", expanded=True):
-                            st.write("""
+                            st.write(
+                                """
                             All information comes from three verified source types: government climate reports, peer-reviewed academic 
                             research, and established non-profit organization publications. Each response includes citations linking 
                             directly to these sources.
-                            """)
+                            """
+                            )
                     
                     st.markdown("---")
                     
@@ -957,18 +1007,22 @@ def main():
                         
                         with st.expander("What information does the chatbot collect?", expanded=True):
                             st.write("We maintain a strict privacy-first approach:")
-                            st.markdown("""
+                            st.markdown(
+                                """
                             - No personal identifying information (PII) is collected
                             - Questions are automatically screened to remove any personal details
                             - Only anonymized questions are cached to improve service quality
                             - No user accounts or profiles are created
-                            """)
+                            """
+                            )
                         
                         with st.expander("How is the cached data used?", expanded=True):
-                            st.write("""
+                            st.write(
+                                """
                             Cached questions, stripped of all identifying information, help us improve response accuracy and identify 
                             common climate information needs. We regularly delete cached questions after analysis.
-                            """)
+                            """
+                            )
                     
                     st.markdown("---")
                     
@@ -978,20 +1032,24 @@ def main():
                         
                         with st.expander("How can I trust this tool?", expanded=True):
                             st.write("Our commitment to trustworthy information rests on:")
-                            st.markdown("""
+                            st.markdown(
+                                """
                             - Citations for every piece of information, linking to authoritative sources
                             - Open-source code available for public review  
                             - Community co-design ensuring real-world relevance
                             - Regular updates based on user feedback and new research
-                            """)
+                            """
+                            )
                         
                         with st.expander("How can I provide feedback or report issues?", expanded=True):
                             st.write("We welcome your input through:")
-                            st.markdown("""
+                            st.markdown(
+                                """
                             - The feedback button within the chat interface
                             - Our GitHub repository for technical contributions
                             - Community feedback sessions
-                            """)
+                            """
+                            )
                             st.write("For technical support or to report issues, please visit our GitHub repository.")
                     
                     # Add some space at the bottom
@@ -1012,11 +1070,14 @@ def main():
             else:
                 # Just show a language selection banner under the main title
                 # No extra welcome message, just the green banner
-                st.markdown("""
-                <div style="margin-top: 10px; margin-bottom: 30px; background-color: #009376; padding: 10px; border-radius: 5px; color: white; text-align: center;">
+                st.markdown(
+                    """
+                <div style=\"margin-top: 10px; margin-bottom: 30px; background-color: #009376; padding: 10px; border-radius: 5px; color: white; text-align: center;">
                 Please select your language and click Confirm to start chatting.
                 </div>
-                """, unsafe_allow_html=True)
+                """,
+                    unsafe_allow_html=True
+                )
                 query = None
 
             # Check for needs_rerun flag first and reset it to prevent loops
@@ -1092,7 +1153,7 @@ def main():
                         content = clean_html_content(final_response['content'])
 
                         response_placeholder.markdown(
-                            f"""<div style="direction: {direction}; text-align: {text_align}">
+                            f"""<div style=\"direction: {direction}; text-align: {text_align}\">
                             {content}
                             </div>""",
                             unsafe_allow_html=True
@@ -1103,35 +1164,43 @@ def main():
                             message_idx = len(st.session_state.chat_history) - 1
                             display_source_citations(result['citations'], base_idx=message_idx)
                     else:
-                        # FIXED: Handle off-topic questions and other errors more comprehensively
-                        error_message = result.get('message', 'An error occurred')
-                        
-                        # Check if it's an off-topic message about climate change
-                        if ("not about climate" in error_message.lower() or 
-                            "climate change" in error_message.lower() or 
-                            result.get('error_type') == "off_topic" or
-                            (result.get('validation_result', {}).get('reason') == "not_climate_related")):
-                            
-                            # This is an off-topic climate question
-                            off_topic_response = "Oops! Looks like your question isn't about climate change. But I'm here to help if you've got a climate topic in mind!"
-                            
-                            # Add the response to chat history
+                        # Handle off-topic questions and other errors more comprehensively
+                        # Prefer 'message' but fall back to 'response' when pipeline uses that field
+                        error_message = (
+                            result.get('message')
+                            or result.get('response')
+                            or 'An error occurred'
+                        )
+
+                        # Normalize for checks
+                        error_lower = error_message.lower() if isinstance(error_message, str) else ''
+
+                        # Detect off-topic climate rejections
+                        if (
+                            "not about climate" in error_lower
+                            or "climate change" in error_lower
+                            or result.get('error_type') == "off_topic"
+                            or (result.get('validation_result', {}).get('reason') == "not_climate_related")
+                        ):
+                            off_topic_response = (
+                                "I'm a climate change assistant and can only help with questions about climate, environment, and sustainability. "
+                                "Please ask me about topics like climate change causes, effects, or solutions."
+                            )
+
                             st.session_state.chat_history.append({
-                                'role': 'assistant', 
+                                'role': 'assistant',
                                 'content': off_topic_response,
                                 'language_code': 'en'
                             })
-                            
-                            # Display the off-topic message
                             response_placeholder.markdown(off_topic_response)
                         else:
-                            # Handle other types of errors
+                            # Generic error surfaced to user
                             st.session_state.chat_history.append({
-                                'role': 'assistant', 
-                                'content': error_message,
+                                'role': 'assistant',
+                                'content': str(error_message),
                                 'language_code': 'en'
                             })
-                            response_placeholder.error(error_message)
+                            response_placeholder.error(str(error_message))
                 except Exception as e:
                     error_msg = f"Error processing query: {str(e)}"
                     st.session_state.chat_history.append({
