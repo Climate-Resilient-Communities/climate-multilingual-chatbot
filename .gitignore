@@ -204,3 +204,4 @@ CONSENT_MODAL_PLAN.md
 
 # Ignore development files
 src/webui/app_nova2.py
+.history/
