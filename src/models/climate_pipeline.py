@@ -23,6 +23,7 @@ from src.models.hallucination_guard import check_hallucination, extract_contexts
 from src.models.redis_cache import ClimateCache
 from src.models.nova_flow import BedrockModel
 from src.models.cohere_flow import CohereModel
+from src.models.conversation_parser import conversation_parser
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -216,9 +217,7 @@ class ClimateQueryPipeline:
                 detected_name = lang_code_to_name.get(detected_lang, detected_lang.upper())
                 
                 return self._create_error_response(
-                    f"I detected that your question is in {detected_name}, but you have selected {language_name}. "
-                    f"Please switch the language selector in the sidebar to {detected_name} to continue, "
-                    f"or ask your question in {language_name}.",
+                    "Whoops! You wrote in a different language than the one you selected. Please choose the language you want me to respond in on the side panel so I can ensure the best translation for you!",
                     language_code,
                     time.time() - start_time
                 )
@@ -250,19 +249,6 @@ class ClimateQueryPipeline:
                     language_name=language_name,
                     translation=translation_func
                 )
-                
-                # Check language mismatch again after re-routing
-                if route_result.get('routing_info', {}).get('language_mismatch'):
-                    detected_lang = route_result['routing_info'].get('detected_language', 'unknown')
-                    detected_name = lang_code_to_name.get(detected_lang, detected_lang.upper())
-                    
-                    return self._create_error_response(
-                        f"I detected that your question is in {detected_name}, but you have selected {language_name}. "
-                        f"Please switch the language selector in the sidebar to {detected_name} to continue, "
-                        f"or ask your question in {language_name}.",
-                        language_code,
-                        time.time() - start_time
-                    )
                 
                 if not route_result['should_proceed']:
                     return self._create_error_response(
@@ -313,10 +299,13 @@ class ClimateQueryPipeline:
             logger.info("Step 3: Query Rewriting")
             _rewrite_start = time.time()
             try:
+                # Parse conversation history properly for query rewriter
+                formatted_history = conversation_parser.format_for_query_rewriter(conversation_history)
+                
                 rewriter_output = await query_rewriter(
-                    user_query=processed_query,
+                    user_query=query,  # Use original query for language detection, not translated version
                     nova_model=self.nova_model,
-                    conversation_history=conversation_history or [],
+                    conversation_history=formatted_history,
                     selected_language_code=language_code
                 )
                 text = (rewriter_output or "").strip()
@@ -328,11 +317,12 @@ class ClimateQueryPipeline:
                 rew_match = re.search(r"Rewritten:\s*(.+)", text, re.IGNORECASE)
                 detected_lang = (lang_match.group(1).lower() if lang_match else 'unknown')
                 classification = (cls_match.group(1).lower() if cls_match else 'off-topic')
-                language_match = (match_match.group(1).lower() == 'yes') if match_match else (detected_lang in ('unknown', language_code))
+                language_match_result = (match_match.group(1).lower() if match_match else 'unknown')
+                
+                logger.info(f"Query rewriter processed: detected_lang='{detected_lang}', classification='{classification}', language_match='{language_match_result}'")
 
-                # ENHANCED Language mismatch handling - be stricter
-                if not language_match:
-                    # Map detected language code to language name for clearer message
+                # Check for language mismatch based on query rewriter analysis
+                if language_match_result == 'no' or (detected_lang != 'unknown' and detected_lang != language_code):
                     lang_code_to_name = {
                         'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
                         'it': 'Italian', 'pt': 'Portuguese', 'nl': 'Dutch', 'ru': 'Russian',
@@ -346,13 +336,11 @@ class ClimateQueryPipeline:
                         'sl': 'Slovenian', 'et': 'Estonian', 'lv': 'Latvian', 'lt': 'Lithuanian'
                     }
                     detected_name = lang_code_to_name.get(detected_lang, detected_lang.upper())
+                    selected_name = lang_code_to_name.get(language_code, language_code.upper())
                     
-                    # Always stop if there's a clear language mismatch
-                    logger.warning(f"Language mismatch: detected {detected_lang} but selected {language_code}")
+                    logger.warning(f"Language mismatch detected by query rewriter: query is in {detected_name} but {selected_name} was selected")
                     return self._create_error_response(
-                        f"I detected that your question is in {detected_name}, but you have selected {language_name}. "
-                        f"Please switch the language selector in the sidebar to {detected_name} to continue, "
-                        f"or ask your question in {language_name}.",
+                        "Whoops! You wrote in a different language than the one you selected. Please choose the language you want me to respond in on the side panel so I can ensure the best translation for you!",
                         language_code,
                         time.time() - start_time
                     )
