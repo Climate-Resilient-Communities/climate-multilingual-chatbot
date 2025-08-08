@@ -67,6 +67,26 @@ python src/utils/download_models.py
 ```
 This will download the ClimateBERT model files to the `models/climatebert` directory, allowing the application to work without internet access to Hugging Face.
 
+## Important: Using Poetry Environment
+
+**Always use `poetry run` when executing Python scripts or tests** to ensure you're using the correct virtual environment with all dependencies properly installed:
+
+```bash
+# ✅ Correct - Use poetry run for scripts
+poetry run python test_deployment.py
+poetry run python src/main_nova.py
+poetry run streamlit run src/webui/app_nova.py
+
+# ❌ Incorrect - May use wrong Python environment
+python test_deployment.py
+python src/main_nova.py
+```
+
+This is especially important because:
+- Poetry manages its own virtual environment with exact dependency versions
+- Direct `python` commands may use system Python or wrong virtual environment
+- Missing dependencies errors typically indicate not using `poetry run`
+
 ## Usage
 
 1. Activate the Poetry environment:
@@ -126,6 +146,8 @@ See the `AZURE_DEPLOYMENT.md` file for detailed Azure deployment instructions.
 
 ## Development
 
+**Important**: Always use `poetry run` for development commands to ensure proper environment:
+
 Format code:
 ```bash
 poetry run black .
@@ -140,6 +162,11 @@ poetry run pytest
 Check code quality:
 ```bash
 poetry run flake8
+```
+
+Run deployment readiness tests:
+```bash
+poetry run python test_deployment.py
 ```
 
 ## Contributing
