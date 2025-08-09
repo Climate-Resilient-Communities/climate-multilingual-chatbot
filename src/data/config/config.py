@@ -24,9 +24,46 @@ MODEL_CONFIG = {
 # Retrieval configurations
 RETRIEVAL_CONFIG = {
     "pinecone_index": "climate-change-adaptation-index-10-24-prod",
-    "top_k_retrieve": 15,
-    "top_k_rerank": 5,
-    "hybrid_alpha": 0.5
+    # Base knobs
+    "top_k_retrieve": 15,           # legacy top-k before rerank (kept for compatibility)
+    "top_k_rerank": 5,              # cross-encoder final cap
+    "hybrid_alpha": 0.5,            # dense/sparse fusion weight
+    "overfetch": 30,                # initial vector overfetch before gating
+    # Similarity gating
+    "similarity_base": 0.65,
+    "similarity_fallback": 0.55,
+    "adaptive_margin": 0.10,
+    "min_kept": 3,
+    # Refill
+    "refill_enabled": True,
+    "refill_overfetch": 10,
+    # MMR diversification
+    "mmr_enabled": True,
+    "mmr_lambda": 0.30,
+    "mmr_overfetch": 12,
+    # Optional quality gates (None disables the filter)
+    "min_pinecone_score": None,     # e.g., 0.30 for cosine metric; confirm index metric first
+    "min_rerank_score": 0.70,       # tuned via calibration; drop very weak contexts
+    "auto_calibrate_rerank_floor": False,  # placeholder; not active in code yet
+    # Filters & boosts
+    "filters": {
+        "lang": "en",
+        "audience_blocklist": ["K-2", "K-6", "K-8", "K-12", "lesson plan", "curriculum"],
+        "science_min_year": 2015,
+        "doc_type_preferences": {
+            "howto": ["guideline", "factsheet", "toolkit", "report"],
+            "science": ["peer_reviewed", "report"],
+        },
+    },
+    "boosts": {
+        "preferred_domains": ["ipcc", "canada.gc.ca", "ontario.ca", "toronto.ca"],
+        "domain_boost_weight": 0.10,
+    },
+    # Diagnostics
+    "log_retrieval_diagnostics": True,
+    # Safety caps (legacy)
+    "max_docs_before_rerank": 10,
+    "final_max_docs": 5,
 }
 
 # Redis configurations
