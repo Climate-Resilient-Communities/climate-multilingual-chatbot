@@ -2,6 +2,7 @@ import os
 import logging
 import json
 from typing import List, Dict, Tuple, Any, Optional, Union, AsyncGenerator
+from src.models.title_normalizer import normalize_title
 from src.models.nova_flow import BedrockModel
 from src.models.redis_cache import ClimateCache
 from concurrent.futures import ThreadPoolExecutor
@@ -24,7 +25,7 @@ def doc_preprocessing(docs: List[Dict]) -> List[Dict]:
     for doc in docs:
         try:
             # Extract required fields
-            title = doc.get('title', '')
+            title = normalize_title(doc.get('title', ''), doc.get('section_title', ''), doc.get('url', []))
             content = doc.get('content', '')  # Primary content field
             if not content:
                 content = doc.get('chunk_text', '')  # Fallback content field
