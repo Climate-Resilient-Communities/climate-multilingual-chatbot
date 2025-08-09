@@ -589,16 +589,17 @@ def display_source_citations(citations, base_idx=0):
             is_drive_like = any(k in url_str for k in [
                 'drive.google.com', 'docs.google.com', '/content/drive', '/MyDrive', '/drive/'
             ])
-            display_title = "Content sourced from leading climate specialist" if is_drive_like else title
+            display_title = title
 
-            if st.button(f"📄 {display_title[:100]}...", key=unique_key):
+            button_label = f"📄 {'Content sourced from leading climate specialist' if is_drive_like else title[:100]}..."
+            if st.button(button_label, key=unique_key):
                 st.session_state.selected_source = f"{base_idx}_{title}"
 
             # Show details if selected
             if st.session_state.get('selected_source') == f"{base_idx}_{title}":
                 with st.expander("Source Details", expanded=True):
-                    if display_title:
-                        st.markdown(f"**Title:** {display_title}")
+                    if title:
+                        st.markdown(f"**Title:** {title}")
                     if source.get('url'):
                         if is_drive_like:
                             st.markdown("**Source:** Content sourced from leading climate specialist")
