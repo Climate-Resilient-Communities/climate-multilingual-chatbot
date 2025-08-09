@@ -673,6 +673,41 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
                     logger.info(
                         f"q='{query[:60]}', base={len(docs)}, kept_pre={kept_after_gate_pre}, refill={refill_count}, final_before={final_before}, final_after={len(final_docs)}, hybrid_refill={hybrid_refill}, floor={floor_used:.2f}, delta={delta:.3f}, max_sim_pre={max_sim_pre:.3f}, p50_sim_pre={p50_sim_pre:.3f}, p95_sim_pre={p95_sim_pre:.3f}, blocked_base={locals().get('blocked_base',0)}, dropped_top2={dropped_top2}"
                     )
+
+                    # Optional JSONL export of diagnostics
+                    try:
+                        export_dir = os.path.join(os.getcwd(), "logs")
+                        os.makedirs(export_dir, exist_ok=True)
+                        export_path = os.path.join(export_dir, "retrieval_app_debug.jsonl")
+                        rec = {
+                            "query": query,
+                            "base_docs": len(docs),
+                            "kept_pre": kept_after_gate_pre,
+                            "refill_count": refill_count,
+                            "final_before": final_before,
+                            "final_after": len(final_docs),
+                            "hybrid_refill": hybrid_refill,
+                            "floor_used": float(floor_used),
+                            "delta": float(delta),
+                            "max_sim_pre": float(max_sim_pre),
+                            "p50_sim_pre": float(p50_sim_pre),
+                            "p95_sim_pre": float(p95_sim_pre),
+                            "retained": [
+                                {
+                                    "title": d.get('title', ''),
+                                    "pinecone_score": float(d.get('pinecone_score', d.get('score', 0.0))),
+                                    "rerank_score": float(d.get('score', 0.0)),
+                                    "url": d.get('url', []),
+                                }
+                                for d in final_docs
+                            ],
+                            "dropped_top2": dropped_top2,
+                        }
+                        import json
+                        with open(export_path, "a", encoding="utf-8") as f:
+                            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+                    except Exception:
+                        pass
                 except Exception:
                     pass
 

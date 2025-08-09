@@ -145,6 +145,71 @@ class ClimateQueryPipeline:
             logger.error(f"Failed to initialize Cohere client: {str(e)}")
             raise
 
+    async def _try_tavily_fallback(self, original_query: str, english_query: str, language_name: str) -> Dict[str, Any]:
+        """Fallback to Tavily web search when RAG has no strong/relevant documents.
+        Returns a result dict similar to process_query with response/citations.
+        """
+        try:
+            # Lazy import to avoid overhead
+            from langchain_community.tools.tavily_search import TavilySearchResults
+            logger.info("Attempting Tavily fallback search (pipeline)")
+
+            tavily_search = TavilySearchResults()
+            search_results = await tavily_search.ainvoke(original_query)
+            if not search_results:
+                logger.warning("No results from Tavily search (pipeline)")
+                return {
+                    "success": False,
+                    "response": "I couldn't find relevant sources right now. Please try rephrasing your question.",
+                    "citations": [],
+                    "faithfulness_score": 0.0,
+                }
+
+            # Map Tavily results to document format
+            docs_for_fallback = []
+            for r in search_results:
+                docs_for_fallback.append({
+                    "title": r.get("title", r.get("url", "")) or r.get("url", ""),
+                    "url": r.get("url", ""),
+                    "content": r.get("content", ""),
+                    "snippet": (r.get("content", "")[:200] + "...") if r.get("content") else "",
+                })
+
+            # Generate via unified generator using Nova path
+            response, citations = await self.response_generator.generate_response(
+                query=english_query,
+                documents=docs_for_fallback,
+                model_type="nova",
+                language_code="en",
+                conversation_history=None,
+            )
+
+            # Faithfulness check on fallback
+            web_contexts = [f"{d.get('title','')}: {d.get('content','')}" for d in docs_for_fallback]
+            fallback_score = await check_hallucination(
+                question=english_query,
+                answer=response,
+                contexts=web_contexts,
+                cohere_api_key=os.getenv("COHERE_API_KEY"),
+                threshold=0.7,
+            )
+            logger.info(f"Fallback faithfulness (pipeline): {fallback_score:.3f}")
+
+            return {
+                "success": True,
+                "response": response,
+                "citations": citations,
+                "faithfulness_score": fallback_score,
+            }
+        except Exception as e:
+            logger.error(f"Tavily fallback failed (pipeline): {str(e)}")
+            return {
+                "success": False,
+                "response": "I couldn't find reliable sources at the moment.",
+                "citations": [],
+                "faithfulness_score": 0.0,
+            }
+
     def get_language_code(self, language_name: str) -> str:
         """Convert language name to code."""
         language_map = {
@@ -428,6 +493,28 @@ class ClimateQueryPipeline:
             logger.info(f"Timing: retrieval={(time.time() - _retr_start)*1000:.1f}ms")
             report("Documents retrieved", 0.6)
 
+            # Early fallback: if no RAG documents, try Tavily before generation
+            if not documents:
+                fb = await self._try_tavily_fallback(original_query=query, english_query=english_query, language_name=language_name)
+                if fb.get("success"):
+                    # Translate fallback response if needed
+                    final_resp = fb["response"]
+                    if self.get_language_code(language_name) != "en":
+                        try:
+                            final_resp = await self.nova_model.translate(final_resp, "english", language_name)
+                        except Exception:
+                            pass
+                    return {
+                        "success": True,
+                        "response": final_resp,
+                        "citations": fb.get("citations", []),
+                        "faithfulness_score": fb.get("faithfulness_score", 0.0),
+                        "processing_time": time.time() - start_time,
+                        "language_code": language_code,
+                        "model_used": routing_info['model_name'],
+                        "model_type": model_type,
+                    }
+
             # STEP 6: GENERATE RESPONSE
             logger.info(f"Step 6: Response Generation ({routing_info['model_name']})")
             _gen_start = time.time()
@@ -479,6 +566,14 @@ class ClimateQueryPipeline:
                 logger.warning(f"Hallucination check failed: {str(e)}")
                 faithfulness_score = 0.3
             logger.info(f"Timing: faithfulness={(time.time() - _hall_start)*1000:.1f}ms")
+
+            # Low-faithfulness fallback to Tavily
+            if faithfulness_score < 0.1:
+                fb = await self._try_tavily_fallback(original_query=query, english_query=english_query, language_name=language_name)
+                if fb.get("success") and fb.get("faithfulness_score", 0.0) > faithfulness_score:
+                    response = fb["response"]
+                    citations = fb.get("citations", [])
+                    faithfulness_score = fb.get("faithfulness_score", faithfulness_score)
 
             # STEP 8: TRANSLATE RESPONSE IF NEEDED
             _trans_time = 0.0

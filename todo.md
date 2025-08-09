@@ -25,7 +25,7 @@ Dependencies in use:
     - Identify any namespace, filter, or consistency settings relevant to our index.
   - Code refs: `climate_pipeline._initialize_pinecone_index`, `retrieval.issue_hybrid_query`.
 
-- [ ] 2) Inspect retriever scoring and thresholds
+- [x] 2) Inspect retriever scoring and thresholds
   - Deliverables:
     - Verify `top_k` values throughout (hybrid search `top_k`, rerank `top_n`, final cap to 5 docs).
     - Confirm rerank result uses `relevance_score`; propagate both Pinecone score and rerank score to diagnostics.
@@ -34,7 +34,7 @@ Dependencies in use:
 
 - [ ] 3) Assess retriever quality (are we pulling good information?)
   - Deliverables:
-    - Add optional debug/log export of retrieved docs, scores, and chosen subset per query.
+    - Add optional debug/log export of retrieved docs, scores, and chosen subset per query. (Added app-path JSONL export at `logs/retrieval_app_debug.jsonl`.)
     - Propose a small evaluation harness (can use `ragas`) with representative queries to measure context precision/recall and faithfulness.
     - Identify quick wins: better alpha for hybrid weighting, better pre-clean of content, dedupe rules.
   - Code refs: `retrieval.get_query_embeddings`, `retrieval.clean_markdown_content`, `retrieval.process_search_results`.
@@ -43,7 +43,7 @@ Dependencies in use:
   - Deliverables:
     - Policy for displaying only “high-confidence” citations: limit to N, drop those without URL or with very low relevance.
     - Deduplicate by URL/domain/title; prefer canonical titles; keep only one per source unless strongly justified.
-    - Wire relevance/rerank scores into `citations` so UI can optionally show confidence.
+    - Wire relevance/rerank scores into `citations` 
   - Code refs: `gen_response_unified._process_and_generate` (citations assembly), `retrieval.process_search_results`.
 
 - [ ] 5) No proper RAG documents / Tavily fallback
