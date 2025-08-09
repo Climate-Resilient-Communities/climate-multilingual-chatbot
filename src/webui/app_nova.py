@@ -600,7 +600,10 @@ def display_source_citations(citations, base_idx=0):
                     if display_title:
                         st.markdown(f"**Title:** {display_title}")
                     if source.get('url'):
-                        st.markdown(f"**URL:** [{source['url']}]({source['url']})")
+                        if is_drive_like:
+                            st.markdown("**Source:** Content sourced from leading climate specialist")
+                        else:
+                            st.markdown(f"**URL:** [{source['url']}]({source['url']})")
                     if source.get('snippet'):
                         st.markdown("**Cited Content:**")
                         st.markdown(source['snippet'])
