@@ -1660,7 +1660,7 @@ def main():
                             st.markdown(
                                 """
                             - The feedback button within the chat interface
-                            - Our GitHub repository for technical contributions
+                            - [Our GitHub repository](https://github.com/Climate-Resilient-Communities/climate-multilingual-chatbot) for technical contributions
                             - Community feedback sessions
                             """
                             )
@@ -1669,7 +1669,10 @@ def main():
                                 '<a class="feedback-button" href="https://forms.gle/PLACEHOLDER_FEEDBACK" target="_blank" title="Report bugs or share feedback (opens Google Form)">📝 Submit Feedback</a>',
                                 unsafe_allow_html=True,
                             )
-                            st.write("For technical support or to report issues, please visit our GitHub repository.")
+                            st.markdown(
+                                'For technical support or to report issues, please visit our <a href="https://github.com/Climate-Resilient-Communities/climate-multilingual-chatbot" target="_blank">GitHub repository</a>.',
+                                unsafe_allow_html=True,
+                            )
                     
                     # Add some space at the bottom
                     st.markdown("<br><br>", unsafe_allow_html=True)
