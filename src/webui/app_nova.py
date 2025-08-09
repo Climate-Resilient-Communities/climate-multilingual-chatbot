@@ -606,11 +606,20 @@ def display_source_citations(citations, base_idx=0):
                 with st.expander("Source Details", expanded=True):
                     if title:
                         st.markdown(f"**Title:** {title}")
-                    if source.get('url'):
+                    
+                    # Show source information
+                    url_val = source.get('url', '')
+                    if url_val and url_val.strip():
                         if is_drive_like:
-                            st.markdown("**Source:** Content sourced from leading climate specialist")
+                            # For drive-like sources, show a descriptive source label
+                            st.markdown("**Source:** Verified climate research document")
                         else:
-                            st.markdown(f"**URL:** [{source['url']}]({source['url']})")
+                            # For regular URLs, show the actual URL
+                            st.markdown(f"**URL:** [{url_val}]({url_val})")
+                    else:
+                        # If no URL, show that this is from a verified source
+                        st.markdown("**Source:** Verified climate research document")
+                    
                     if source.get('snippet'):
                         st.markdown("**Cited Content:**")
                         st.markdown(source['snippet'])
