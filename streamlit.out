@@ -1,4 +1,4 @@
-2025-08-09 16:52:34.924 "server.watcher_type" is not a valid config option. If you previously had this config option set, it may have been removed.
+2025-08-09 16:56:04.063 "server.watcher_type" is not a valid config option. If you previously had this config option set, it may have been removed.
 
   You can now view your Streamlit app in your browser.
 
@@ -10,4 +10,4 @@
 ✓ PyTorch-Streamlit compatibility patches applied successfully
 ✓ PyTorch-Streamlit compatibility patches applied successfully
 ✓ PyTorch-Streamlit compatibility patches applied successfully
-Fetching 30 files:   0%|          | 0/30 [00:00<?, ?it/s]Fetching 30 files: 100%|██████████| 30/30 [00:00<00:00, 14919.27it/s]
+Fetching 30 files:   0%|          | 0/30 [00:00<?, ?it/s]Fetching 30 files: 100%|██████████| 30/30 [00:00<00:00, 13357.66it/s]
