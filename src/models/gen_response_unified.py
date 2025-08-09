@@ -8,6 +8,7 @@ from src.models.redis_cache import ClimateCache
 from src.models.system_messages import CLIMATE_SYSTEM_MESSAGE
 import time
 from langsmith import traceable
+from src.models.title_normalizer import normalize_title
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class UnifiedResponseGenerator:
         for doc in docs:
             try:
                 # Extract required fields
-                title = doc.get('title', '')
+                title = normalize_title(doc.get('title', ''), doc.get('section_title', ''), doc.get('url', []))
                 content = doc.get('content', '')  # Primary content field
                 if not content:
                     content = doc.get('chunk_text', '')  # Fallback content field

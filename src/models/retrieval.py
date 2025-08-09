@@ -28,6 +28,7 @@ from urllib.parse import urlparse
 from pinecone import Pinecone
 from FlagEmbedding import BGEM3FlagModel
 from src.models.rerank import rerank_fcn
+from src.models.title_normalizer import normalize_title
 from src.utils.env_loader import load_environment
 from langsmith import traceable
 
@@ -783,9 +784,12 @@ def process_search_results(search_results) -> List[Dict]:
                 logger.warning(f"Content too short after cleaning for document: {title}")
                 continue
                 
+            # Normalize title
+            norm_title = normalize_title(title, match.metadata.get('section_title', '').strip(), match.metadata.get('url', []))
+
             # Create document
             doc = {
-                'title': title,
+                'title': norm_title,
                 'content': content,
                 # Keep raw Pinecone score, also alias to 'score' for backward compatibility
                 'pinecone_score': float(match.score),
