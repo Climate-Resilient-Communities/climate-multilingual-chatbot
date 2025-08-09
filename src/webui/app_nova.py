@@ -591,7 +591,13 @@ def display_source_citations(citations, base_idx=0):
             ])
             display_title = title
 
-            button_label = f"📄 {'Content sourced from leading climate specialist' if is_drive_like else title[:100]}..."
+            # Show the actual title if we have one; only fall back to neutral label when title is missing/too short
+            safe_title = (title or '').strip()
+            if not safe_title or len(safe_title) < 4:
+                btn_text = 'Content sourced from leading climate specialist'
+            else:
+                btn_text = safe_title[:100]
+            button_label = f"📄 {btn_text}..."
             if st.button(button_label, key=unique_key):
                 st.session_state.selected_source = f"{base_idx}_{title}"
 
