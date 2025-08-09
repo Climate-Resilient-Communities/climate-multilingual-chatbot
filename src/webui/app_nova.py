@@ -212,27 +212,66 @@ def _persist_record_to_blob(record_str: str) -> None:
     Blob name: {prefix}/{session_id}.jsonl
     """
     try:
-        conn_str = os.environ.get("BLOB_CONNSTR")
-        if not conn_str:
-            return
-        from azure.storage.blob import AppendBlobClient, BlobServiceClient
-        container_name = os.environ.get("CHAT_BLOB_CONTAINER", "chatlogs")
-        blob_prefix = os.environ.get("CHAT_BLOB_PREFIX", "interactions")
+        def _env(name: str) -> str | None:
+            v = os.environ.get(name)
+            if not v:
+                return None
+            v = v.strip()
+            if len(v) >= 2 and ((v[0] == v[-1]) and v[0] in ('"', "'")):
+                v = v[1:-1]
+            return v
+
+        # Prefer connection string if provided
+        conn_str = (
+            _env("BLOB_CONNSTR")
+            or _env("Azure_blob")
+            or _env("AZURE_BLOB_CONNSTR")
+            or _env("AZURE_STORAGE_CONNECTION_STRING")
+        )
+        container_name = _env("CHAT_BLOB_CONTAINER") or "chatlogs"
+        blob_prefix = _env("CHAT_BLOB_PREFIX") or "interactions"
         session_id = st.session_state.get('session_id', 'unknown')
         blob_name = f"{blob_prefix}/{session_id}.jsonl"
 
-        # Ensure container exists
-        try:
-            svc = BlobServiceClient.from_connection_string(conn_str)
-            cc = svc.get_container_client(container_name)
-            cc.create_container()
-        except Exception:
-            pass
+        from azure.storage.blob import AppendBlobClient, BlobServiceClient
 
-        client = AppendBlobClient.from_connection_string(
-            conn_str, container_name=container_name, blob_name=blob_name
-        )
-        # Create append blob if missing
+        if conn_str:
+            # Ensure container exists
+            try:
+                svc = BlobServiceClient.from_connection_string(conn_str)
+                cc = svc.get_container_client(container_name)
+                cc.create_container()
+            except Exception:
+                pass
+            client = AppendBlobClient.from_connection_string(
+                conn_str, container_name=container_name, blob_name=blob_name
+            )
+        else:
+            # Fall back to account name + key
+            account_name = (
+                _env("BLOB_ACCOUNT_NAME")
+                or _env("BLOB_ACCOUNT")
+                or _env("AZURE_STORAGE_ACCOUNT")
+                or _env("AZURE_ACCOUNT_NAME")
+            )
+            account_key = (
+                _env("BLOB_KEY")
+                or _env("AZURE_BLOB_KEY")
+                or _env("AZURE_STORAGE_KEY")
+                or _env("STORAGE_ACCOUNT_KEY")
+            )
+            if not (account_name and account_key):
+                return
+            account_url = f"https://{account_name}.blob.core.windows.net"
+            try:
+                svc = BlobServiceClient(account_url=account_url, credential=account_key)
+                cc = svc.get_container_client(container_name)
+                cc.create_container()
+            except Exception:
+                pass
+            client = AppendBlobClient(account_url=account_url, container_name=container_name, blob_name=blob_name, credential=account_key)
+
+        # Create append blob if missing, then append
         try:
             client.create_append_blob()
         except Exception:
