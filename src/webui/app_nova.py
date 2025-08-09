@@ -187,15 +187,19 @@ def persist_interaction_record(message_index: int, feedback: str) -> None:
         if 'session_id' not in st.session_state or not st.session_state.session_id:
             st.session_state.session_id = str(uuid4())
 
+        # Apply PII redaction to sensitive fields
+        redacted_user_query = redact_pii(query_text or '')
+        redacted_assistant_response = redact_pii(msg.get('content', ''))
+        
         record = {
             'session_id': st.session_state.get('session_id'),
             'ts': datetime.now(timezone.utc).isoformat(),
             'message_index': message_index,
             'language_code': msg.get('language_code', 'en'),
-            'user_query': query_text or '',
-            'assistant_response': msg.get('content', ''),
+            'user_query': redacted_user_query,
+            'assistant_response': redacted_assistant_response,
             'feedback': feedback,
-            'citations': citations,
+            'citations': citations,  # Citations typically don't contain PII
         }
 
         FEEDBACK_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -233,19 +237,11 @@ def _persist_record_to_blob(record_str: str) -> None:
         session_id = st.session_state.get('session_id', 'unknown')
         blob_name = f"{blob_prefix}/{session_id}.jsonl"
 
-        from azure.storage.blob import AppendBlobClient, BlobServiceClient
+        from azure.storage.blob import BlobClient, BlobServiceClient
 
         if conn_str:
-            # Ensure container exists
-            try:
-                svc = BlobServiceClient.from_connection_string(conn_str)
-                cc = svc.get_container_client(container_name)
-                cc.create_container()
-            except Exception:
-                pass
-            client = AppendBlobClient.from_connection_string(
-                conn_str, container_name=container_name, blob_name=blob_name
-            )
+            # Use connection string
+            svc = BlobServiceClient.from_connection_string(conn_str)
         else:
             # Fall back to account name + key
             account_name = (
@@ -263,20 +259,29 @@ def _persist_record_to_blob(record_str: str) -> None:
             if not (account_name and account_key):
                 return
             account_url = f"https://{account_name}.blob.core.windows.net"
-            try:
-                svc = BlobServiceClient(account_url=account_url, credential=account_key)
-                cc = svc.get_container_client(container_name)
-                cc.create_container()
-            except Exception:
-                pass
-            client = AppendBlobClient(account_url=account_url, container_name=container_name, blob_name=blob_name, credential=account_key)
+            svc = BlobServiceClient(account_url=account_url, credential=account_key)
 
-        # Create append blob if missing, then append
+        # Ensure container exists
         try:
-            client.create_append_blob()
+            cc = svc.get_container_client(container_name)
+            cc.create_container()
         except Exception:
             pass
-        client.append_block((record_str + "\n").encode("utf-8"))
+
+        # Get blob client
+        blob_client = cc.get_blob_client(blob_name)
+
+        # For JSONL append functionality: read existing, append new record, upload
+        existing_content = ""
+        try:
+            existing_content = blob_client.download_blob().readall().decode()
+        except Exception:
+            # Blob doesn't exist yet, that's fine
+            pass
+
+        # Append the new record
+        new_content = existing_content + record_str + "\n"
+        blob_client.upload_blob(new_content.encode("utf-8"), overwrite=True)
     except Exception as e:
         logger.warning(f"[FEEDBACK] Blob persist failed: {e}")
 
@@ -331,6 +336,63 @@ from streamlit.components.v1 import html as st_html
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+# === PII REDACTION FUNCTIONALITY ===
+def redact_pii(text: str) -> str:
+    """
+    Redact personally identifiable information from text.
+    
+    This function identifies and replaces common PII patterns with redacted placeholders.
+    Patterns include: emails, phone numbers, credit cards, SSNs, names, addresses, etc.
+    """
+    if not text or not isinstance(text, str):
+        return text
+    
+    # Email addresses
+    text = re.sub(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', '[EMAIL_REDACTED]', text)
+    
+    # Credit card numbers (16, 15, 14, or 13 digits with optional spaces/dashes) - Check FIRST before phone numbers
+    text = re.sub(r'\b(?:\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}|\d{4}[-\s]?\d{6}[-\s]?\d{5}|\d{4}[-\s]?\d{6}[-\s]?\d{4}|\d{4}[-\s]?\d{3}[-\s]?\d{3}[-\s]?\d{3})\b', '[CREDIT_CARD_REDACTED]', text)
+    
+    # Phone numbers (various formats) - Check AFTER credit cards to avoid conflicts
+    # US formats: (123) 456-7890, 123-456-7890, 123.456.7890, 123 456 7890, +1 123 456 7890
+    phone_patterns = [
+        r'\+?1?[-.\s]?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}',  # US phone numbers
+        r'\b\d{3}-\d{3}-\d{4}\b',  # XXX-XXX-XXXX
+        r'\b\d{3}\.\d{3}\.\d{4}\b',  # XXX.XXX.XXXX  
+        r'\(\d{3}\)\s?\d{3}-\d{4}',  # (XXX) XXX-XXXX
+        r'\b(?<!\d)\d{10}(?!\d)\b',  # 10 consecutive digits not part of longer number
+    ]
+    for pattern in phone_patterns:
+        text = re.sub(pattern, '[PHONE_REDACTED]', text)
+    
+    # Social Security Numbers (XXX-XX-XXXX or 9 consecutive digits)
+    text = re.sub(r'\b\d{3}-\d{2}-\d{4}\b', '[SSN_REDACTED]', text)
+    text = re.sub(r'\b(?<!\d)\d{9}(?!\d)\b', '[SSN_REDACTED]', text)  # 9 digits not part of longer number
+    
+    # IP addresses
+    text = re.sub(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', '[IP_REDACTED]', text)
+    
+    # Common name patterns (basic - catches "My name is X" or "I'm X")
+    text = re.sub(r'\b(?:my name is|i\'?m|call me)\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+)*)\b', r'my name is [NAME_REDACTED]', text, flags=re.IGNORECASE)
+    
+    # Address patterns (basic street addresses)
+    text = re.sub(r'\b\d+\s+[A-Za-z\s]+(?:street|st|avenue|ave|road|rd|drive|dr|lane|ln|boulevard|blvd|way|court|ct|place|pl)\b', '[ADDRESS_REDACTED]', text, flags=re.IGNORECASE)
+    
+    # Date of birth patterns (MM/DD/YYYY, MM-DD-YYYY, YYYY/MM/DD, YYYY-MM-DD)
+    text = re.sub(r'\b(?:0?[1-9]|1[0-2])[-/](?:0?[1-9]|[12]\d|3[01])[-/](?:19|20)\d{2}\b', '[DOB_REDACTED]', text)
+    text = re.sub(r'\b(?:19|20)\d{2}[-/](?:0?[1-9]|1[0-2])[-/](?:0?[1-9]|[12]\d|3[01])\b', '[DOB_REDACTED]', text)
+    
+    # Government ID patterns (basic - alphanumeric IDs)
+    text = re.sub(r'\b[A-Z]{1,2}\d{6,8}\b', '[ID_REDACTED]', text)
+    
+    # Bank account patterns (8-17 digits, but be careful not to redact legitimate numbers)
+    text = re.sub(r'\b(?:account|acct)[\s#:]*(\d{8,17})\b', r'account [ACCOUNT_REDACTED]', text, flags=re.IGNORECASE)
+    
+    # License plate patterns (basic - 2-3 letters followed by 3-4 numbers)
+    text = re.sub(r'\b[A-Z]{2,3}[-\s]?[0-9]{3,4}\b', '[LICENSE_PLATE_REDACTED]', text)
+    
+    return text
 
 # Add the project root to Python path
 project_root = Path(__file__).resolve().parent.parent.parent
@@ -1671,8 +1733,18 @@ def main():
                         if retry_req and isinstance(retry_req.get('assistant_index'), int):
                             insert_at = min(retry_req['assistant_index'], len(st.session_state.chat_history))
                             st.session_state.chat_history.insert(insert_at, final_response)
+                            # Log the retry interaction
+                            try:
+                                persist_interaction_record(insert_at, "none")
+                            except Exception as log_err:
+                                logger.warning(f"Failed to log retry interaction: {log_err}")
                         else:
                             st.session_state.chat_history.append(final_response)
+                            # Log the interaction to local and Azure blob storage
+                            try:
+                                persist_interaction_record(len(st.session_state.chat_history) - 1, "none")
+                            except Exception as log_err:
+                                logger.warning(f"Failed to log Q&A interaction: {log_err}")
                         
                         # Display final response without markdown header formatting
                         language_code = final_response['language_code']
@@ -1737,6 +1809,13 @@ def main():
                                 'content': off_topic_response,
                                 'language_code': 'en'
                             })
+                            
+                            # Log the off-topic interaction
+                            try:
+                                persist_interaction_record(len(st.session_state.chat_history) - 1, "none")
+                            except Exception as log_err:
+                                logger.warning(f"Failed to log off-topic interaction: {log_err}")
+                            
                             typing_message.markdown(off_topic_response)
                             try:
                                 if 'copy_texts' not in st.session_state or not isinstance(st.session_state.copy_texts, dict):
