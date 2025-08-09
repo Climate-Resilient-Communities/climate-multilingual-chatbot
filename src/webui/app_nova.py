@@ -82,6 +82,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 from uuid import uuid4
 from datetime import datetime, timezone
+import os
 
 # Allow overriding the log directory via env var (useful for Azure-mounted storage)
 CHAT_LOG_DIR_ENV = os.environ.get("CHAT_LOG_DIR", "").strip()
@@ -200,8 +201,45 @@ def persist_interaction_record(message_index: int, feedback: str) -> None:
         FEEDBACK_FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(FEEDBACK_FILE, 'a', encoding='utf-8') as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        # Also append to Azure Blob (if configured)
+        _persist_record_to_blob(json.dumps(record, ensure_ascii=False))
     except Exception as e:
         logger.warning(f"[FEEDBACK] Persist failed: {e}")
+
+def _persist_record_to_blob(record_str: str) -> None:
+    """Append the record to an Azure Append Blob if BLOB_CONNSTR is configured.
+    Uses container CHAT_BLOB_CONTAINER (default: chatlogs) and prefix CHAT_BLOB_PREFIX (default: interactions).
+    Blob name: {prefix}/{session_id}.jsonl
+    """
+    try:
+        conn_str = os.environ.get("BLOB_CONNSTR")
+        if not conn_str:
+            return
+        from azure.storage.blob import AppendBlobClient, BlobServiceClient
+        container_name = os.environ.get("CHAT_BLOB_CONTAINER", "chatlogs")
+        blob_prefix = os.environ.get("CHAT_BLOB_PREFIX", "interactions")
+        session_id = st.session_state.get('session_id', 'unknown')
+        blob_name = f"{blob_prefix}/{session_id}.jsonl"
+
+        # Ensure container exists
+        try:
+            svc = BlobServiceClient.from_connection_string(conn_str)
+            cc = svc.get_container_client(container_name)
+            cc.create_container()
+        except Exception:
+            pass
+
+        client = AppendBlobClient.from_connection_string(
+            conn_str, container_name=container_name, blob_name=blob_name
+        )
+        # Create append blob if missing
+        try:
+            client.create_append_blob()
+        except Exception:
+            pass
+        client.append_block((record_str + "\n").encode("utf-8"))
+    except Exception as e:
+        logger.warning(f"[FEEDBACK] Blob persist failed: {e}")
 
 # === STEP 6: SETUP EVENT LOOP BEFORE STREAMLIT ===
 import asyncio
