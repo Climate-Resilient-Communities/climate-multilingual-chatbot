@@ -1,5 +1,8 @@
+import csv
+import os
 import re
-from typing import Any, Optional, Union
+from functools import lru_cache
+from typing import Any, Optional, Union, Dict
 from urllib.parse import urlparse, unquote
 
 
@@ -82,6 +85,11 @@ def normalize_title(raw_title: str, section_title: Optional[str] = None, url: Un
     """
     title = (raw_title or "").strip()
 
+    # 0) Curated map override (if present)
+    mapped = _lookup_curated_title(title, url)
+    if mapped:
+        return mapped
+
     # Remove common file artifacts
     title = re.sub(r"\.(pdf|html?|md|docx?)$", "", title, flags=re.IGNORECASE)
     title = re.sub(r"[_-]", " ", title).strip()
@@ -101,5 +109,90 @@ def normalize_title(raw_title: str, section_title: Optional[str] = None, url: Un
     # Final polish: title-case with acronym preservation
     title = _title_case_keep_acronyms(title)
     return title
+
+
+# === Curated mapping support ===
+
+@lru_cache(maxsize=1)
+def _load_title_map() -> Dict[str, str]:
+    """Load curated title normalization map from CSV if available.
+
+    CSV columns expected: file_name, article_name, normalized_title
+    Keys built:
+      - article_name (lowercased/stripped) -> normalized_title
+      - full file_name (lowercased) -> normalized_title
+      - basename of file_name (lowercased) -> normalized_title
+    """
+    mapping: Dict[str, str] = {}
+    # Resolve path via env or default location
+    path = os.getenv(
+        "TITLE_MAP_CSV",
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), "utils", "normalized_file_title_map.csv"),
+    )
+    try:
+        if not os.path.exists(path):
+            return mapping
+        with open(path, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                try:
+                    art = (row.get("article_name") or "").strip()
+                    fn = (row.get("file_name") or "").strip()
+                    norm = (row.get("normalized_title") or "").strip()
+                    if not norm:
+                        continue
+                    if art:
+                        mapping[_norm_key(art)] = norm
+                    if fn:
+                        mapping[_norm_key(fn)] = norm
+                        base = os.path.basename(fn)
+                        if base:
+                            mapping[_norm_key(base)] = norm
+                except Exception:
+                    continue
+    except Exception:
+        return {}
+    return mapping
+
+
+def _norm_key(text: str) -> str:
+    return re.sub(r"\s+", " ", (text or "").strip().lower())
+
+
+def _lookup_curated_title(raw_title: str, url: Union[str, list, None]) -> Optional[str]:
+    """Return curated normalized title if a mapping entry matches title or URL."""
+    mp = _load_title_map()
+    if not mp:
+        return None
+
+    # 1) Exact article_name match (case-insensitive, space-normalized)
+    tkey = _norm_key(raw_title)
+    if tkey in mp:
+        return mp[tkey]
+
+    # 2) URL-based matching by file name or path substring
+    url_str = None
+    if isinstance(url, list):
+        url_str = str(url[0]) if url else None
+    elif isinstance(url, str):
+        url_str = url
+    if url_str:
+        url_l = url_str.lower()
+        # try basename
+        try:
+            parsed = urlparse(url_str)
+            last = unquote((parsed.path or "").strip("/").split("/")[-1])
+            bkey = _norm_key(last)
+            if bkey in mp:
+                return mp[bkey]
+        except Exception:
+            pass
+        # try substring match for known file_name entries
+        for k, v in mp.items():
+            # keys from file_name may include directory separators
+            if ("/" in k) or ("\\" in k):
+                if k in url_l:
+                    return v
+    return None
 
 
