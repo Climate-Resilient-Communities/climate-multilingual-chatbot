@@ -3,7 +3,7 @@ import asyncio
 import logging
 import time
 import warnings
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Callable
 import hashlib
 import re
 from langsmith import traceable
@@ -167,7 +167,9 @@ class ClimateQueryPipeline:
         query: str,
         language_name: str,
         conversation_history: Optional[List[Dict]] = None,
-        run_manager=None
+        run_manager=None,
+        progress_callback: Optional[Callable[[str, float], None]] = None,
+        skip_cache: bool = False,
     ) -> Dict[str, Any]:
         """
         Main processing pipeline - replaces the old _process_query_internal.
@@ -175,10 +177,20 @@ class ClimateQueryPipeline:
         Flow: Route → Rewrite → Retrieve → Generate → Guard → Return
         """
         start_time = time.time()
+        
+        def report(stage: str, pct: float) -> None:
+            if progress_callback is None:
+                return
+            try:
+                progress_callback(stage, float(max(0.0, min(1.0, pct))))
+            except Exception:
+                # Never fail pipeline due to UI callback issues
+                pass
         language_code = self.get_language_code(language_name)
         
         try:
             logger.info(f"Processing query: '{query[:100]}...' in {language_name} (code: {language_code})")
+            report("Thinking…", 0.02)
             
             # Initialize holders
             response: Optional[str] = None
@@ -198,6 +210,7 @@ class ClimateQueryPipeline:
                 language_name=language_name,
                 translation=None
             )
+            report("Routing…", 0.08)
             
             # Check for language mismatch early
             if route_result.get('routing_info', {}).get('language_mismatch'):
@@ -269,7 +282,7 @@ class ClimateQueryPipeline:
             # This ensures Filipino queries get Filipino responses from cache
             cache_key = self._make_cache_key(language_code, model_type, normalized)
             
-            if self.redis_client:
+            if self.redis_client and not skip_cache:
                 try:
                     cache = ClimateCache()
                     cached_result = await cache.get(cache_key)
@@ -298,6 +311,7 @@ class ClimateQueryPipeline:
             # STEP 3: REWRITE THE QUERY
             logger.info("Step 3: Query Rewriting")
             _rewrite_start = time.time()
+            report("Rewriting query…", 0.14)
             try:
                 # Parse conversation history properly for query rewriter
                 formatted_history = conversation_parser.format_for_query_rewriter(conversation_history)
@@ -371,6 +385,7 @@ class ClimateQueryPipeline:
             # STEP 4: INPUT GUARDS
             logger.info("Step 4: Input Guards")
             _guards_start = time.time()
+            report("Validating input…", 0.2)
             guard_results = await self._process_input_guards(processed_query)
             if not guard_results['passed']:
                 return self._create_error_response(
@@ -398,6 +413,7 @@ class ClimateQueryPipeline:
             # STEP 5: RETRIEVE DOCUMENTS
             logger.info("Step 5: Document Retrieval")
             _retr_start = time.time()
+            report("Retrieving documents…", 0.35)
             try:
                 documents = await get_documents(
                     processed_query,
@@ -410,10 +426,12 @@ class ClimateQueryPipeline:
                 logger.error(f"Document retrieval failed: {str(e)}")
                 documents = []
             logger.info(f"Timing: retrieval={(time.time() - _retr_start)*1000:.1f}ms")
+            report("Documents retrieved", 0.6)
 
             # STEP 6: GENERATE RESPONSE
             logger.info(f"Step 6: Response Generation ({routing_info['model_name']})")
             _gen_start = time.time()
+            report("Formulating response…", 0.7)
             try:
                 # Generate response in English first
                 response, citations = await self.response_generator.generate_response(
@@ -432,10 +450,12 @@ class ClimateQueryPipeline:
                     time.time() - start_time
                 )
             logger.info(f"Timing: generation={(time.time() - _gen_start)*1000:.1f}ms")
+            report("Response drafted", 0.85)
 
             # STEP 7: HALLUCINATION GUARD
             logger.info("Step 7: Quality Validation")
             _hall_start = time.time()
+            report("Verifying answer…", 0.9)
             try:
                 if self.COHERE_API_KEY:
                     contexts = extract_contexts(documents, max_contexts=5)
@@ -482,6 +502,7 @@ class ClimateQueryPipeline:
                 else:
                     _trans_time = (time.time() - _trans_start) * 1000
                     logger.info(f"Timing: translation={_trans_time:.1f}ms")
+            report("Finalizing…", 0.96)
 
             # STEP 9: PREPARE FINAL RESULT
             result = {
@@ -537,6 +558,7 @@ class ClimateQueryPipeline:
                 result['processing_time'] * 1000,
             )
             logger.info(f"✓ Query processed successfully in {result['processing_time']:.2f}s")
+            report("Complete", 1.0)
             return result
 
         except Exception as e:

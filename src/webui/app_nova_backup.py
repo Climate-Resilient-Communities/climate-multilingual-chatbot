@@ -80,8 +80,6 @@ warnings.filterwarnings("ignore", category=FutureWarning, module="transformers")
 from pathlib import Path  # already used below
 import logging
 from logging.handlers import RotatingFileHandler
-from uuid import uuid4
-from datetime import datetime, timezone
 
 LOG_DIR = Path.home() / ".streamlit/logs"
 try:
@@ -98,7 +96,6 @@ if not LOG_DIR.exists():
         pass
 
 LOG_FILE = LOG_DIR / "app.log"
-FEEDBACK_FILE = LOG_DIR / "chat_interactions.jsonl"
 
 root_logger = logging.getLogger()
 root_logger.setLevel(logging.INFO)
@@ -112,91 +109,6 @@ if not _has_file_handler:
     _fh = RotatingFileHandler(str(LOG_FILE), maxBytes=5 * 1024 * 1024, backupCount=3)
     _fh.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
     root_logger.addHandler(_fh)
-
-# Dedicated helper to log user feedback on messages
-def log_feedback_event(message_index: int, feedback: str) -> None:
-    try:
-        history = st.session_state.get('chat_history', [])
-        if not history or message_index < 0 or message_index >= len(history):
-            logger.warning(f"[FEEDBACK] Invalid message index: {message_index}")
-            return
-        msg = history[message_index]
-        # Find the nearest preceding user query
-        query_text = ""
-        j = message_index - 1
-        while j >= 0:
-            if history[j].get('role') == 'user':
-                query_text = history[j].get('content', '')
-                break
-            j -= 1
-        def trunc(s: str, n: int = 180) -> str:
-            try:
-                s = s or ""
-                return (s[:n] + "…") if len(s) > n else s
-            except Exception:
-                return str(s)
-        logger.info(
-            "[FEEDBACK] index=%s feedback=%s lang=%s query=\"%s\" response=\"%s\"",
-            message_index,
-            feedback,
-            msg.get('language_code', 'en'),
-            trunc(query_text),
-            trunc(msg.get('content', '')),
-        )
-        # Also persist structured record
-        persist_interaction_record(message_index, feedback)
-    except Exception as e:
-        logger.warning(f"[FEEDBACK] Failed to log feedback: {e}")
-
-def persist_interaction_record(message_index: int, feedback: str) -> None:
-    """Append a structured interaction record to JSONL for traceability.
-    Fields: session_id, ts, message_index, lang, user_query, assistant_response, feedback, citations
-    """
-    try:
-        history = st.session_state.get('chat_history', [])
-        if not history or message_index < 0 or message_index >= len(history):
-            return
-        msg = history[message_index]
-        if msg.get('role') == 'user':
-            return
-        # Find nearest preceding user query
-        query_text = ""
-        j = message_index - 1
-        while j >= 0:
-            if history[j].get('role') == 'user':
-                query_text = history[j].get('content', '')
-                break
-            j -= 1
-
-        # Normalize citations
-        citations = []
-        try:
-            for cit in (msg.get('citations') or []):
-                d = get_citation_details(cit)
-                citations.append({'title': d.get('title'), 'url': d.get('url')})
-        except Exception:
-            citations = []
-
-        # Ensure we have a session id
-        if 'session_id' not in st.session_state or not st.session_state.session_id:
-            st.session_state.session_id = str(uuid4())
-
-        record = {
-            'session_id': st.session_state.get('session_id'),
-            'ts': datetime.now(timezone.utc).isoformat(),
-            'message_index': message_index,
-            'language_code': msg.get('language_code', 'en'),
-            'user_query': query_text or '',
-            'assistant_response': msg.get('content', ''),
-            'feedback': feedback,
-            'citations': citations,
-        }
-
-        FEEDBACK_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(FEEDBACK_FILE, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
-    except Exception as e:
-        logger.warning(f"[FEEDBACK] Persist failed: {e}")
 
 # === STEP 6: SETUP EVENT LOOP BEFORE STREAMLIT ===
 import asyncio
@@ -243,9 +155,7 @@ import time
 import re
 import threading
 import queue
-import json
 from concurrent.futures import ThreadPoolExecutor
-from streamlit.components.v1 import html as st_html
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -417,9 +327,7 @@ def display_source_citations(citations, base_idx=0):
         return
 
     st.markdown("---")
-    # Start scoped section wrapper so we can style sizes without affecting other buttons
-    st.markdown('<div class="sources-section">', unsafe_allow_html=True)
-    st.markdown('<div class="sources-heading">Sources</div>', unsafe_allow_html=True)
+    st.markdown("### Sources")
 
     # Create a dictionary to store unique sources
     unique_sources = {}
@@ -452,9 +360,6 @@ def display_source_citations(citations, base_idx=0):
                     if source.get('content'):
                         st.markdown("**Full Content:**")
                         st.markdown(source['content'][:500] + '...' if len(source['content']) > 500 else source['content'])
-
-    # Close wrapper
-    st.markdown('</div>', unsafe_allow_html=True)
 
 def display_progress(progress_placeholder):
     """Display simple progress bar."""
@@ -515,7 +420,7 @@ def _render_loading_ui(container, stage_text: str, progress_value: float) -> Non
         unsafe_allow_html=True,
     )
 
-def _run_query_background(chatbot, query: str, language_name: str, conversation_history: list, result_holder: dict, q: "queue.Queue", skip_cache: bool) -> None:
+def _run_query_background(chatbot, query: str, language_name: str, conversation_history: list, result_holder: dict, q: "queue.Queue") -> None:
     """Worker to execute the async pipeline and store result/exceptions, streaming progress via queue."""
     try:
         async def _runner():
@@ -524,7 +429,6 @@ def _run_query_background(chatbot, query: str, language_name: str, conversation_
                 language_name=language_name,
                 conversation_history=conversation_history,
                 progress_callback=lambda stage, pct: q.put({"stage": stage, "pct": pct}),
-                skip_cache=skip_cache,
             )
 
         # Fallback if pipeline absent
@@ -542,7 +446,7 @@ def _run_query_background(chatbot, query: str, language_name: str, conversation_
     except Exception as exc:  # noqa: BLE001
         result_holder["error"] = exc
 
-def run_query_with_interactive_progress(chatbot, query: str, language_name: str, conversation_history: list, response_placeholder, skip_cache: bool = False):
+def run_query_with_interactive_progress(chatbot, query: str, language_name: str, conversation_history: list, response_placeholder):
     """Run the query while rendering an animated multi-stage progress UI.
 
     Returns the pipeline result (or raises if worker errored).
@@ -559,7 +463,7 @@ def run_query_with_interactive_progress(chatbot, query: str, language_name: str,
 
     # Start worker in a background thread
     result_holder: dict = {"result": None, "error": None}
-    worker = threading.Thread(target=_run_query_background, args=(chatbot, query, language_name, conversation_history, result_holder, progress_events, skip_cache), daemon=True)
+    worker = threading.Thread(target=_run_query_background, args=(chatbot, query, language_name, conversation_history, result_holder, progress_events), daemon=True)
     worker.start()
 
     # Animate until the worker completes
@@ -658,62 +562,8 @@ def render_user_bubble(text: str, language_code: str = "en") -> str:
         """
     )
 
-def render_message_actions_ui(message_index: int, message: dict) -> None:
-    if 'message_feedback' not in st.session_state:
-        st.session_state.message_feedback = {}
-    if 'show_copy_panel' not in st.session_state or not isinstance(st.session_state.show_copy_panel, dict):
-        st.session_state.show_copy_panel = {}
-    # Build normalized copy text based on the same format used for downloads
-    content_for_copy = format_message_for_copy(message_index)
-    role = message.get('role', 'assistant')
-    is_assistant = role != 'user'
-    # Only show actions for assistant messages
-    if not is_assistant:
-        return
-    spacer, c_up, c_down, c_retry = st.columns([13, 1, 1, 1])
-    with c_up:
-        if st.button('👍', key=f'msg_up_{message_index}', help='Thumbs up'):
-            st.session_state.message_feedback[message_index] = 'up'
-            log_feedback_event(message_index, 'up')
-    with c_down:
-        if st.button('👎', key=f'msg_down_{message_index}', help='Thumbs down'):
-            st.session_state.message_feedback[message_index] = 'down'
-            log_feedback_event(message_index, 'down')
-    with c_retry:
-        if st.button('↻', key=f'msg_retry_{message_index}', help='Retry this answer'):
-            prior_query = ''
-            user_index = -1
-            j = message_index - 1
-            hist = st.session_state.chat_history
-            while j >= 0:
-                if hist[j].get('role') == 'user':
-                    prior_query = hist[j].get('content', '')
-                    user_index = j
-                    break
-                j -= 1
-            # Remove the current assistant message immediately so the loader can occupy its spot
-            try:
-                if 0 <= message_index < len(st.session_state.chat_history):
-                    st.session_state.chat_history.pop(message_index)
-            except Exception as _e:
-                logger.warning(f"Retry removal failed: {_e}")
-            # Mark retry request with exact user index and query; pipeline will run inline at that spot
-            st.session_state.retry_request = {
-                'assistant_index': message_index,
-                'user_index': user_index,
-                'query': prior_query,
-            }
-            st.rerun()
-
-    # No extra UI
-
-def display_chat_messages(retry_request=None):
-    """Display chat messages in a custom format.
-
-    If a retry_request is provided, a temporary assistant placeholder will be
-    injected immediately after the associated user message and returned so the
-    caller can render a loading UI and final response in-place.
-    """
+def display_chat_messages():
+    """Display chat messages in a custom format."""
     # Add CSS to control heading sizes inside chat messages
     st.markdown(
         """
@@ -729,22 +579,12 @@ def display_chat_messages(retry_request=None):
         """,
         unsafe_allow_html=True,
     )
-    retry_user_index = None
-    if isinstance(retry_request, dict):
-        retry_user_index = retry_request.get('user_index')
-
-    injected_retry_placeholder = None
-
+    
     for i, message in enumerate(st.session_state.chat_history):
         if message['role'] == 'user':
             user_msg = st.chat_message("user")
             user_code = message.get('language_code', 'en')
             user_msg.markdown(render_user_bubble(message.get('content', ''), user_code), unsafe_allow_html=True)
-            render_message_actions_ui(i, message)
-            # If a retry is active for this user message, inject an assistant placeholder right after it
-            if retry_user_index is not None and retry_user_index == i and injected_retry_placeholder is None:
-                retry_msg_container = st.chat_message("assistant")
-                injected_retry_placeholder = retry_msg_container.empty()
         else:
             assistant_message = st.chat_message("assistant")
             # Clean the content before displaying
@@ -781,9 +621,6 @@ def display_chat_messages(retry_request=None):
             
             if message.get('citations'):
                 display_source_citations(message['citations'], base_idx=i)
-            render_message_actions_ui(i, message)
-
-    return injected_retry_placeholder
 
 def load_custom_css():
     """SIMPLIFIED CSS - removed problematic JavaScript and complex theme detection"""
@@ -894,34 +731,6 @@ def load_custom_css():
     /* Remove default chat message card styling to avoid gray background */
     div[data-testid="stChatMessage"] { background: transparent !important; box-shadow: none !important; border: none !important; }
     div[data-testid="stChatMessage"] > div { background: transparent !important; box-shadow: none !important; border: none !important; }
-
-    /* Compact inline action icons inside chat messages */
-    div[data-testid="stChatMessage"] div[data-testid="stHorizontalBlock"] { gap: 6px !important; justify-content: flex-end; align-items: center; }
-    div[data-testid="stChatMessage"] .stButton > button {
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        padding: 4px 6px !important;
-        min-width: 0 !important;
-        color: #0a8f79 !important; /* unified green tone */
-        font-size: 18px !important;
-    }
-    div[data-testid="stChatMessage"] .stButton > button:hover { background: rgba(10,143,121,0.08) !important; color: #0a8f79 !important; }
-
-    /* Normalize Sources section typography to match message body */
-    .sources-section { margin-top: 0.25rem; }
-    .sources-heading { font-size: 1rem; font-weight: 600; color: #333; margin: 0.25rem 0 0.5rem 0; }
-    .sources-section .stButton > button {
-        font-size: 0.95rem !important;
-        padding: 6px 10px !important;
-        background: #0a8f79 !important;
-        color: #fff !important;
-        border-radius: 8px !important;
-    }
-    .sources-section .stButton > button:hover { background: #077966 !important; }
-    .sources-section [data-testid="stExpander"] p, 
-    .sources-section [data-testid="stMarkdownContainer"] p,
-    .sources-section [data-testid="stMarkdownContainer"] li { font-size: 0.95rem !important; }
     </style>
     """, unsafe_allow_html=True)
     
@@ -949,52 +758,6 @@ def generate_chat_history_text():
                     history_text += f"  Content: {details['snippet']}\n"
             history_text += "\n"
     return history_text
-
-def format_message_for_copy(message_index: int) -> str:
-    """Create a normalized plain-text snippet for one chat turn, similar to the download format.
-
-    - If the message is an assistant reply, include the preceding user question (when available)
-    - Include sources for assistant messages using titles and URLs
-    """
-    try:
-        history = st.session_state.get('chat_history', [])
-        if not history or message_index < 0 or message_index >= len(history):
-            return ""
-
-        msg = history[message_index]
-        lines = []
-
-        if msg.get('role') == 'assistant':
-            # Preceding user question for context
-            j = message_index - 1
-            while j >= 0 and history[j].get('role') != 'user':
-                j -= 1
-            if j >= 0:
-                lines.append(f"User: {history[j].get('content','')}")
-
-        role = 'User' if msg.get('role') == 'user' else 'Assistant'
-        lines.append(f"{role}: {msg.get('content','')}")
-
-        # Add citations for assistant messages
-        if msg.get('role') == 'assistant' and msg.get('citations'):
-            lines.append("Sources:")
-            for cit in msg['citations']:
-                d = get_citation_details(cit)
-                title = d.get('title', 'Untitled Source')
-                url = d.get('url') or ''
-                snippet = d.get('snippet') or ''
-                lines.append(f"- {title}")
-                if url:
-                    lines.append(f"  URL: {url}")
-                if snippet:
-                    lines.append(f"  Content: {snippet}")
-
-        return "\n".join(lines) + "\n"
-    except Exception:
-        # Fallback to raw content
-        history = st.session_state.get('chat_history', [])
-        msg = history[message_index] if 0 <= message_index < len(history) else {}
-        return str(msg.get('content', ''))
 
 def display_chat_history_section():
     """Display chat history with download button."""
@@ -1226,8 +989,6 @@ def main():
     # Initialize session state first
     if 'selected_source' not in st.session_state:
         st.session_state.selected_source = None
-    if 'session_id' not in st.session_state or not st.session_state.get('session_id'):
-        st.session_state.session_id = str(uuid4())
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = []
     # REMOVED has_asked_question - we'll use chat_history length instead
@@ -1333,10 +1094,7 @@ def main():
                 st.markdown('<div>Made by:</div>', unsafe_allow_html=True)
                 if TREE_ICON:
                     st.image(TREE_ICON, width=40)
-                st.markdown('<div style="font-size: 18px; display:flex; align-items:center; gap:6px;">\
-                    <a href="https://crc.place/" target="_blank" title="Climate Resilient Communities">Climate Resilient Communities</a>\
-                    <span title="Trademark">™</span>\
-                    </div>', unsafe_allow_html=True)
+                st.markdown('<div style="font-size: 18px;">Climate Resilient Communities</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
                 
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -1483,9 +1241,8 @@ def main():
                 # Stop rendering anything else while popup is shown
                 st.stop()
 
-            # Display chat messages; if a retry is in progress, we get a placeholder to render loader/result inline
-            retry_req = st.session_state.get('retry_request') if isinstance(st.session_state.get('retry_request'), dict) else None
-            injected_retry_placeholder = display_chat_messages(retry_req)
+            # Display chat messages
+            display_chat_messages()
 
             if st.session_state.language_confirmed:
                 query = st.chat_input("Ask Climate Change Bot")
@@ -1511,21 +1268,13 @@ def main():
                 st.session_state.needs_rerun = False
                 # Don't process any queries on this run, as we're just updating the UI
                 pass
-            elif (query or retry_req) and chatbot:
+            elif query and chatbot:
                 # User message is already added to chat history above
                 # Display the user message
-                if query:
-                    st.chat_message("user").markdown(render_user_bubble(query), unsafe_allow_html=True)
-                    render_message_actions_ui(len(st.session_state.chat_history) - 1, st.session_state.chat_history[-1])
+                st.chat_message("user").markdown(render_user_bubble(query), unsafe_allow_html=True)
 
-                # Choose where to render the assistant placeholder:
-                # - If this is a retry, use the injected placeholder under the same user message
-                # - Otherwise, create a new assistant container at the end
-                if retry_req and injected_retry_placeholder is not None:
-                    typing_message = injected_retry_placeholder
-                else:
-                    response_placeholder = st.chat_message("assistant")
-                    typing_message = response_placeholder.empty()
+                response_placeholder = st.chat_message("assistant")
+                typing_message = response_placeholder.empty()
                 # Replace plain text with interactive progress UI below
                 
                 try:
@@ -1545,19 +1294,13 @@ def main():
                             i += 2
                         else:
                             i += 1
-                    # If a retry was requested, use that captured query; else use current input
-                    retry_req = st.session_state.get('retry_request') if isinstance(st.session_state.get('retry_request'), dict) else None
-                    retry_query = retry_req.get('query') if retry_req else None
-                    effective_query = retry_query or query
-
                     # Process query with interactive progress UI
                     result = run_query_with_interactive_progress(
                         chatbot=chatbot,
-                        query=effective_query,
+                        query=query,
                         language_name=st.session_state.selected_language,
                         conversation_history=conversation_history,
                         response_placeholder=typing_message,
-                        skip_cache=bool(retry_req)
                     )
                     
                     typing_message.empty()
@@ -1585,12 +1328,7 @@ def main():
                             'content': response_content,  # Use the cleaned content
                             'citations': result.get('citations', [])
                         }
-                        # If retry, insert at the original assistant index; otherwise append
-                        if retry_req and isinstance(retry_req.get('assistant_index'), int):
-                            insert_at = min(retry_req['assistant_index'], len(st.session_state.chat_history))
-                            st.session_state.chat_history.insert(insert_at, final_response)
-                        else:
-                            st.session_state.chat_history.append(final_response)
+                        st.session_state.chat_history.append(final_response)
                         
                         # Display final response without markdown header formatting
                         language_code = final_response['language_code']
@@ -1599,33 +1337,17 @@ def main():
                         
                         content = clean_html_content(final_response['content'])
 
-                        typing_message.markdown(
+                        response_placeholder.markdown(
                             f"""<div style=\"direction: {direction}; text-align: {text_align}\">
                             {content}
                             </div>""",
                             unsafe_allow_html=True
                         )
                         
-                        # Store exactly what was displayed for this assistant message for Copy
-                        try:
-                            if 'copy_texts' not in st.session_state or not isinstance(st.session_state.copy_texts, dict):
-                                st.session_state.copy_texts = {}
-                            st.session_state.copy_texts[len(st.session_state.chat_history) - 1] = content or final_response['content'] or ''
-                        except Exception:
-                            pass
-                        
                         # Display citations if available
                         if result.get('citations'):
-                            if retry_req and isinstance(retry_req.get('assistant_index'), int):
-                                message_idx = min(retry_req['assistant_index'], len(st.session_state.chat_history) - 1)
-                            else:
-                                message_idx = len(st.session_state.chat_history) - 1
+                            message_idx = len(st.session_state.chat_history) - 1
                             display_source_citations(result['citations'], base_idx=message_idx)
-                        # Render message actions for assistant message
-                        if retry_req and isinstance(retry_req.get('assistant_index'), int):
-                            render_message_actions_ui(message_idx, final_response)
-                        else:
-                            render_message_actions_ui(len(st.session_state.chat_history) - 1, final_response)
                     else:
                         # Handle off-topic questions and other errors more comprehensively
                         # Prefer 'message' but fall back to 'response' when pipeline uses that field
@@ -1655,13 +1377,7 @@ def main():
                                 'content': off_topic_response,
                                 'language_code': 'en'
                             })
-                            typing_message.markdown(off_topic_response)
-                            try:
-                                if 'copy_texts' not in st.session_state or not isinstance(st.session_state.copy_texts, dict):
-                                    st.session_state.copy_texts = {}
-                                st.session_state.copy_texts[len(st.session_state.chat_history) - 1] = off_topic_response
-                            except Exception:
-                                pass
+                            response_placeholder.markdown(off_topic_response)
                         else:
                             # Generic error surfaced to user
                             st.session_state.chat_history.append({
@@ -1669,13 +1385,7 @@ def main():
                                 'content': str(error_message),
                                 'language_code': 'en'
                             })
-                            typing_message.error(str(error_message))
-                            try:
-                                if 'copy_texts' not in st.session_state or not isinstance(st.session_state.copy_texts, dict):
-                                    st.session_state.copy_texts = {}
-                                st.session_state.copy_texts[len(st.session_state.chat_history) - 1] = str(error_message)
-                            except Exception:
-                                pass
+                            response_placeholder.error(str(error_message))
                 except Exception as e:
                     error_msg = f"Error processing query: {str(e)}"
                     st.session_state.chat_history.append({
@@ -1683,21 +1393,9 @@ def main():
                         'content': error_msg,
                         'language_code': 'en'
                     })
-                    typing_message.error(error_msg)
-                    # Render actions even for error messages
-                    render_message_actions_ui(len(st.session_state.chat_history) - 1, st.session_state.chat_history[-1])
-                    try:
-                        if 'copy_texts' not in st.session_state or not isinstance(st.session_state.copy_texts, dict):
-                            st.session_state.copy_texts = {}
-                        st.session_state.copy_texts[len(st.session_state.chat_history) - 1] = error_msg
-                    except Exception:
-                        pass
+                    response_placeholder.error(error_msg)
                 
-                # After answering, clear retry flags
-                if retry_req:
-                    st.session_state.retry_request = None
-                    st.session_state.last_retry_applied = None
-                # Normal UI refresh after answering
+                # Set flag to rerun and update UI with new chat history
                 st.session_state.needs_rerun = True
                 st.rerun()
             
