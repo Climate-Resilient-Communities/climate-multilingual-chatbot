@@ -583,14 +583,22 @@ def display_source_citations(citations, base_idx=0):
         with st.container():
             # Create a unique key using the message index and source index
             unique_key = f"source_{base_idx}_{idx}"
-            if st.button(f"📄 {title[:100]}...", key=unique_key):
+            # Compute friendlier label for Drive-like sources
+            url_val = source.get('url') or ''
+            url_str = str(url_val)
+            is_drive_like = any(k in url_str for k in [
+                'drive.google.com', 'docs.google.com', '/content/drive', '/MyDrive', '/drive/'
+            ])
+            display_title = "Content sourced from leading climate specialist" if is_drive_like else title
+
+            if st.button(f"📄 {display_title[:100]}...", key=unique_key):
                 st.session_state.selected_source = f"{base_idx}_{title}"
 
             # Show details if selected
             if st.session_state.get('selected_source') == f"{base_idx}_{title}":
                 with st.expander("Source Details", expanded=True):
-                    if title:
-                        st.markdown(f"**Title:** {title}")
+                    if display_title:
+                        st.markdown(f"**Title:** {display_title}")
                     if source.get('url'):
                         st.markdown(f"**URL:** [{source['url']}]({source['url']})")
                     if source.get('snippet'):
