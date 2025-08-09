@@ -200,6 +200,9 @@ def persist_interaction_record(message_index: int, feedback: str) -> None:
             'assistant_response': redacted_assistant_response,
             'feedback': feedback,
             'citations': citations,  # Citations typically don't contain PII
+            # Optional provenance fields if present on the message
+            'retrieval_source': msg.get('retrieval_source'),
+            'fallback_reason': msg.get('fallback_reason'),
         }
 
         FEEDBACK_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -1727,7 +1730,9 @@ def main():
                             'role': 'assistant',
                             'language_code': result.get('language_code', 'en'),
                             'content': response_content,  # Use the cleaned content
-                            'citations': result.get('citations', [])
+                            'citations': result.get('citations', []),
+                            'retrieval_source': result.get('retrieval_source'),
+                            'fallback_reason': result.get('fallback_reason'),
                         }
                         # If retry, insert at the original assistant index; otherwise append
                         if retry_req and isinstance(retry_req.get('assistant_index'), int):
