@@ -13,3 +13,24 @@
 ✓ PyTorch-Streamlit compatibility patches applied successfully
 Fetching 30 files:   0%|          | 0/30 [00:00<?, ?it/s]Fetching 30 files: 100%|██████████| 30/30 [00:00<00:00, 6813.36it/s]
 You're using a XLMRobertaTokenizerFast tokenizer. Please note that with a fast tokenizer, using the `__call__` method is faster than using a method to encode the text followed by a call to the `pad` method to get a padded encoding.
+✓ PyTorch-Streamlit compatibility patches applied successfully
+✓ PyTorch-Streamlit compatibility patches applied successfully
+✓ PyTorch-Streamlit compatibility patches applied successfully
+✓ PyTorch-Streamlit compatibility patches applied successfully
+✓ PyTorch-Streamlit compatibility patches applied successfully
+✓ PyTorch-Streamlit compatibility patches applied successfully
+✓ PyTorch-Streamlit compatibility patches applied successfully
+✓ PyTorch-Streamlit compatibility patches applied successfully
+✓ PyTorch-Streamlit compatibility patches applied successfully
+✓ PyTorch-Streamlit compatibility patches applied successfully
+✓ PyTorch-Streamlit compatibility patches applied successfully
+✓ PyTorch-Streamlit compatibility patches applied successfully
+✓ PyTorch-Streamlit compatibility patches applied successfully
+✓ PyTorch-Streamlit compatibility patches applied successfully
+✓ PyTorch-Streamlit compatibility patches applied successfully
+✓ PyTorch-Streamlit compatibility patches applied successfully
+✓ PyTorch-Streamlit compatibility patches applied successfully
+✓ PyTorch-Streamlit compatibility patches applied successfully
+✓ PyTorch-Streamlit compatibility patches applied successfully
+✓ PyTorch-Streamlit compatibility patches applied successfully
+  Stopping...

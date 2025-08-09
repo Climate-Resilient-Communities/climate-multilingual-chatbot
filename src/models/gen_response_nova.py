@@ -272,9 +272,17 @@ async def _process_documents_and_generate(
             # Only include real citations (skip synthetic conversation context docs)
             if doc.get('title') != 'Conversation Context' or doc.get('url'):
                 # Format citation with all required fields
+                # Handle URL which might be a list or string
+                url_value = doc.get('url', '')
+                if isinstance(url_value, list):
+                    # If it's a list, take the first non-empty URL or empty string
+                    url_str = next((url for url in url_value if url), '') if url_value else ''
+                else:
+                    url_str = str(url_value) if url_value else ''
+                
                 citation = {
                     'title': str(doc.get('title', 'Untitled Source')),
-                    'url': str(doc.get('url', '')),
+                    'url': url_str,
                     'content': str(doc.get('content', '')),
                     'snippet': str(doc.get('snippet', doc.get('content', '')[:200] + '...' if doc.get('content') else ''))
                 }
