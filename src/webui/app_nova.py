@@ -1552,6 +1552,21 @@ def main():
                     max-height: 80vh;
                     overflow-y: auto;
                 }
+
+                /* Subtle link-style button for feedback */
+                a.feedback-button {
+                    display: inline-block;
+                    padding: 6px 10px;
+                    border-radius: 6px;
+                    border: 1px solid #d0d7de;
+                    background: #f6f8fa;
+                    color: #24292f !important;
+                    text-decoration: none;
+                    font-size: 14px;
+                }
+                a.feedback-button:hover {
+                    background: #eef2f6;
+                }
                 </style>
                 """,
                     unsafe_allow_html=True,
@@ -1648,6 +1663,11 @@ def main():
                             - Our GitHub repository for technical contributions
                             - Community feedback sessions
                             """
+                            )
+                            # Subtle feedback button linking to a placeholder Google Form
+                            st.markdown(
+                                '<a class="feedback-button" href="https://forms.gle/PLACEHOLDER_FEEDBACK" target="_blank" title="Report bugs or share feedback (opens Google Form)">📝 Submit Feedback</a>',
+                                unsafe_allow_html=True,
                             )
                             st.write("For technical support or to report issues, please visit our GitHub repository.")
                     
