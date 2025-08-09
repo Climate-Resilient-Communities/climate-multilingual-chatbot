@@ -83,7 +83,12 @@ from logging.handlers import RotatingFileHandler
 from uuid import uuid4
 from datetime import datetime, timezone
 
-LOG_DIR = Path.home() / ".streamlit/logs"
+# Allow overriding the log directory via env var (useful for Azure-mounted storage)
+CHAT_LOG_DIR_ENV = os.environ.get("CHAT_LOG_DIR", "").strip()
+if CHAT_LOG_DIR_ENV:
+    LOG_DIR = Path(CHAT_LOG_DIR_ENV).expanduser().resolve()
+else:
+    LOG_DIR = Path.home() / ".streamlit/logs"
 try:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
 except Exception:
