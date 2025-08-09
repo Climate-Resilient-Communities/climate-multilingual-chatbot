@@ -39,20 +39,20 @@ Dependencies in use:
     - Identify quick wins: better alpha for hybrid weighting, better pre-clean of content, dedupe rules.
   - Code refs: `retrieval.get_query_embeddings`, `retrieval.clean_markdown_content`, `retrieval.process_search_results`.
 
-- [ ] 4) Decide which citations to show
+- [x] 4) Decide which citations to show
   - Deliverables:
     - Policy for displaying only “high-confidence” citations: limit to N, drop those without URL or with very low relevance.
     - Deduplicate by URL/domain/title; prefer canonical titles; keep only one per source unless strongly justified.
     - Wire relevance/rerank scores into `citations` 
   - Code refs: `gen_response_unified._process_and_generate` (citations assembly), `retrieval.process_search_results`.
 
-- [ ] 5) No proper RAG documents / Tavily fallback
+- [x] 5) No proper RAG documents / Tavily fallback
   - Deliverables:
     - Define behavior when Pinecone returns nothing (and/or Tavily is used): show “No sources for this answer” instead of placeholder citations.
     - Ensure synthetic “Conversation Context” docs are never surfaced as citations.
   - Code refs: `gen_response_unified._doc_preprocessing` (conversation fallback), citations filtering logic.
 
-- [ ] 6) Detect and handle empty/low-content hits
+- [x] 6) Detect and handle empty/low-content hits
   - Deliverables:
     - Tighten filters in `process_search_results` for empty `chunk_text`, too-short content after cleaning, and non-informative pages.
     - Log counts of dropped docs and reasons (observability for quality).
@@ -62,6 +62,7 @@ Dependencies in use:
   - Deliverables:
     - Add a title normalizer: strip extensions/hashy prefixes like `1-s2.0-...`, replace underscores, title-case, fall back to domain if needed.
     - Prefer `section_title` when helpful; otherwise derive a short, human-friendly title from URL path.
+    - if the Url shows google drive, think about what we can show better for this 
     - Ensure UI truncation preserves meaning (first N chars with ellipsis) and retains tooltip with full title.
   - Code refs: `retrieval.process_search_results` (title comes from metadata), `gen_response_unified` (final assembly).
 

@@ -200,6 +200,7 @@ class ClimateQueryPipeline:
                 "response": response,
                 "citations": citations,
                 "faithfulness_score": fallback_score,
+                "retrieval_source": "tavily",
             }
         except Exception as e:
             logger.error(f"Tavily fallback failed (pipeline): {str(e)}")
@@ -479,6 +480,8 @@ class ClimateQueryPipeline:
             logger.info("Step 5: Document Retrieval")
             _retr_start = time.time()
             report("Retrieving documents…", 0.35)
+            retrieval_source = "pinecone"
+            fallback_reason: Optional[str] = None
             try:
                 documents = await get_documents(
                     processed_query,
@@ -504,6 +507,8 @@ class ClimateQueryPipeline:
                             final_resp = await self.nova_model.translate(final_resp, "english", language_name)
                         except Exception:
                             pass
+                    retrieval_source = fb.get("retrieval_source", "tavily")
+                    fallback_reason = "no_docs"
                     return {
                         "success": True,
                         "response": final_resp,
@@ -513,6 +518,8 @@ class ClimateQueryPipeline:
                         "language_code": language_code,
                         "model_used": routing_info['model_name'],
                         "model_type": model_type,
+                        "retrieval_source": retrieval_source,
+                        "fallback_reason": fallback_reason,
                     }
 
             # STEP 6: GENERATE RESPONSE
@@ -574,6 +581,8 @@ class ClimateQueryPipeline:
                     response = fb["response"]
                     citations = fb.get("citations", [])
                     faithfulness_score = fb.get("faithfulness_score", faithfulness_score)
+                    retrieval_source = fb.get("retrieval_source", "tavily")
+                    fallback_reason = "low_faithfulness"
 
             # STEP 8: TRANSLATE RESPONSE IF NEEDED
             _trans_time = 0.0
@@ -608,7 +617,9 @@ class ClimateQueryPipeline:
                 "processing_time": time.time() - start_time,
                 "language_code": language_code,
                 "model_used": routing_info['model_name'],
-                "model_type": model_type
+                "model_type": model_type,
+                "retrieval_source": retrieval_source,
+                "fallback_reason": fallback_reason,
             }
 
             # STEP 10: CACHE THE RESULT IN THE CORRECT LANGUAGE
