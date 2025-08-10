@@ -323,7 +323,7 @@ class ClimateQueryPipeline:
                     'sl': 'Slovenian', 'et': 'Estonian', 'lv': 'Latvian', 'lt': 'Lithuanian'
                 }
                 detected_name = lang_code_to_name.get(detected_lang, detected_lang.upper())
-                
+                # Show mismatch message immediately
                 return self._create_error_response(
                     "Whoops! You wrote in a different language than the one you selected. Please choose the language you want me to respond in on the side panel so I can ensure the best translation for you!",
                     language_code,
