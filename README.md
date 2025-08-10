@@ -1,14 +1,17 @@
-# Multilingual Climate Change Chatbot Application
+# Multilingual Climate Change Chatbot (MLCC)
 
 Production notes
-- Local JSONL chat logs are disabled by default. To enable locally, set ENABLE_LOCAL_CHAT_LOGS=1. Azure Blob logging remains enabled when Azure env vars are present.
-- All project documentation has been moved to the `info/` directory.
+- Local JSONL chat logs are disabled by default. To enable locally, set `ENABLE_LOCAL_CHAT_LOGS=1`. Azure Blob logging remains enabled when Azure env vars are present.
+- All project documentation lives under `info/`.
+- The consent/Disclaimer is a true overlay via Streamlit `@st.dialog` and app is gated with `st.stop()` until accepted.
+- The query rewriter now returns strict JSON; the pipeline short-circuits for canned intents (greeting/goodbye/thanks/emergency) and for "instruction" shows the How It Works text. Canned text is translated to the user’s selected language.
 
-A sophisticated multilingual chatbot specialized in climate-related topics, leveraging advanced RAG (Retrieval Augmented Generation) architecture with Amazon Bedrock for response generation and multiple guardrails for quality assurance.
+A multilingual climate chatbot built on RAG with Amazon Bedrock (Nova) plus robust retrieval, safety, and UI refinements.
 
 ## Features
 
-- **Multilingual Support**: Seamless multilingual interactions powered by Amazon Bedrock Nova
+- **Multilingual Support**: 180+ languages in dropdown; responses translated to the selected language
+- **Consent Modal**: Elegant overlay modal gating app usage
 - **Advanced RAG Implementation**: 
   - Hybrid search with Pinecone vector store
   - BGE-M3 embeddings for superior semantic understanding
@@ -17,6 +20,9 @@ A sophisticated multilingual chatbot specialized in climate-related topics, leve
   - Input validation and topic moderation
   - Hallucination detection
   - Response quality checks
+- **Intent Handling**:
+  - LLM-based classification into on-topic, off-topic, harmful, greeting, goodbye, thanks, emergency, instruction
+  - Pre-canned responses for selected intents, translated to user language
 - **Performance Optimizations**:
   - Redis caching layer
   - Asynchronous processing
@@ -25,6 +31,8 @@ A sophisticated multilingual chatbot specialized in climate-related topics, leve
   - Clean, responsive Streamlit web interface
   - Source citations with detailed references
   - Chat history management
+  - Sidebar improvements: dark theme, downloadable chat history icon with tooltip
+  - Feedback button linking to Google Form
 
 ## Prerequisites
 
@@ -117,20 +125,18 @@ python src/main_nova.py climate-change-adaptation-index-10-24-prod
 
 ```
 climate-multilingual-chatbot/
-├── models/                  # Local model files
-│   └── climatebert/        # Downloaded ClimateBERT model files
-├── src/                     # Main source code
-│   ├── models/             # Core model implementations
-│   ├── utils/              # Utility functions
-│   └── webui/              # Streamlit web interface
-├── tests/                   # Test suites
-│   ├── integration/        # Integration tests
-│   ├── system/             # System tests
-│   └── unit/               # Unit tests
-├── .env                     # Environment variables (not in repo)
-├── poetry.lock             # Lock file for dependencies
+├── src/
+│   ├── webui/              # Streamlit UI (app_nova.py)
+│   ├── models/             # Pipeline, retrieval, guards
+│   └── utils/              # Env, logging, language maps
+├── tests/                  # Unit, integration, system tests
+├── info/                   # All markdown docs
+├── reports/                # Generated charts/reports
+├── Multilingual testing/   # Local bake-off utilities and cache
+├── .env                    # Environment variables (not in repo)
+├── poetry.lock             # Lock file
 ├── pyproject.toml          # Project configuration
-└── README.md              # Project documentation
+└── README.md               # This file
 ```
 
 ## Azure Deployment
