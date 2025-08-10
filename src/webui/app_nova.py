@@ -1726,6 +1726,33 @@ def main():
 
         chatbot = chatbot_init.get("chatbot")
         
+        # Handle sidebar force-open via query param
+        try:
+            params = st.query_params  # Streamlit 1.30+
+        except Exception:
+            try:
+                params = st.experimental_get_query_params()  # fallback for older versions
+            except Exception:
+                params = {}
+        sb = (params.get("sb") if isinstance(params, dict) else None)
+        if sb:
+            val = sb[0] if isinstance(sb, list) else sb
+            if str(val) == "1":
+                st.session_state._force_sidebar_open = True
+            elif str(val) == "0":
+                st.session_state._force_sidebar_open = False
+
+        # Apply CSS to force sidebar visible when requested
+        if st.session_state.get('_force_sidebar_open'):
+            st.markdown(
+                """
+<style>
+section[data-testid="stSidebar"]{display:block !important; transform:translateX(0) !important; visibility:visible !important;}
+</style>
+                """,
+                unsafe_allow_html=True,
+            )
+
         # Sidebar
         with st.sidebar:
             st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
@@ -1797,9 +1824,29 @@ def main():
                 """,
                 unsafe_allow_html=True,
             )
+
         else:
             st.title("Multilingual Climate Chatbot")
             st.write("Ask me anything about climate change!")
+
+        # Floating toggle (uses query param to trigger rerun and CSS open)
+        st.markdown(
+            (
+                """
+<style>
+.mlcc-sidebar-toggle{position:fixed;top:14px;right:14px;z-index:10000;background:#009376;color:#fff;border-radius:18px;padding:6px 10px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);font-weight:600;font-size:13px;}
+.mlcc-sidebar-toggle:hover{background:#00b894}
+.mlcc-sidebar-toggle a{color:#fff; text-decoration:none}
+</style>
+<div class="mlcc-sidebar-toggle"><a href="?sb=%s">%s</a></div>
+                """
+                % (
+                    ("0" if st.session_state.get('_force_sidebar_open') else "1"),
+                    ("⟨ Hide Panel" if st.session_state.get('_force_sidebar_open') else "⟩ Show Panel"),
+                )
+            ),
+            unsafe_allow_html=True,
+        )
 
         # FAQ Popup Modal using Streamlit native components (restored)
         if st.session_state.show_faq_popup:
