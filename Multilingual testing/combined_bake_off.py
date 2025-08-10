@@ -72,7 +72,8 @@ except FileNotFoundError:
 
 
 # --- Cache Configuration ---
-CACHE_FILE = 'translation_cache.json'
+# Store cache alongside this script so it works regardless of current working directory
+CACHE_FILE = os.path.join(os.path.dirname(__file__), 'translation_cache.json')
 
 # --- Client Initialization ---
 # Initialize Boto3 client for Bedrock
