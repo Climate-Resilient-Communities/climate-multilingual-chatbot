@@ -389,39 +389,105 @@ class ClimateQueryPipeline:
                     selected_language_code=language_code
                 )
                 text = (rewriter_output or "").strip()
+                # Expect strict JSON from query_rewriter now
+                try:
+                    import json as _json
+                    qr = _json.loads(text)
+                except Exception:
+                    logger.warning("Query rewriter returned non-JSON; falling back to original parsing")
+                    qr = {}
 
-                # Short-circuit if query_rewriter flagged a canned response
-                canned_flag = re.search(r"Canned:\s*yes", text, re.IGNORECASE)
-                if canned_flag:
-                    canned_text_match = re.search(r"CannedText:\s*(.+)", text, re.IGNORECASE | re.DOTALL)
-                    canned_text = canned_text_match.group(1).strip() if canned_text_match else ""
-                    logger.info("✓ Canned intent detected by query rewriter; returning pre-canned response")
-                    return {
-                        "success": True,
-                        "response": canned_text,
-                        "citations": [],
-                        "faithfulness_score": 1.0,
-                        "processing_time": time.time() - start_time,
-                        "language_code": language_code,
-                        "model_used": routing_info['model_name'],
-                        "model_type": model_type,
-                        "retrieval_source": "canned",
-                        "fallback_reason": "canned_intent",
-                    }
+                # If strict JSON path
+                if isinstance(qr, dict) and qr.get("classification"):
+                    detected_lang = qr.get("language", "unknown").lower()
+                    classification = qr.get("classification", "off-topic").lower()
+                    language_match_result = "yes" if qr.get("language_match") else "no"
+                    canned_info = qr.get("canned", {}) or {}
+                    canned_enabled = bool(canned_info.get("enabled", False))
+                    canned_text = canned_info.get("text") or ""
 
-                # Parse fields
-                lang_match = re.search(r"Language:\s*([a-z]{2}|unknown)", text, re.IGNORECASE)
-                cls_match = re.search(r"Classification:\s*(on-topic|off-topic|harmful)", text, re.IGNORECASE)
-                match_match = re.search(r"LanguageMatch:\s*(yes|no)", text, re.IGNORECASE)
-                rew_match = re.search(r"Rewritten:\s*(.+)", text, re.IGNORECASE)
-                detected_lang = (lang_match.group(1).lower() if lang_match else 'unknown')
-                classification = (cls_match.group(1).lower() if cls_match else 'off-topic')
-                language_match_result = (match_match.group(1).lower() if match_match else 'unknown')
-                
-                logger.info(f"Query rewriter processed: detected_lang='{detected_lang}', classification='{classification}', language_match='{language_match_result}'")
+                    logger.info(
+                        f"Query rewriter JSON: detected_lang='{detected_lang}', classification='{classification}', language_match='{language_match_result}', canned={canned_enabled}"
+                    )
 
-                # Check for language mismatch based on query rewriter analysis
-                if language_match_result == 'no' or (detected_lang != 'unknown' and detected_lang != language_code):
+                    # Handle language mismatch
+                    if language_match_result == 'no' or (detected_lang != 'unknown' and detected_lang != language_code):
+                        lang_code_to_name = {
+                            'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
+                            'it': 'Italian', 'pt': 'Portuguese', 'nl': 'Dutch', 'ru': 'Russian',
+                            'zh': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean', 'ar': 'Arabic',
+                            'hi': 'Hindi', 'bn': 'Bengali', 'ur': 'Urdu', 'ta': 'Tamil',
+                            'gu': 'Gujarati', 'fa': 'Persian', 'vi': 'Vietnamese', 'th': 'Thai',
+                            'tr': 'Turkish', 'pl': 'Polish', 'cs': 'Czech', 'hu': 'Hungarian',
+                            'ro': 'Romanian', 'el': 'Greek', 'he': 'Hebrew', 'uk': 'Ukrainian',
+                            'id': 'Indonesian', 'tl': 'Filipino', 'da': 'Danish', 'sv': 'Swedish',
+                            'no': 'Norwegian', 'fi': 'Finnish', 'bg': 'Bulgarian', 'sk': 'Slovak',
+                            'sl': 'Slovenian', 'et': 'Estonian', 'lv': 'Latvian', 'lt': 'Lithuanian'
+                        }
+                        detected_name = lang_code_to_name.get(detected_lang, detected_lang.upper())
+                        selected_name = lang_code_to_name.get(language_code, language_code.upper())
+                        logger.warning(
+                            f"Language mismatch detected by query rewriter: query is in {detected_name} but {selected_name} was selected"
+                        )
+                        return self._create_error_response(
+                            "Whoops! You wrote in a different language than the one you selected. Please choose the language you want me to respond in on the side panel so I can ensure the best translation for you!",
+                            language_code,
+                            time.time() - start_time
+                        )
+
+                    # Short-circuit canned
+                    if canned_enabled and canned_text:
+                        logger.info("✓ Canned intent detected by query rewriter (JSON); returning pre-canned response")
+                        return {
+                            "success": True,
+                            "response": canned_text,
+                            "citations": [],
+                            "faithfulness_score": 1.0,
+                            "processing_time": time.time() - start_time,
+                            "language_code": language_code,
+                            "model_used": routing_info['model_name'],
+                            "model_type": model_type,
+                            "retrieval_source": "canned",
+                            "fallback_reason": "canned_intent",
+                        }
+
+                    # Off-topic / harmful
+                    if classification == 'off-topic':
+                        return self._create_error_response(
+                            "I'm a climate change assistant and can only help with questions about climate, environment, and sustainability.",
+                            language_code,
+                            time.time() - start_time
+                        )
+                    if classification == 'harmful':
+                        return self._create_error_response(
+                            "I can't assist with that request. Please ask me questions about climate change, environmental issues, or sustainability.",
+                            language_code,
+                            time.time() - start_time
+                        )
+
+                    # Use rewrite if provided
+                    rewritten = qr.get("rewrite_en")
+                    if isinstance(rewritten, str) and rewritten.strip():
+                        processed_query = rewritten.strip()
+                        logger.info("✓ Query rewritten (JSON) for better retrieval")
+                    else:
+                        logger.info("✓ Query rewriting skipped (JSON) - no enhancement needed")
+                else:
+                    # Legacy text parsing fallback
+                    # Parse fields
+                    lang_match = re.search(r"Language:\s*([a-z]{2}|unknown)", text, re.IGNORECASE)
+                    cls_match = re.search(r"Classification:\s*(on-topic|off-topic|harmful)", text, re.IGNORECASE)
+                    match_match = re.search(r"LanguageMatch:\s*(yes|no)", text, re.IGNORECASE)
+                    rew_match = re.search(r"Rewritten:\s*(.+)", text, re.IGNORECASE)
+                    detected_lang = (lang_match.group(1).lower() if lang_match else 'unknown')
+                    classification = (cls_match.group(1).lower() if cls_match else 'off-topic')
+                    language_match_result = (match_match.group(1).lower() if match_match else 'unknown')
+                    logger.info(
+                        f"Query rewriter processed: detected_lang='{detected_lang}', classification='{classification}', language_match='{language_match_result}'"
+                    )
+
+                    # Check for language mismatch based on query rewriter analysis
+                    if language_match_result == 'no' or (detected_lang != 'unknown' and detected_lang != language_code):
                     lang_code_to_name = {
                         'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
                         'it': 'Italian', 'pt': 'Portuguese', 'nl': 'Dutch', 'ru': 'Russian',
@@ -457,12 +523,12 @@ class ClimateQueryPipeline:
                         time.time() - start_time
                     )
 
-                # Adopt rewritten query if provided
-                if rew_match and rew_match.group(1).strip().lower() != 'n/a':
-                    processed_query = rew_match.group(1).strip()
-                    logger.info("✓ Query rewritten for better retrieval")
-                else:
-                    logger.info("✓ Query rewriting skipped - no enhancement needed")
+                    # Adopt rewritten query if provided
+                    if rew_match and rew_match.group(1).strip().lower() != 'n/a':
+                        processed_query = rew_match.group(1).strip()
+                        logger.info("✓ Query rewritten for better retrieval")
+                    else:
+                        logger.info("✓ Query rewriting skipped - no enhancement needed")
             except Exception as e:
                 logger.warning(f"Query rewriting failed, using original: {str(e)}")
             logger.info(f"Timing: rewrite={(time.time() - _rewrite_start)*1000:.1f}ms")
