@@ -1905,7 +1905,7 @@ def main():
                         """
                         )
                         st.markdown(
-                            '<a class="feedback-button" href="https://forms.gle/PLACEHOLDER_FEEDBACK" target="_blank" title="Report bugs or share feedback (opens Google Form)">📝 Submit Feedback</a>',
+                            '<a class="feedback-button" href="https://forms.gle/7mXRSc3JAF8ZSTmr9" target="_blank" title="Report bugs or share feedback (opens Google Form)">📝 Submit Feedback</a>',
                             unsafe_allow_html=True,
                         )
                         st.markdown(
@@ -2383,9 +2383,9 @@ def main():
                             - Community feedback sessions
                             """
                             )
-                            # Subtle feedback button linking to a placeholder Google Form
+                            # Subtle feedback button linking to a Google Form
                             st.markdown(
-                                '<a class="feedback-button" href="https://forms.gle/PLACEHOLDER_FEEDBACK" target="_blank" title="Report bugs or share feedback (opens Google Form)">📝 Submit Feedback</a>',
+                                '<a class="feedback-button" href="https://forms.gle/7mXRSc3JAF8ZSTmr9" target="_blank" title="Report bugs or share feedback (opens Google Form)">📝 Submit Feedback</a>',
                                 unsafe_allow_html=True,
                             )
                             st.markdown(
