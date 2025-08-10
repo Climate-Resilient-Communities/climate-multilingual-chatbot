@@ -163,12 +163,16 @@ Tone: Informative
 English text to translate: "{text}"
 Translation:"""
             
-            response = await self.client.chat(
-                model=self.model_id,
-                message=user_message,
-                temperature=0.1,
-            )
-            return response.text
+            # Cohere Python client is synchronous; run in executor to avoid blocking
+            loop = asyncio.get_event_loop()
+            def _call():
+                return self.client.chat(
+                    model=self.model_id,
+                    message=user_message,
+                    temperature=0.1,
+                )
+            response = await loop.run_in_executor(None, _call)
+            return (response.text or "").strip()
 
         except Exception as e:
             logger.error(f"Translation error: {str(e)}")
