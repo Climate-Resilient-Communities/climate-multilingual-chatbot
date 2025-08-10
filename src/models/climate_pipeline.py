@@ -52,8 +52,12 @@ class ClimateQueryPipeline:
             self.embed_model = self._initialize_embedding_model()
             logger.info(f"Init: embeddings model ready in {time.time() - _t0:.2f}s")
             _t1 = time.time()
-            self.index = self._initialize_pinecone_index()
-            logger.info(f"Init: pinecone index ready in {time.time() - _t1:.2f}s")
+            try:
+                self.index = self._initialize_pinecone_index()
+                logger.info(f"Init: pinecone index ready in {time.time() - _t1:.2f}s")
+            except Exception as e:
+                logger.warning(f"Pinecone not available, continuing without index ({e.__class__.__name__})")
+                self.index = None
             
             # Cohere client for retrieval and reranking
             self.COHERE_API_KEY = os.getenv("COHERE_API_KEY")
@@ -435,12 +439,19 @@ class ClimateQueryPipeline:
                             time.time() - start_time
                         )
 
-                    # Short-circuit canned
+                    # Short-circuit canned (translate to selected language if needed)
                     if canned_enabled and canned_text:
-                        logger.info("✓ Canned intent detected by query rewriter (JSON); returning pre-canned response")
+                        logger.info("✓ Canned intent detected by query rewriter (JSON); preparing canned response")
+                        final_text = canned_text
+                        if language_code != 'en':
+                            try:
+                                final_text = await self.nova_model.translate(canned_text, 'english', language_name)
+                                logger.info("✓ Canned response translated to selected language")
+                            except Exception as te:
+                                logger.warning(f"Canned translation failed, falling back to English: {te}")
                         return {
                             "success": True,
-                            "response": canned_text,
+                            "response": final_text,
                             "citations": [],
                             "faithfulness_score": 1.0,
                             "processing_time": time.time() - start_time,
@@ -488,7 +499,7 @@ class ClimateQueryPipeline:
 
                     # Check for language mismatch based on query rewriter analysis
                     if language_match_result == 'no' or (detected_lang != 'unknown' and detected_lang != language_code):
-                    lang_code_to_name = {
+                        lang_code_to_name = {
                         'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
                         'it': 'Italian', 'pt': 'Portuguese', 'nl': 'Dutch', 'ru': 'Russian',
                         'zh': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean', 'ar': 'Arabic',
