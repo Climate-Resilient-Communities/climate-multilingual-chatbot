@@ -227,12 +227,31 @@ Answer with ONLY the classification result, no explanations or additional text."
             if not text or source_lang == target_lang:
                 return text
 
+            # Domain-specific terminology guidance
+            src = (source_lang or "source language").strip()
+            tgt = (target_lang or "target language").strip()
+            terminology_rules = (
+                "When responding in a non-English language, always use professional, domain-specific climate terminology consistent with authoritative sources in that language (e.g., IPCC translations, national climate reports). "
+                "Avoid over-simplified or generic translations of technical terms; preserve scientific accuracy while keeping explanations understandable. "
+            )
+            zh_rules = (
+                "If the target language is Chinese, use standard climate-science terms from the China Meteorological Administration and IPCC: "
+                "use ‘全球气候变化’ when referring to the global phenomenon, ‘气候变化缓解’ for mitigation, and ‘极端气候事件’ for extreme events."
+            )
+            extra = zh_rules if tgt.lower() in {"zh", "zh-cn", "zh-tw", "chinese"} else ""
+
             payload = {
                 "messages": [
                     {
                         "role": "user",
                         "content": [
-                            {"text": f"Provide ONLY a direct translation of {text} from {source_lang} to {target_lang}"}
+                            {"text": (
+                                "[SYSTEM INSTRUCTION]: You are a professional climate-science translator.\n"
+                                f"{terminology_rules}{extra}\n"
+                                f"Translate the following text from {src} to {tgt}. Style: Formal. Tone: Informative.\n"
+                                "Provide ONLY the translation, with no preface or notes.\n\n"
+                                "Text:\n" + text + "\n\nTranslation:"
+                            )}
                         ]
                     }
                 ],
@@ -317,29 +336,30 @@ Answer with ONLY the classification result, no explanations or additional text."
             # Use system message from system_messages.py
             custom_instructions = description if description else "Provide a clear, accurate response based on the given context."
             
+            text_content = (
+                f"[SYSTEM INSTRUCTION]: {CLIMATE_SYSTEM_MESSAGE}\n\n"
+                f"Based on the following documents and any relevant conversation history, provide a direct answer to this question: {enhanced_query}\n\n"
+                "Documents for context:\n"
+                f"{formatted_docs}\n"
+                f"{conversation_context}\n\n"
+                "Additional Instructions:\n"
+                f"1. {custom_instructions}\n"
+                "2. Use proper markdown formatting with headers (e.g., # Main Title, ## Subtitle) for structure\n"
+                "3. Use clear and readable headings that summarize the content, not just repeating the question\n"
+                "4. Write in plain, conversational English\n"
+                "5. Include relatable examples or analogies when appropriate\n"
+                "6. Suggest realistic, low-cost actions people can take when relevant\n"
+                "7. Ensure headers are properly formatted with a space after # symbols (e.g., \"# Title\" not \"#Title\")\n"
+                "8. Start with a clear main header (# Title) that summarizes the topic, not just repeating the question\n"
+                "9. DO NOT start your response by repeating the user's question in the header"
+            )
+
             prompt = {
                 "messages": [
                     {
-                        "role": "user", 
+                        "role": "user",
                         "content": [
-                            {"text": f"""[SYSTEM INSTRUCTION]: {CLIMATE_SYSTEM_MESSAGE}
-
-Based on the following documents and any relevant conversation history, provide a direct answer to this question: {enhanced_query}
-
-Documents for context:
-{formatted_docs}
-{conversation_context}
-
-Additional Instructions:
-1. {custom_instructions}
-2. Use proper markdown formatting with headers (e.g., # Main Title, ## Subtitle) for structure
-3. Use clear and readable headings that summarize the content, not just repeating the question
-4. Write in plain, conversational English
-5. Include relatable examples or analogies when appropriate
-6. Suggest realistic, low-cost actions people can take when relevant
-7. Ensure headers are properly formatted with a space after # symbols (e.g., "# Title" not "#Title")
-8. Start with a clear main header (# Title) that summarizes the topic, not just repeating the question
-9. DO NOT start your response by repeating the user's question in the header"""}
+                            {"text": text_content}
                         ]
                     }
                 ],
