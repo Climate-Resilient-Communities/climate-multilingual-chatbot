@@ -509,13 +509,7 @@ def init_chatbot():
         return {"success": True, "chatbot": chatbot, "error": None}
     except Exception as e:
         error_message = str(e)
-        if "climatebert_tokenizer" in error_message:
-            return {
-                "success": False,
-                "chatbot": None,
-                "error": f"Failed to initialize chatbot: 'MultilingualClimateChatbot' object has no attribute 'climatebert_tokenizer'"
-            }
-        elif "404" in error_message and "Resource" in error_message and "not found" in error_message:
+        if "404" in error_message and "Resource" in error_message and "not found" in error_message:
             return {
                 "success": False,
                 "chatbot": None,

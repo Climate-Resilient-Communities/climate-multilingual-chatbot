@@ -6,11 +6,11 @@ Production notes
 - The consent/Disclaimer is a true overlay via Streamlit `@st.dialog` and app is gated with `st.stop()` until accepted.
 - The query rewriter now returns strict JSON; the pipeline short-circuits for canned intents (greeting/goodbye/thanks/emergency) and for "instruction" shows the How It Works text. Canned text is translated to the user’s selected language.
 
-A multilingual climate chatbot built on RAG with Amazon Bedrock (Nova) plus robust retrieval, safety, and UI refinements.
+A multilingual climate chatbot built on RAG with Cohere Command A and Amazon Bedrock (Nova) both open source plus robust retrieval, safety, and UI refinements.
 
 ## Features
 
-- **Multilingual Support**: 180+ languages in dropdown; responses translated to the selected language
+- **Multilingual Support**: 200+ languages in dropdown; responses translated to the selected language
 - **Consent Modal**: Elegant overlay modal gating app usage
 - **Advanced RAG Implementation**: 
   - Hybrid search with Pinecone vector store
@@ -73,11 +73,8 @@ COHERE_API_KEY=your_cohere_key
 HF_API_TOKEN=your_huggingface_token  # Optional
 ```
 
-5. Download models for offline usage (recommended for Azure deployment):
-```bash
-python src/utils/download_models.py
-```
-This will download the ClimateBERT model files to the `models/climatebert` directory, allowing the application to work without internet access to Hugging Face.
+5. (Legacy) Local HF model download
+Not required anymore. The application no longer depends on local ClimateBERT downloads.
 
 ## Important: Using Poetry Environment
 
@@ -116,7 +113,7 @@ redis-server
 poetry run streamlit run src/webui/app_nova.py
 ```
 
-Or run as a CLI application:
+Or run as a CLI application the second part is your pinecone index in the example below this is ours:
 ```bash
 python src/main_nova.py climate-change-adaptation-index-10-24-prod
 ```
@@ -143,14 +140,7 @@ climate-multilingual-chatbot/
 
 For Azure deployment, it's recommended to:
 
-1. Download models locally before deployment using:
-   ```bash
-   python src/utils/download_models.py
-   ```
-
-2. Configure Azure App Service environment variables as described in `AZURE_DEPLOYMENT.md`
-
-3. Review the Azure specific configurations in `AZURE_DEPLOYMENT.md`
+Configure Azure App Service environment variables as described in `info/AZURE_DEPLOYMENT.md`. The app no longer requires bundling a local ClimateBERT model.
 
 See the `AZURE_DEPLOYMENT.md` file for detailed Azure deployment instructions.
 
