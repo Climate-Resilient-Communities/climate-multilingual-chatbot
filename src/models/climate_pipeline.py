@@ -131,11 +131,34 @@ class ClimateQueryPipeline:
             raise
 
     def _initialize_pinecone_index(self):
-        """Initialize Pinecone index."""
+        """Initialize Pinecone index with legacy-first compatibility for Azure."""
+        api_key = os.getenv("PINECONE_API_KEY")
+        # Prefer config environment if present
         try:
-            from pinecone import Pinecone
-            pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
-            return pc.Index(self.index_name)
+            from src.data.config.config import API_CONFIG
+            default_env = (API_CONFIG.get("pinecone", {}) or {}).get("environment")
+        except Exception:
+            default_env = None
+        env = (
+            os.getenv("PINECONE_ENVIRONMENT")
+            or os.getenv("PINECONE_ENV")
+            or default_env
+        )
+        # Try LEGACY client first (faster init, no plugin overhead)
+        try:
+            import pinecone as pc_legacy  # type: ignore
+            if hasattr(pc_legacy, "init") and hasattr(pc_legacy, "Index"):
+                pc_legacy.init(api_key=api_key, environment=env)
+                logger.info("Pinecone: initialized using legacy client")
+                return pc_legacy.Index(self.index_name)
+        except Exception as le:
+            logger.debug(f"Legacy pinecone init failed: {le}")
+        # Fallback to new SDK
+        try:
+            from pinecone import Pinecone as PCv5  # type: ignore
+            pc_v5 = PCv5(api_key=api_key)
+            logger.info("Pinecone: initialized using v5 client")
+            return pc_v5.Index(self.index_name)
         except Exception as e:
             logger.error(f"Failed to initialize Pinecone index: {str(e)}")
             raise
@@ -543,9 +566,9 @@ class ClimateQueryPipeline:
                         f"Query rewriter processed: detected_lang='{detected_lang}', classification='{classification}', language_match='{language_match_result}'"
                     )
 
-                    # Check for language mismatch based on query rewriter analysis
-                    if language_match_result == 'no' or (detected_lang != 'unknown' and detected_lang != language_code):
-                        lang_code_to_name = {
+                # Check for language mismatch based on query rewriter analysis
+                if language_match_result == 'no' or (detected_lang != 'unknown' and detected_lang != language_code):
+                    lang_code_to_name = {
                         'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
                         'it': 'Italian', 'pt': 'Portuguese', 'nl': 'Dutch', 'ru': 'Russian',
                         'zh': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean', 'ar': 'Arabic',
@@ -580,12 +603,12 @@ class ClimateQueryPipeline:
                         time.time() - start_time
                     )
 
-                    # Adopt rewritten query if provided
-                    if rew_match and rew_match.group(1).strip().lower() != 'n/a':
-                        processed_query = rew_match.group(1).strip()
-                        logger.info("✓ Query rewritten for better retrieval")
-                    else:
-                        logger.info("✓ Query rewriting skipped - no enhancement needed")
+                # Adopt rewritten query if provided
+                if rew_match and rew_match.group(1).strip().lower() != 'n/a':
+                    processed_query = rew_match.group(1).strip()
+                    logger.info("✓ Query rewritten for better retrieval")
+                else:
+                    logger.info("✓ Query rewriting skipped - no enhancement needed")
             except Exception as e:
                 logger.warning(f"Query rewriting failed, using original: {str(e)}")
             logger.info(f"Timing: rewrite={(time.time() - _rewrite_start)*1000:.1f}ms")

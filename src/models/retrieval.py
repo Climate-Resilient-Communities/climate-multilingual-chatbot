@@ -405,7 +405,7 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
         # Optional pre-filter by Pinecone score (if configured)
         try:
             min_pinecone_score = RETRIEVAL_CONFIG.get("min_pinecone_score")
-            max_before_rerank = int(RETRIEVAL_CONFIG.get("max_docs_before_rerank", 10))
+            max_before_rerank = int(RETRIEVAL_CONFIG.get("max_docs_before_rerank", 8))
             final_max_docs = int(RETRIEVAL_CONFIG.get("top_k_rerank", RETRIEVAL_CONFIG.get("final_max_docs", 5)))
             log_diag = bool(RETRIEVAL_CONFIG.get("log_retrieval_diagnostics", True))
             # New knobs
@@ -422,11 +422,11 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
                     val = 0.10
                 adaptive_cfg = {"enabled": True, "min": val, "max": val}
             min_kept = int(RETRIEVAL_CONFIG.get("min_kept", 3))
-            refill_enabled = bool(RETRIEVAL_CONFIG.get("refill_enabled", True))
-            refill_overfetch = int(RETRIEVAL_CONFIG.get("refill_overfetch", 10))
+            refill_enabled = bool(RETRIEVAL_CONFIG.get("refill_enabled", False))
+            refill_overfetch = int(RETRIEVAL_CONFIG.get("refill_overfetch", 6))
             mmr_enabled = bool(RETRIEVAL_CONFIG.get("mmr_enabled", True))
             mmr_lambda = float(RETRIEVAL_CONFIG.get("mmr_lambda", 0.30))
-            mmr_overfetch = int(RETRIEVAL_CONFIG.get("mmr_overfetch", 20))
+            mmr_overfetch = int(RETRIEVAL_CONFIG.get("mmr_overfetch", 12))
         except Exception:
             min_pinecone_score = None
             max_before_rerank = 10
