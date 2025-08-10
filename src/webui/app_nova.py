@@ -27,7 +27,7 @@ class SafePyTorchClassesMock:
     """Safe mock for torch._classes that prevents __path__ access issues"""
     def __init__(self):
         self._original_classes = None
-
+    
     def __getattr__(self, item):
         if item == "__path__":
             # Return a mock path object that won't break Streamlit
@@ -38,7 +38,7 @@ class SafePyTorchClassesMock:
         if self._original_classes and hasattr(self._original_classes, item):
             return getattr(self._original_classes, item)
         return None
-
+    
     def __setattr__(self, name, value):
         if name.startswith('_'):
             super().__setattr__(name, value)
@@ -50,7 +50,7 @@ _original_import = builtins.__import__
 def _patched_import(name, *args, **kwargs):
     """Patched import that fixes torch._classes on import"""
     module = _original_import(name, *args, **kwargs)
-
+    
     if name == "torch" or name.startswith("torch."):
         if hasattr(module, "_classes"):
             # Store reference to original if it exists
@@ -58,7 +58,7 @@ def _patched_import(name, *args, **kwargs):
             if hasattr(module._classes, '__dict__'):
                 mock._original_classes = module._classes
             module._classes = mock
-
+    
     return module
 
 # Apply the import patch
@@ -321,7 +321,7 @@ print("✓ PyTorch-Streamlit compatibility patches applied successfully")
 import streamlit as st
 
 st.set_page_config(
-    layout="wide",
+    layout="wide", 
     page_title="Multilingual Climate Chatbot",
     page_icon=calculated_favicon
 )
@@ -459,7 +459,7 @@ def create_event_loop():
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-
+            
         loop.set_debug(False)
         return loop
     except Exception as e:
@@ -471,7 +471,7 @@ def run_async(coro):
     loop = None
     try:
         loop = create_event_loop()
-
+        
         with ThreadPoolExecutor() as pool:
             future = pool.submit(lambda: loop.run_until_complete(coro))
             return future.result()
@@ -521,7 +521,7 @@ def init_chatbot():
             }
         else:
             return {
-                "success": False,
+                "success": False, 
                 "chatbot": None,
                 "error": f"Failed to initialize chatbot: {error_message}"
             }
@@ -547,7 +547,7 @@ def get_citation_details(citation):
             }
     except Exception as e:
         logger.error(f"Error processing citation: {str(e)}")
-
+    
     return {
         'title': 'Untitled Source',
         'url': '',
@@ -570,7 +570,7 @@ def display_source_citations(citations, base_idx=0):
 
     for citation in citations:
         details = get_citation_details(citation)
-
+        
         # Use title as key for deduplication
         if details['title'] not in unique_sources:
             unique_sources[details['title']] = details
@@ -780,28 +780,28 @@ def run_query_with_interactive_progress(chatbot, query: str, language_name: str,
     return result_holder.get("result")
 
 def is_rtl_language(language_code):
-    return language_code in {'fa', 'ar', 'he'}
+        return language_code in {'fa', 'ar', 'he'}
 
 def clean_html_content(content):
     """Clean content from stray HTML tags that might break rendering."""
     # Handle the case where content is None
     if content is None:
         return ""
-
+    
     # Replace any standalone closing div tags
     content = re.sub(r'</div>\s*$', '', content)
-
+    
     # Replace other potentially problematic standalone tags
     content = re.sub(r'</?div[^>]*>\s*$', '', content)
     content = re.sub(r'</?span[^>]*>\s*$', '', content)
     content = re.sub(r'</?p[^>]*>\s*$', '', content)
-
+    
     # Fix unbalanced markdown or code blocks
     # Check if there are uneven numbers of triple backticks
     backtick_count = content.count('```')
     if backtick_count % 2 != 0:
         content += '\n```'  # Add closing code block
-
+    
     # Ensure content is a string
     return str(content)
 
@@ -904,7 +904,7 @@ def display_chat_messages(retry_request=None):
         retry_user_index = retry_request.get('user_index')
 
     injected_retry_placeholder = None
-
+    
     for i, message in enumerate(st.session_state.chat_history):
         if message['role'] == 'user':
             user_msg = st.chat_message("user")
@@ -919,11 +919,11 @@ def display_chat_messages(retry_request=None):
             assistant_message = st.chat_message("assistant")
             # Clean the content before displaying
             content = clean_html_content(message.get('content', ''))
-
+            
             language_code = message.get('language_code', 'en')
             text_align = 'right' if is_rtl_language(language_code) else 'left'
             direction = 'rtl' if is_rtl_language(language_code) else 'ltr'
-
+            
             # Display the response with proper markdown rendering
             try:
                 # For RTL languages, we need the HTML wrapper
@@ -940,7 +940,7 @@ def display_chat_messages(retry_request=None):
                     if content.strip().startswith('#'):
                         # Ensure the heading is on its own line
                         content = '\n' + content.strip()
-
+                    
                     # Use direct markdown for better header rendering
                     assistant_message.markdown(content)
             except Exception as e:
@@ -948,7 +948,7 @@ def display_chat_messages(retry_request=None):
                 logger.error(f"Error rendering message: {str(e)}")
                 assistant_message.text("Error displaying formatted message. Raw content:")
                 assistant_message.text(content)
-
+            
             if message.get('citations'):
                 display_source_citations(message['citations'], base_idx=i)
             render_message_actions_ui(i, message)
@@ -957,12 +957,12 @@ def display_chat_messages(retry_request=None):
 
 def load_custom_css():
     """SIMPLIFIED CSS - removed problematic JavaScript and complex theme detection"""
-
+    
     # Get wallpaper if available
     wallpaper_base64 = None
     if WALLPAPER and Path(WALLPAPER).exists():
         wallpaper_base64 = get_base64_image(WALLPAPER)
-
+    
     # Hide Streamlit header
     st.markdown("""
     <style>
@@ -977,7 +977,7 @@ def load_custom_css():
         }
     </style>
     """, unsafe_allow_html=True)
-
+    
     # Basic wallpaper CSS (if available)
     if wallpaper_base64:
         st.markdown(f"""
@@ -998,7 +998,7 @@ def load_custom_css():
         }}
         </style>
         """, unsafe_allow_html=True)
-
+    
     # SIMPLIFIED CSS - no complex theme detection, no visibility tricks
     st.markdown("""
     <style>
@@ -1007,7 +1007,7 @@ def load_custom_css():
         padding-top: 0 !important;
         margin-top: 0 !important;
     }
-
+    
     /* Button styling */
     .stButton > button {
         background-color: #009376;
@@ -1020,19 +1020,19 @@ def load_custom_css():
         cursor: pointer;
         transition: all 0.3s ease;
     }
-
+    
     .stButton > button:hover:not(:disabled) {
         background-color: #007e65;
         transform: translateY(-2px);
     }
-
+    
     .stButton > button:disabled {
         background-color: #cccccc !important;
         color: #666666 !important;
         cursor: not-allowed;
         transform: none;
     }
-
+    
     /* Chat messages */
     [data-testid="stChatMessage"] h1 {font-size: 1.50rem !important;}
     [data-testid="stChatMessage"] h2 {font-size: 1.25rem !important;}
@@ -1046,19 +1046,21 @@ def load_custom_css():
         background: transparent !important;
         box-shadow: none !important;
     }
-
+    
     /* Sidebar styling */
-    section[data-testid="stSidebar"] > div {
-        padding-top: 0 !important;
+    section[data-testid="stSidebar"] {
+        background-color: #303030 !important; /* brand dark */
     }
-
-    section[data-testid="stSidebar"] .element-container:first-child {
-        display: none;
-    }
+    section[data-testid="stSidebar"] > div { padding-top: 0 !important; margin-top: 0 !important; }
+    section[data-testid="stSidebar"] * { color: #ffffff !important; }
+    /* Keep selectbox value text black for readability on its white control */
+    section[data-testid="stSidebar"] div[data-baseweb="select"] * { color: #000000 !important; }
+    section[data-testid="stSidebar"] div[data-baseweb="select"] input { color: #000000 !important; }
 
     /* Header alignment */
     .mlcc-header { display:flex; align-items:center; gap:16px; margin-top: 8px; }
     .mlcc-header .mlcc-logo { width: 64px; height: auto; }
+    .mlcc-header h1 { color: #009376 !important; }
     .mlcc-subtitle { color: #555; margin: 2px 0 14px 0; font-size: 1rem; }
 
     /* Remove default chat message card styling to avoid gray background */
@@ -1092,9 +1094,74 @@ def load_custom_css():
     .sources-section [data-testid="stExpander"] p,
     .sources-section [data-testid="stMarkdownContainer"] p,
     .sources-section [data-testid="stMarkdownContainer"] li { font-size: 0.95rem !important; }
+
+    /* Make the download button dark-theme friendly in the sidebar */
+    section[data-testid="stSidebar"] [data-testid="stDownloadButton"] > div > button {
+        background-color: #0a8f79 !important;
+        color: #ffffff !important;
+        border: 1px solid #0a8f79 !important;
+        border-radius: 8px !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stDownloadButton"] > div > button:hover {
+        background-color: #077966 !important;
+        border-color: #077966 !important;
+    }
+
+    /* Chat History area in sidebar: force readable styles regardless of Streamlit wrapper structure */
+    section[data-testid="stSidebar"] h3:has(span:contains("Chat History")),
+    section[data-testid="stSidebar"] .chat-history-section h3 { 
+        color: #ffffff !important;  /* Keep header white */
+    }
+
+    /* Download button - ensure white background and black text (even when disabled) */
+    /* Remove any legacy download button styles (we use the HTML icon now) */
+    section[data-testid="stSidebar"] [data-testid="stDownloadButton"] { display: none !important; }
+
+    /* Q: sections - white border around each item in the sidebar */
+    section[data-testid="stSidebar"] [data-testid="stExpander"] {
+        border: 2px solid #ffffff !important;
+        border-radius: 8px !important;
+        padding: 0 !important;           /* reduce internal padding */
+        margin: 6px 0 !important;        /* tighter vertical spacing */
+        background: transparent !important;
+    }
+    /* Remove default details/summary marker that looks like a '>' */
+    section[data-testid="stSidebar"] [data-testid="stExpander"] summary::-webkit-details-marker { display: none !important; }
+    section[data-testid="stSidebar"] [data-testid="stExpander"] summary::marker { content: '' !important; }
+
+    /* Keep expander header text white */
+    section[data-testid="stSidebar"] [data-testid="stExpander"] summary { color: #ffffff !important; }
+    /* Content inside expanders white */
+    section[data-testid="stSidebar"] [data-testid="stExpander"] div[data-testid="stMarkdownContainer"] { color: #ffffff !important; }
+
+    /* Reduce vertical gaps just inside the Chat History area */
+    section[data-testid="stSidebar"] .chat-history-section [data-testid="stVerticalBlock"] {
+      gap: 6px !important;            /* default is ~16px */
+    }
+    /* Kill extra margins around each bordered container that wraps an expander */
+    section[data-testid="stSidebar"] .chat-history-section [data-testid="stVerticalBlock"] > div:has([data-testid="stExpander"]) {
+      margin: 4px 0 !important;       /* tighter stack */
+      padding: 0 !important;
+    }
+    /* Compact the expander header + body padding */
+    section[data-testid="stSidebar"] .chat-history-section [data-testid="stExpander"] > div {
+      padding: 6px 8px !important;
+    }
+    section[data-testid="stSidebar"] .chat-history-section details > summary {
+      padding: 6px 8px !important;    /* covers older markup */
+    }
+
+    /* Download icon fallback link styling */
+    section[data-testid="stSidebar"] .dl-icon{
+      display:inline-flex; align-items:center; justify-content:center;
+      width:36px; height:36px; margin-top:4px;
+      border:1px solid #ffffff; border-radius:8px; text-decoration:none;
+      font-size:18px; line-height:1; user-select:none;
+    }
+    section[data-testid="stSidebar"] .dl-icon:hover{ background:#2f2f2f; }
     </style>
     """, unsafe_allow_html=True)
-
+    
     # Additional favicon setting
     if TREE_ICON:
         st.markdown(f'''
@@ -1167,34 +1234,43 @@ def format_message_for_copy(message_index: int) -> str:
         return str(msg.get('content', ''))
 
 def display_chat_history_section():
-    """Display chat history with download button."""
-    if st.session_state.chat_history:
-        st.markdown("### Chat History")
+    msgs = st.session_state.get("chat_history", [])
+    if not msgs:
+        return
 
-        # Create download button for chat history on its own line with full width
-        chat_history_text = generate_chat_history_text()
-        st.download_button(
-            label="📥 Download Chat History",
-            data=chat_history_text,
-            file_name="chat_history.txt",
-            mime="text/plain",
-            help="Download chat history",
-            use_container_width=True
+    import base64
+
+    st.markdown('<div class="chat-history-section">', unsafe_allow_html=True)
+
+    # Header row with title + icon
+    text = generate_chat_history_text() or "Chat History is empty.\n"
+    data_bytes = text.encode("utf-8")
+    b64 = base64.b64encode(data_bytes).decode()
+
+    hcol, icol = st.columns([5, 1])
+    with hcol:
+        st.markdown("### Chat History")
+    with icol:
+        st.markdown(
+            f'''
+            <a class="dl-icon" title="Download chat history"
+               href="data:text/plain;charset=utf-8;base64,{b64}"
+               download="chat_history.txt">📥</a>
+            ''',
+            unsafe_allow_html=True,
         )
 
-        messages = st.session_state.chat_history
-        for idx in range(0, len(messages), 2):
-            if messages[idx]['role'] == 'user':
-                q = messages[idx]['content']
-                if idx + 1 < len(messages) and messages[idx + 1]['role'] == 'assistant':
-                    r = messages[idx + 1]['content']
-                else:
-                    r = ''
-                with st.expander(f"Q: {q[:50]}...", expanded=False):
-                    st.write("**Question:**")
-                    st.write(q)
-                    st.write("**Response:**")
-                    st.write(r)
+    # Compact Q/A list
+    for i in range(0, len(msgs), 2):
+        if msgs[i].get('role') != 'user':
+            continue
+        q = msgs[i].get('content', '')
+        a = msgs[i+1].get('content', '') if i+1 < len(msgs) and msgs[i+1].get('role') == 'assistant' else ''
+        with st.expander(f"Q: {q[:60]}…", expanded=False):
+            st.markdown("**Question:**"); st.write(q)
+            st.markdown("**Response:**"); st.write(a)
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
 def display_consent_form():
     """Display the consent form using Streamlit's native components."""
@@ -1224,10 +1300,10 @@ def display_consent_form():
         """,
         unsafe_allow_html=True,
     )
-
+    
     # Use columns to center the consent form but make it wider
     col1, col2, col3 = st.columns([1, 6, 1])  # Changed from [1, 4, 1] to make middle column even wider
-
+    
     with col2:
         # Backdrop overlay sits behind the modal container
         st.markdown('<div class="consent-backdrop"></div>', unsafe_allow_html=True)
@@ -1246,14 +1322,14 @@ def display_consent_form():
                 </h3>
             </div>
             """, unsafe_allow_html=True)
-
+            
             st.markdown("""
             <p style="text-align: center; margin-bottom: 30px; font-size: 16px;">
-                Welcome! The purpose of this app is to educate people about climate change and build a community of informed citizens.
+                Welcome! The purpose of this app is to educate people about climate change and build a community of informed citizens. 
                 It provides clear, accurate info on climate impacts and encourages local action.
             </p>
             """, unsafe_allow_html=True)
-
+            
             # Main consent checkbox - removed the border div that was here
             main_consent = st.checkbox(
                 "By checking this box, you agree to the following:",
@@ -1262,7 +1338,7 @@ def display_consent_form():
                 help="You must agree to continue"
             )
             st.session_state.main_consent = main_consent
-
+            
             # Bullet points - directly added without border
             st.markdown(
                 """
@@ -1275,10 +1351,10 @@ def display_consent_form():
             """,
                 unsafe_allow_html=True
             )
-
+            
             # Policy expanders - all three buttons in one row
             col_a, col_b, col_c = st.columns(3)
-
+            
             with col_a:
                 with st.expander("📄 Privacy Policy"):
                     st.markdown("""
@@ -1325,7 +1401,7 @@ def display_consent_form():
                     #### Contact Information
                     For privacy-related questions or concerns, contact us at info@crcgreen.com
                     """, unsafe_allow_html=True)
-
+            
             with col_b:
                 with st.expander("📄 Terms of Use"):
                     st.markdown("""
@@ -1349,7 +1425,7 @@ def display_consent_form():
                     - Modify and distribute the code
                     - Use it commercially
                     - Sublicense it
-
+                    
                     Under the condition that:
                     - The original copyright notice and permission notice must be included
                     - The software is provided "as is" without warranty
@@ -1367,7 +1443,7 @@ def display_consent_form():
                     - Decisions made based on chatbot interactions
                     - Technical issues or service interruptions
                     """, unsafe_allow_html=True)
-
+            
             with col_c:
                 with st.expander("📄 Disclaimer"):
                     st.markdown("""
@@ -1389,10 +1465,10 @@ def display_consent_form():
                     #### Third-Party Content
                     Citations and references to third-party content are provided for transparency and verification. Climate Resilience Communities does not endorse and is not responsible for the accuracy, completeness, or reliability of third-party information.
                     """, unsafe_allow_html=True)
-
+            
             # Divider
             st.markdown("---")
-
+            
             # Get Started button - centered with updated text
             c1, c2, c3 = st.columns([1, 2, 1])
             with c2:
@@ -1404,7 +1480,7 @@ def display_consent_form():
                 ):
                     st.session_state.consent_given = True
                     st.rerun()
-
+            
             # Warning message
             if not st.session_state.get('main_consent', False):
                 st.warning("⚠️ Please check the box above to continue.")
@@ -1601,7 +1677,7 @@ def show_consent_dialog():
 def main():
     # Add this as the first line
     disable_streamlit_watcher()
-
+    
     # Initialize session state first
     if 'selected_source' not in st.session_state:
         st.session_state.selected_source = None
@@ -1624,23 +1700,29 @@ def main():
         st.session_state.show_faq = False
     if 'needs_rerun' not in st.session_state:
         st.session_state.needs_rerun = False
-
+    
     # Load CSS
     load_custom_css()
-
+    
     # Consent gate: show only the dialog and stop rendering anything else
     if not st.session_state.get("consent_given", False):
         show_consent_dialog()
         st.stop()
 
     # Initialize chatbot AFTER consent to avoid duplicate widgets and hidden inputs
-    if st.session_state.chatbot_init is None:
-        st.session_state.chatbot_init = init_chatbot()
+        if st.session_state.chatbot_init is None:
+            st.session_state.chatbot_init = init_chatbot()
 
     # Always render the main app content; show consent as overlay at the end if needed
     try:
         # Get the already-initialized chatbot
         chatbot_init = st.session_state.chatbot_init
+        if not isinstance(chatbot_init, dict):
+            # Try to initialize again if previous state was missing
+            chatbot_init = init_chatbot()
+            st.session_state.chatbot_init = chatbot_init
+        if not isinstance(chatbot_init, dict):
+            chatbot_init = {"success": False, "chatbot": None, "error": "Chatbot initialization returned no result"}
         if not chatbot_init.get("success", False):
             st.error(chatbot_init.get("error", "Failed to initialize chatbot. Please check your configuration."))
             st.warning("Make sure all required API keys are properly configured in your environment")
@@ -1664,10 +1746,12 @@ def main():
                 options=languages,
                 index=default_index
             )
+            # One-click confirm: when user clicks Confirm, flip flag and rerun immediately
             if not st.session_state.language_confirmed:
-                if st.button("Confirm"):
-                    st.session_state.language_confirmed = True
+                if st.button("Confirm", key="confirm_lang_btn"):
                     st.session_state.selected_language = selected_language
+                    st.session_state.language_confirmed = True
+                    st.rerun()
             else:
                 st.session_state.selected_language = selected_language
             
@@ -1686,7 +1770,8 @@ def main():
                     unsafe_allow_html=True
                 )
             if len(st.session_state.chat_history) > 0:
-                st.markdown("---")
+                # Tighten spacing before chat history to avoid large gaps
+                st.markdown('<div style="margin: 8px 0;"></div>', unsafe_allow_html=True)
                 display_chat_history_section()
             
             if 'show_faq_popup' not in st.session_state:
@@ -2093,10 +2178,12 @@ def main():
                     index=default_index
                 )
 
+                # One-click confirm in second sidebar rendering path as well
                 if not st.session_state.language_confirmed:
-                    if st.button("Confirm"):
-                        st.session_state.language_confirmed = True
+                    if st.button("Confirm", key="confirm_lang_btn_2"):
                         st.session_state.selected_language = selected_language
+                        st.session_state.language_confirmed = True
+                        st.rerun()
                 else:
                     st.session_state.selected_language = selected_language
 
@@ -2113,9 +2200,9 @@ def main():
                             <li style="margin-bottom: 8px;"><b>Choose Language</b>: Select from 200+ options.</li>
                             <li style="margin-bottom: 8px;"><b>Ask Questions</b>: <i>"What are the local impacts of climate change in Toronto?"</i> or <i>"Why is summer so hot now in Toronto?"</i></li>
                             <li style="margin-bottom: 8px;"><b>Act</b>: Ask about actionable steps such as <i>"What can I do about flooding in Toronto?"</i> or <i>"How to reduce my carbon footprint?"</i> and receive links to local resources (e.g., city programs, community groups).</li>
-                        </ul>
-                        </div>
-                        """,
+                    </ul>
+                    </div>
+                    """,
                         unsafe_allow_html=True
                     )
 
@@ -2124,7 +2211,7 @@ def main():
                     # This is the Chat History section that appears after asking questions
                     st.markdown("---")
                     display_chat_history_section()
-
+                
                 # Support and FAQs section with popup behavior
                 if 'show_faq_popup' not in st.session_state:
                     st.session_state.show_faq_popup = False
@@ -2142,7 +2229,7 @@ def main():
                     <span title="Trademark">™</span>\
                     </div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
-
+                
                 st.markdown('</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -2172,7 +2259,7 @@ def main():
                 .stApp > div > div > div > div > div > section > div {
                     background-color: rgba(0, 0, 0, 0.7) !important;
                 }
-
+                
                 /* Style the popup container */
                 div[data-testid="column"]:has(.faq-popup-marker) {
                     background-color: white;
@@ -2201,14 +2288,14 @@ def main():
                 """,
                     unsafe_allow_html=True,
                 )
-
+                
                 # Create centered columns for the popup
                 col1, col2, col3 = st.columns([1, 6, 1])
-
+                
                 with col2:
                     # Add a marker class for CSS targeting
                     st.markdown('<div class="faq-popup-marker"></div>', unsafe_allow_html=True)
-
+                    
                     # Header with close button
                     header_col1, header_col2 = st.columns([11, 1])
                     with header_col1:
@@ -2217,38 +2304,38 @@ def main():
                         if st.button("✕", key="close_faq", help="Close FAQ"):
                             st.session_state.show_faq_popup = False
                             st.rerun()
-
+                    
                     st.markdown("---")
-
+                    
                     # Information Accuracy Section
                     with st.container():
                         st.markdown("## 📊 Information Accuracy")
-
+                        
                         with st.expander("How accurate is the information provided by the chatbot?", expanded=True):
                             st.write(
                                 """
-                            Our chatbot uses Retrieval-Augmented Generation (RAG) technology to provide verified information exclusively
-                            from government reports, academic research, and established non-profit organizations' publications. Every
-                            response includes citations to original sources, allowing you to verify the information directly. The system
+                            Our chatbot uses Retrieval-Augmented Generation (RAG) technology to provide verified information exclusively 
+                            from government reports, academic research, and established non-profit organizations' publications. Every 
+                            response includes citations to original sources, allowing you to verify the information directly. The system 
                             matches your questions with relevant, verified information rather than generating content independently.
                             """
                             )
-
+                        
                         with st.expander("What sources does the chatbot use?", expanded=True):
                             st.write(
                                 """
-                            All information comes from three verified source types: government climate reports, peer-reviewed academic
-                            research, and established non-profit organization publications. Each response includes citations linking
+                            All information comes from three verified source types: government climate reports, peer-reviewed academic 
+                            research, and established non-profit organization publications. Each response includes citations linking 
                             directly to these sources.
                             """
                             )
-
+                    
                     st.markdown("---")
-
+                    
                     # Privacy Protection Section
                     with st.container():
                         st.markdown("## 🔒 Privacy Protection")
-
+                        
                         with st.expander("What information does the chatbot collect?", expanded=True):
                             st.write("We maintain a strict privacy-first approach:")
                             st.markdown(
@@ -2259,32 +2346,32 @@ def main():
                             - No user accounts or profiles are created
                             """
                             )
-
+                        
                         with st.expander("How is the cached data used?", expanded=True):
                             st.write(
                                 """
-                            Cached questions, stripped of all identifying information, help us improve response accuracy and identify
+                            Cached questions, stripped of all identifying information, help us improve response accuracy and identify 
                             common climate information needs. We regularly delete cached questions after analysis.
                             """
                             )
-
+                    
                     st.markdown("---")
-
+                    
                     # Trust & Transparency Section
                     with st.container():
                         st.markdown("## 🤝 Trust & Transparency")
-
+                        
                         with st.expander("How can I trust this tool?", expanded=True):
                             st.write("Our commitment to trustworthy information rests on:")
                             st.markdown(
                                 """
                             - Citations for every piece of information, linking to authoritative sources
-                            - Open-source code available for public review
+                            - Open-source code available for public review  
                             - Community co-design ensuring real-world relevance
                             - Regular updates based on user feedback and new research
                             """
                             )
-
+                        
                         with st.expander("How can I provide feedback or report issues?", expanded=True):
                             st.write("We welcome your input through:")
                             st.markdown(
@@ -2303,10 +2390,10 @@ def main():
                                 'For technical support or to report issues, please visit our <a href="https://github.com/Climate-Resilient-Communities/climate-multilingual-chatbot" target="_blank">GitHub repository</a>.',
                                 unsafe_allow_html=True,
                             )
-
+                    
                     # Add some space at the bottom
                     st.markdown("<br><br>", unsafe_allow_html=True)
-
+                
                 # Stop rendering anything else while popup is shown
                 st.stop()
 
@@ -2354,7 +2441,7 @@ def main():
                     response_placeholder = st.chat_message("assistant")
                     typing_message = response_placeholder.empty()
                 # Replace plain text with interactive progress UI below
-
+                
                 try:
                     # Build conversation history for process_query
                     conversation_history = []
@@ -2386,24 +2473,24 @@ def main():
                         response_placeholder=typing_message,
                         skip_cache=bool(retry_req)
                     )
-
+                    
                     typing_message.empty()
-
+                    
                     # FIXED: Enhanced handling of successful responses vs off-topic questions
                     if result and result.get('success', False):
                         # Clean and prepare the response content
                         response_content = result['response']
-
+                        
                         # Ensure proper markdown formatting for headings
                         if response_content and isinstance(response_content, str):
                             # Strip any leading/trailing whitespace
                             response_content = response_content.strip()
-
+                            
                             # If content starts with a heading, ensure it's properly formatted
                             if response_content.startswith('#'):
                                 # Make sure there's a space after the # symbols
                                 response_content = re.sub(r'^(#{1,6})([^\s#])', r'\1 \2', response_content)
-
+                        
                         # Update response without header formatting
                         final_response = {
                             'role': 'assistant',
@@ -2429,12 +2516,12 @@ def main():
                                 persist_interaction_record(len(st.session_state.chat_history) - 1, "none")
                             except Exception as log_err:
                                 logger.warning(f"Failed to log Q&A interaction: {log_err}")
-
+                        
                         # Display final response without markdown header formatting
                         language_code = final_response['language_code']
                         text_align = 'right' if is_rtl_language(language_code) else 'left'
                         direction = 'rtl' if is_rtl_language(language_code) else 'ltr'
-
+                        
                         content = clean_html_content(final_response['content'])
 
                         typing_message.markdown(
@@ -2443,7 +2530,7 @@ def main():
                             </div>""",
                             unsafe_allow_html=True
                         )
-
+                        
                         # Store exactly what was displayed for this assistant message for Copy
                         try:
                             if 'copy_texts' not in st.session_state or not isinstance(st.session_state.copy_texts, dict):
@@ -2451,7 +2538,7 @@ def main():
                             st.session_state.copy_texts[len(st.session_state.chat_history) - 1] = content or final_response['content'] or ''
                         except Exception:
                             pass
-
+                        
                         # Display citations if available
                         if result.get('citations'):
                             if retry_req and isinstance(retry_req.get('assistant_index'), int):
@@ -2524,7 +2611,7 @@ def main():
                 except Exception as e:
                     error_msg = f"Error processing query: {str(e)}"
                     st.session_state.chat_history.append({
-                        'role': 'assistant',
+                        'role': 'assistant', 
                         'content': error_msg,
                         'language_code': 'en'
                     })
@@ -2545,10 +2632,10 @@ def main():
                 # Normal UI refresh after answering
                 st.session_state.needs_rerun = True
                 st.rerun()
-
+            
             # Don't run cleanup after every message - only when the app is closing
             # This would be handled by st.cache_resource's cleanup mechanism
-
+            
         except Exception as e:
             st.error(f"Error initializing chatbot: {str(e)}")
             st.info("Make sure the .env file exists in the project root directory")
