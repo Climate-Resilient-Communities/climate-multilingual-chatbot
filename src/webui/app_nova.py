@@ -276,17 +276,26 @@ def _persist_record_to_blob(record_str: str) -> None:
         # Get blob client
         blob_client = cc.get_blob_client(blob_name)
 
-        # For JSONL append functionality: read existing, append new record, upload
-        existing_content = ""
+        # Append the new record (single upload); also log timing
+        import time as _t
+        _t0 = _t.time()
         try:
-            existing_content = blob_client.download_blob().readall().decode()
-        except Exception:
-            # Blob doesn't exist yet, that's fine
-            pass
-
-        # Append the new record
-        new_content = existing_content + record_str + "\n"
-        blob_client.upload_blob(new_content.encode("utf-8"), overwrite=True)
+            existing = ""
+            try:
+                existing = blob_client.download_blob().readall().decode()
+            except Exception:
+                existing = ""
+            new_content = (existing + record_str + "\n").encode("utf-8")
+            blob_client.upload_blob(new_content, overwrite=True)
+            _ms = int((_t.time() - _t0) * 1000)
+            try:
+                _host = blob_client.url.split('/')[2]
+            except Exception:
+                _host = "blob.core.windows.net"
+            logger.info(f"dep=azure_blob host={_host} op=upload ms={_ms} status=OK")
+        except Exception as _e:
+            _ms = int((_t.time() - _t0) * 1000)
+            logger.warning(f"dep=azure_blob op=upload ms={_ms} status=ERR err={str(_e)[:120]}")
     except Exception as e:
         logger.warning(f"[FEEDBACK] Blob persist failed: {e}")
 
