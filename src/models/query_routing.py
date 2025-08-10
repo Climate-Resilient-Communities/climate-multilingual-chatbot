@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Dict, Any
 import re
 from src.utils.env_loader import load_environment
+from src.utils.logging_setup import ensure_file_logger
 from src.models.nova_flow import BedrockModel
 
 # Configure logging
@@ -64,8 +65,11 @@ class MultilingualRouter:
 
     def __init__(self):
         """Initialize language routing"""
-        # No special initialization needed currently
-        pass
+        # Ensure dedicated file logs exist as well
+        try:
+            ensure_file_logger(os.getenv("PIPELINE_LOG_FILE", os.path.join(os.getcwd(), "logs", "pipeline_debug.log")))
+        except Exception:
+            pass
 
     def _is_probably_english(self, text: str) -> bool:
         """Stricter heuristic for English using ASCII ratio and common stopwords."""
@@ -217,10 +221,19 @@ class MultilingualRouter:
             if routing_info['needs_translation'] and translation and not language_mismatch:
                 try:
                     logger.info(f"Translating query from {language_name} to English")
+                    try:
+                        # Net debug before translation
+                        logger.info("Router NET IN → query repr=%r", query[:200])
+                    except Exception:
+                        pass
                     # Translate to English using the provided translation function
                     english_query = await translation(query, language_name, 'english')
                     processed_query = english_query
                     logger.info("Translation successful")
+                    try:
+                        logger.info("Router NET OUT → english_query repr=%r", english_query[:200])
+                    except Exception:
+                        pass
                 except Exception as e:
                     logger.error(f"Translation error: {str(e)}")
                     routing_info['message'] = f"Translation failed: {str(e)}"

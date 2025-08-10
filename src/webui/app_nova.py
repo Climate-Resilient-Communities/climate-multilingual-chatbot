@@ -1916,6 +1916,12 @@ def main():
         if st.session_state.language_confirmed:
             query = st.chat_input("Ask Climate Change Bot", key="chat_input_main")
             if query:
+                try:
+                    from src.utils.logging_setup import ensure_file_logger
+                    ensure_file_logger(os.getenv("PIPELINE_LOG_FILE", os.path.join(os.getcwd(), "logs", "pipeline_debug.log")))
+                    logger.info("UI IN → raw_query repr=%r codepoints(first20)=%s", query, [ord(c) for c in query[:20]])
+                except Exception:
+                    pass
                 st.session_state.chat_history.append({'role': 'user', 'content': query})
         else:
             st.markdown(
@@ -2401,6 +2407,12 @@ def main():
                 query = st.chat_input("Ask Climate Change Bot")
                 # Append user question immediately after input
                 if query:
+                    try:
+                        from src.utils.logging_setup import ensure_file_logger
+                        ensure_file_logger(os.getenv("PIPELINE_LOG_FILE", os.path.join(os.getcwd(), "logs", "pipeline_debug.log")))
+                        logger.info("UI IN → raw_query repr=%r codepoints(first20)=%s", query, [ord(c) for c in query[:20]])
+                    except Exception:
+                        pass
                     st.session_state.chat_history.append({'role': 'user', 'content': query})
                     # REMOVED: has_asked_question update - not needed anymore
             else:

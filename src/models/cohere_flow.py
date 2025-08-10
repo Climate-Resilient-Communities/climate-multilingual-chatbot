@@ -13,6 +13,7 @@ from typing import Dict, Any, Optional, List, AsyncGenerator
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from src.utils.env_loader import load_environment
+from src.utils.logging_setup import ensure_file_logger
 from src.models.system_messages import CLIMATE_SYSTEM_MESSAGE
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,10 @@ class CohereModel:
         try:
             # Load environment variables
             load_environment()
+            try:
+                ensure_file_logger(os.getenv("PIPELINE_LOG_FILE", os.path.join(os.getcwd(), "logs", "pipeline_debug.log")))
+            except Exception:
+                pass
             
             # Initialize synchronous cohere client to avoid event loop issues in Streamlit
             self.client = cohere.Client(os.getenv("COHERE_API_KEY"))
@@ -155,13 +160,26 @@ Answer with ONLY the classification result, no explanations or additional text."
             if not text or source_lang == target_lang:
                 return text
 
-            user_message = f"""You are a professional translator.
-Translate the following English text to {target_lang}.
-Style: Formal
-Tone: Informative
-
-English text to translate: "{text}"
-Translation:"""
+            src = (source_lang or "source language").strip()
+            tgt = (target_lang or "target language").strip()
+            # Domain-specific guidance for climate science
+            terminology_rules = (
+                "When responding in a non-English language, always use professional, domain-specific climate terminology consistent with authoritative sources in that language (e.g., IPCC translations, national climate reports). "
+                "Avoid over-simplified or generic translations of technical terms; preserve scientific accuracy while keeping explanations understandable. "
+            )
+            zh_rules = (
+                "If the target language is Chinese, use standard climate-science terms from the China Meteorological Administration and IPCC: "
+                "use ‘全球气候变化’ when referring to the global phenomenon, ‘气候变化缓解’ for mitigation, and ‘极端气候事件’ for extreme events."
+            )
+            extra = zh_rules if tgt.lower() in {"zh", "zh-cn", "zh-tw", "chinese"} else ""
+            user_message = (
+                "You are a professional climate-science translator.\n"
+                f"Translate the following text from {src} to {tgt}.\n"
+                "Style: Formal. Tone: Informative.\n"
+                f"{terminology_rules}{extra}\n"
+                "Provide ONLY the translation, with no preface or notes.\n\n"
+                "Text:\n" + text + "\n\nTranslation:"
+            )
             
             # Cohere Python client is synchronous; run in executor to avoid blocking
             loop = asyncio.get_event_loop()

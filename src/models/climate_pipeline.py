@@ -15,6 +15,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module="transformers")
 warnings.filterwarnings("ignore", category=FutureWarning, module="transformers")
 
 from src.utils.env_loader import load_environment
+from src.utils.logging_setup import ensure_file_logger
 from src.models.query_routing import MultilingualRouter
 from src.models.query_rewriter import query_rewriter
 from src.models.retrieval import get_documents
@@ -36,6 +37,13 @@ class ClimateQueryPipeline:
         """Initialize the processing pipeline with eager heavy-resource setup for fast first query."""
         try:
             load_environment()
+            # Ensure file logging early
+            try:
+                log_path = os.getenv("PIPELINE_LOG_FILE", os.path.join(os.getcwd(), "logs", "pipeline_debug.log"))
+                abs_log = ensure_file_logger(log_path)
+                logger.info(f"File logging enabled at: {abs_log}")
+            except Exception as _e:
+                logger.warning(f"Failed to enable file logger: {_e}")
             
             # Lightweight components
             self.router = MultilingualRouter()
@@ -260,6 +268,11 @@ class ClimateQueryPipeline:
         
         try:
             logger.info(f"Processing query: '{query[:100]}...' in {language_name} (code: {language_code})")
+            try:
+                logger.info("Raw query repr: %r", query)
+            except Exception:
+                pass
+            logger.info(f"Router IN → language_name={language_name}, language_code={language_code}")
             report("Thinking…", 0.02)
             
             # Initialize holders
@@ -281,6 +294,18 @@ class ClimateQueryPipeline:
                 translation=None
             )
             report("Routing…", 0.08)
+            try:
+                ri = route_result.get('routing_info', {})
+                logger.info(
+                    "Router OUT → model=%s, support=%s, needs_translation=%s",
+                    ri.get('model_name'), ri.get('support_level'), ri.get('needs_translation')
+                )
+                if 'english_query' in route_result:
+                    logger.info("Router OUT → english_query='%s'", str(route_result.get('english_query'))[:120])
+                if 'processed_query' in route_result:
+                    logger.info("Router OUT → processed_query='%s'", str(route_result.get('processed_query'))[:120])
+            except Exception:
+                pass
             
             # Check for language mismatch early
             if route_result.get('routing_info', {}).get('language_mismatch'):
@@ -324,6 +349,7 @@ class ClimateQueryPipeline:
                     translation_func = self.nova_model.translate
                 else:
                     translation_func = self.cohere_model.translate
+                logger.info("Routing requires translation → provider=%s", 'Nova' if model_type=='nova' else 'Command-A')
                 
                 # Re-run routing with proper translation function
                 route_result = await self.router.route_query(
@@ -332,6 +358,13 @@ class ClimateQueryPipeline:
                     language_name=language_name,
                     translation=translation_func
                 )
+                try:
+                    if 'english_query' in route_result:
+                        logger.info("Router RERUN OUT → english_query='%s'", str(route_result.get('english_query'))[:200])
+                    if 'processed_query' in route_result:
+                        logger.info("Router RERUN OUT → processed_query='%s'", str(route_result.get('processed_query'))[:200])
+                except Exception:
+                    pass
                 
                 if not route_result['should_proceed']:
                     return self._create_error_response(
@@ -342,6 +375,17 @@ class ClimateQueryPipeline:
 
             processed_query = route_result['processed_query']
             english_query = route_result['english_query']
+            try:
+                # Net part: log bytes and unicode lengths for debugging mojibake
+                b = query.encode('utf-8', errors='replace')
+                logger.info("Net debug → original_query len=%d, utf8_bytes=%d", len(query), len(b))
+                if isinstance(english_query, str):
+                    eb = english_query.encode('utf-8', errors='replace')
+                    logger.info("Net debug → english_query len=%d, utf8_bytes=%d", len(english_query), len(eb))
+                else:
+                    logger.info("Net debug → english_query is not str: %r", type(english_query))
+            except Exception:
+                pass
             
             # STEP 2: CHECK CACHE
             logger.info("Step 2: Cache Check")
@@ -385,6 +429,11 @@ class ClimateQueryPipeline:
             try:
                 # Parse conversation history properly for query rewriter
                 formatted_history = conversation_parser.format_for_query_rewriter(conversation_history)
+                try:
+                    logger.info("Rewriter IN → expected_lang=%s, history_len=%d", language_code, len(formatted_history or []))
+                    logger.info("Rewriter IN → original_query='%s'", query[:200])
+                except Exception:
+                    pass
                 
                 rewriter_output = await query_rewriter(
                     user_query=query,  # Use original query for language detection, not translated version
@@ -410,9 +459,14 @@ class ClimateQueryPipeline:
                     canned_enabled = bool(canned_info.get("enabled", False))
                     canned_text = canned_info.get("text") or ""
 
-                    logger.info(
-                        f"Query rewriter JSON: detected_lang='{detected_lang}', classification='{classification}', language_match='{language_match_result}', canned={canned_enabled}"
-                    )
+                    try:
+                        logger.info(
+                            "Rewriter OUT → detected_lang='%s', classification='%s', language_match='%s', canned=%s",
+                            detected_lang, classification, language_match_result, canned_enabled
+                        )
+                        logger.info("Rewriter OUT → rewrite_en='%s'", str(qr.get("rewrite_en"))[:200])
+                    except Exception:
+                        pass
 
                     # Handle language mismatch
                     if language_match_result == 'no' or (detected_lang != 'unknown' and detected_lang != language_code):
