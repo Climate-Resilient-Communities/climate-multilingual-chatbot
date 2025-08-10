@@ -39,7 +39,6 @@ CANNED_MAP = {
 EMPTY_CANNED = {"enabled": False, "type": None, "text": None}
 
 LANG_RE = re.compile(r"^[a-z]{2}$", re.IGNORECASE)
-HAS_ALNUM = re.compile(r"[A-Za-z0-9\u00C0-\u024F]")  # letters/digits incl. Latin accents
 
 HOW_IT_WORKS_TEXT = (
     "How It Works\n"
@@ -61,14 +60,20 @@ def _compact_history(history: List[str], keep: int = 3) -> List[str]:
     return (history or [])[-keep:]
 
 
+def _normalize_query(q: str) -> str:
+    # collapse common separators to spaces (covers CJK and Latin punctuation)
+    q = re.sub(r"[\s/|,;·•、，；]+", " ", q or "")
+    # collapse repeated spaces
+    return re.sub(r"\s+", " ", q).strip()
+
 def _invalid_query(q: str) -> bool:
     if not isinstance(q, str):
         return True
-    s = q.strip()
+    s = _normalize_query(q)
     if not s:
         return True
-    # Reject strings that are only symbols/whitespace
-    return HAS_ALNUM.search(s) is None
+    # Unicode-friendly: accept if any letter or digit in any script
+    return not any(ch.isalnum() for ch in s)
 
 
 def _error_payload(message: str, expected_lang: str) -> Dict[str, Any]:
@@ -121,6 +126,7 @@ async def query_rewriter(
         return json.dumps(payload, ensure_ascii=False)
 
     compact_history = _compact_history(conversation_history, keep=3)
+    user_query_norm = _normalize_query(user_query)
 
     # Strict JSON system prompt
     prompt = f"""
@@ -172,7 +178,7 @@ Conversation History (last 3):
 {json.dumps(compact_history, ensure_ascii=False)}
 
 Expected Language: "{expected_lang}"
-User Query: "{user_query.strip()}"
+User Query: "{user_query_norm}"
 """
 
     try:
