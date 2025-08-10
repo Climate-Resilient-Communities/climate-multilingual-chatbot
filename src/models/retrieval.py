@@ -399,7 +399,7 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
 
             # Audience blocklist (title + first 512 chars + domain)
             docs, blocked_base, blocked_text_only_base = _apply_audience_blocklist(docs)
-
+                
             logger.debug(f"Processed {len(docs)} documents")
             
         # Optional pre-filter by Pinecone score (if configured)
