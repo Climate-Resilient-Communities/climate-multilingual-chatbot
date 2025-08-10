@@ -143,7 +143,7 @@ class MultilingualClimateChatbot:
         'castilian': 'es',
         'castellano': 'es',
         'farsi': 'fa',
-        'tagalog': 'fil',
+        'tagalog': 'tl',
         'standard chinese': 'zh'
     }
 
