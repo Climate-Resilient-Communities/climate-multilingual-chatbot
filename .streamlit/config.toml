@@ -7,10 +7,11 @@ enableCORS = true
 fileWatcherType = "none"
 
 [theme]
-primaryColor = "#4CAF50"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F0F2F6"
-textColor = "#262730"
+base = "light"
+primaryColor = "#009376"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f6f6f6"
+textColor = "#000000"
 font = "sans serif"
 
 [browser]
