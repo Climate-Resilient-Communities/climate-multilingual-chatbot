@@ -36,14 +36,16 @@ async def query_rewriter(
     
     history_text = "\n".join(numbered_history) if numbered_history else "No previous conversation"
     
-    # Single pass: classify topic safety, detect language, and optionally rewrite to English
+    # Single pass: classify topic safety, detect language, optionally rewrite to English,
+    # and emit canned responses for greeting/goodbye/thanks/emergency without extra API calls.
     prompt = f"""
 [SYSTEM]
 You are a careful classifier for a multilingual climate chatbot. Your job is to:
 1. Detect the ACTUAL language of ONLY the current query (Message {len(numbered_history) + 1})
 2. Compare current query language to user's selected language 
 3. Classify topic safety of the current query only
-4. Rewrite to English if safe and language matches
+4. Recognize if the current query is a GREETING, GOODBYE, THANKS, or EMERGENCY and set canned flags
+5. Rewrite to English if safe and language matches (but not for canned intents)
 5. The rewrite fixes grammar and language and keeps context of the conversation history if applicable. 
 For example, if the user says "I'm from Rexdale tell me about climate change" and second message is "what more can i do?" the rewrite should be " What more can i do about climate change in Rexdale?".
 
@@ -51,6 +53,17 @@ CRITICAL INSTRUCTION:
 - Language detection: Analyze ONLY the current query text, completely ignore previous message languages
 - Topic classification: Use conversation context for understanding, but classify only the current query
 - Previous messages (1 to {len(numbered_history)}) are for context only - DO NOT analyze their language
+
+ CANNED INTENT RULES (match by meaning, any language):
+ - If GREETING (e.g., hello/hi/hey/bonjour/hola/مرحبا/你好/こんにちは/...):
+   Canned: yes; CannedType: greeting; CannedText: Hey im multilingual Chatbot, how can I help you?
+ - If GOODBYE (e.g., bye/goodbye/adiós/au revoir/さようなら/مع السلامة/...):
+   Canned: yes; CannedType: goodbye; CannedText: Thank you for coming hope to chat with you again!
+ - If THANKS (e.g., thanks/thank you/gracias/merci/谢谢/شكرا/...):
+   Canned: yes; CannedType: thanks; CannedText: You're welcome! If you have more questions, I'm here to help.
+ - If EMERGENCY (e.g., urgent/SOS/911/help police/ambulance/报警/طوارئ/...):
+   Canned: yes; CannedType: emergency; CannedText: If this is an emergency, please contact local authorities immediately (e.g., 911 in the U.S. or your local emergency number).
+ - Otherwise: Canned: no; CannedType: none; CannedText: N/A
 
 [CONTEXT]
 - On-topic includes climate, environment, impacts, and solutions
@@ -66,18 +79,25 @@ User's Selected Language: {selected_language_code}
 
 ANALYZE ONLY Message {len(numbered_history) + 1} for language detection!
 
-[OUTPUT FORMAT - BE PRECISE]
+ [OUTPUT FORMAT - BE PRECISE]
 Reasoning: <one short sentence about the CURRENT QUERY's actual language only>
 Language: <two-letter ISO 639-1 code of the ACTUAL query language: en, es, fr, de, it, pt, zh, ja, ko, ar, he; if unsure use unknown>
 Classification: <on-topic|off-topic|harmful>
 ExpectedLanguage: {selected_language_code}
 LanguageMatch: <yes if query language matches selected language, no if different languages>
-Rewritten: <single English question if on-topic AND language matches; otherwise write N/A>
+Rewritten: <single English question if on-topic AND language matches AND not canned; otherwise write N/A>
+Canned: <yes|no>
+CannedType: <greeting|goodbye|thanks|emergency|none>
+CannedText: <exact canned text if Canned is yes; otherwise N/A>
 
 EXAMPLES:
 - Query "how can I help?" + Selected Spanish → Language: en, LanguageMatch: no
 - Query "¿cómo puedo ayudar?" + Selected Spanish → Language: es, LanguageMatch: yes
 - Query "What else?" + Selected English → Language: en, LanguageMatch: yes
+ - Query "hola" → Canned: yes; CannedType: greeting; CannedText: Hey im multilingual Chatbot, how can I help you?
+ - Query "adiós" → Canned: yes; CannedType: goodbye; CannedText: Thank you for coming hope to chat with you again!
+ - Query "gracias" → Canned: yes; CannedType: thanks; CannedText: You're welcome! If you have more questions, I'm here to help.
+ - Query "ayuda urgente 911" → Canned: yes; CannedType: emergency; CannedText: If this is an emergency, please contact local authorities immediately (e.g., 911 in the U.S. or your local emergency number).
 """
 
     response_text = await nova_model.content_generation(
