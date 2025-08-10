@@ -13,7 +13,6 @@ from typing import Dict, Any, Optional, List, AsyncGenerator
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from src.utils.env_loader import load_environment
-from src.utils.logging_setup import ensure_file_logger
 from src.models.system_messages import CLIMATE_SYSTEM_MESSAGE
 
 logger = logging.getLogger(__name__)
@@ -26,10 +25,7 @@ class CohereModel:
         try:
             # Load environment variables
             load_environment()
-            try:
-                ensure_file_logger(os.getenv("PIPELINE_LOG_FILE", os.path.join(os.getcwd(), "logs", "pipeline_debug.log")))
-            except Exception:
-                pass
+            # No local file logger in production path
             
             # Initialize synchronous cohere client to avoid event loop issues in Streamlit
             self.client = cohere.Client(os.getenv("COHERE_API_KEY"))

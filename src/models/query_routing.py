@@ -4,7 +4,6 @@ from enum import Enum
 from typing import Dict, Any
 import re
 from src.utils.env_loader import load_environment
-from src.utils.logging_setup import ensure_file_logger
 from src.models.nova_flow import BedrockModel
 
 # Configure logging
@@ -65,11 +64,7 @@ class MultilingualRouter:
 
     def __init__(self):
         """Initialize language routing"""
-        # Ensure dedicated file logs exist as well
-        try:
-            ensure_file_logger(os.getenv("PIPELINE_LOG_FILE", os.path.join(os.getcwd(), "logs", "pipeline_debug.log")))
-        except Exception:
-            pass
+        # No local file logging in production path
 
     def _is_probably_english(self, text: str) -> bool:
         """Stricter heuristic for English using ASCII ratio and common stopwords."""

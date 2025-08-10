@@ -114,7 +114,7 @@ _has_file_handler = any(
     isinstance(h, RotatingFileHandler) and getattr(h, "baseFilename", None) == str(LOG_FILE)
     for h in root_logger.handlers
 )
-if not _has_file_handler:
+if not _has_file_handler and str(os.environ.get("ENABLE_LOCAL_CHAT_LOGS", "")).strip().lower() in ("1", "true", "yes"):
     _fh = RotatingFileHandler(str(LOG_FILE), maxBytes=5 * 1024 * 1024, backupCount=3)
     _fh.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
     root_logger.addHandler(_fh)
