@@ -205,31 +205,21 @@ async def topic_moderation(
             logger.info("Query contains explicit climate keywords - allowing")
             return {"passed": True, "reason": "climate_keywords", "score": 0.95}
         
-        # Last check: If not obvious, use the ML model if available
+        # Last check: If not obvious, optionally use a provided moderation pipeline (legacy path)
         if moderation_pipe:
             try:
-                # Run classification
-                with ThreadPoolExecutor() as executor:
-                    future = executor.submit(
-                        moderation_pipe,
-                        query
-                    )
-                    result = future.result(timeout=10)
-                
-                # Extract classification
+                result = moderation_pipe(query)
                 classification = result[0] if result else None
                 label = classification.get('label', '').lower() if classification else ''
                 score = classification.get('score', 0.0) if classification else 0.0
-                
-                # Make decision based on label and score
                 if label == 'yes' and score > 0.6:
-                    logger.info(f"Query is about climate change according to ML model, score: {score:.2f}")
+                    logger.info(f"Query is about climate change according to legacy ML pipeline, score: {score:.2f}")
                     return {"passed": True, "reason": "climate_related_ml", "score": score}
                 else:
-                    logger.info(f"Query is not about climate change according to ML model, score: {score:.2f}")
+                    logger.info(f"Query is not about climate change according to legacy ML pipeline, score: {score:.2f}")
                     return {"passed": False, "reason": "not_climate_related_ml", "score": score}
             except Exception as e:
-                logger.error(f"Error in ML classification: {str(e)}")
+                logger.error(f"Error in legacy ML classification: {str(e)}")
         
         # Default to rejecting if none of the above checks passed
         logger.info(f"Query does not appear climate-related - rejecting")

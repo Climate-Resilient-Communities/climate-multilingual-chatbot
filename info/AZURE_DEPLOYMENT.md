@@ -8,18 +8,9 @@ This guide provides instructions for deploying the Climate Multilingual Chatbot 
 - Azure CLI installed (optional, for command-line deployments)
 - Docker installed (optional, for container deployments)
 
-## Important: Local Model Preparation
+## Important: Model Preparation
 
-In Azure environments, accessing Hugging Face models can be problematic due to Git dependencies. To ensure your deployment works properly:
-
-1. **Download models locally before deployment:**
-   ```bash
-   python src/utils/download_models.py
-   ```
-
-2. **Include the models directory in your deployment package** - This ensures the application can use local model files instead of downloading them during runtime.
-
-3. **Make sure the models directory structure is preserved:** The application expects models at `models/climatebert/` relative to the project root.
+The application no longer requires bundling a local ClimateBERT model. Ensure environment variables are configured and network access to providers is available.
 
 ## Using Git LFS for Model Files
 
@@ -40,35 +31,13 @@ If your Azure App Service has Git LFS installed and configured:
    ls -la models/climatebert/
    ```
 
-### Option 2: Manual Model Upload (Recommended for Azure)
+### Option 2: Manual Model Upload (Legacy)
 
-For Azure App Service deployments where Git LFS might not be available:
-
-1. Download models locally first:
-   ```bash
-   python src/utils/download_models.py
-   ```
-
-2. When deploying to Azure, ensure the model files are included in your deployment package
-   - For GitHub Actions: Use the `actions/upload-artifact` to include the models directory
-   - For manual deployments: Use `az webapp deploy` with the entire directory including models
-
-3. Verify the model directory exists in your Azure App Service:
-   ```
-   /home/site/wwwroot/models/climatebert/
-   ```
+Previously we supported bundling `models/climatebert/`. This is no longer required and is not recommended.
 
 ### Handling Git LFS in Docker Deployments
 
-Our Docker configuration already handles copying the local model files into the container. Make sure the models are downloaded before building your Docker image:
-
-```bash
-# Download models locally
-python src/utils/download_models.py
-
-# Build Docker image (the models will be included)
-docker build -t climate-chatbot:latest .
-```
+If you use containers, no local HF model bundling is necessary for this app.
 
 ## Configuration Options
 
@@ -115,7 +84,7 @@ For production deployments, we recommend using Azure Redis Cache:
 4. Configure the environment variables listed above
 5. Deploy the application
 
-### Method 2: Docker Container Deployment (Recommended)
+### Method 2: Docker Container Deployment 
 
 1. Build the Docker container:
    ```bash
@@ -160,13 +129,10 @@ To enable application telemetry:
    - Check for any special characters that might need escaping
 
 4. **Git Not Found Error**
-   - This is common in Azure environments: `Failed to initialize chatbot: [Errno 2] No such file or directory: 'git'`
-   - Solution: Ensure you've downloaded models locally with `python src/utils/download_models.py` before deployment
-   - The application has been modified to handle this case by loading models from local paths
+   - If you see `git`-related errors when installing optional packages, ensure dependencies are preinstalled in your runtime. No local HF model download step is required.
 
 5. **Hugging Face Model Download Issues**
-   - If you see errors related to downloading models from Hugging Face, make sure your deployment includes the local model files
-   - Check that the `models/climatebert` directory exists and contains all model files
+   - The app no longer downloads HF models at runtime; this section is not applicable.
 
 ### Logs
 
