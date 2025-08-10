@@ -389,7 +389,26 @@ class ClimateQueryPipeline:
                     selected_language_code=language_code
                 )
                 text = (rewriter_output or "").strip()
-                
+
+                # Short-circuit if query_rewriter flagged a canned response
+                canned_flag = re.search(r"Canned:\s*yes", text, re.IGNORECASE)
+                if canned_flag:
+                    canned_text_match = re.search(r"CannedText:\s*(.+)", text, re.IGNORECASE | re.DOTALL)
+                    canned_text = canned_text_match.group(1).strip() if canned_text_match else ""
+                    logger.info("✓ Canned intent detected by query rewriter; returning pre-canned response")
+                    return {
+                        "success": True,
+                        "response": canned_text,
+                        "citations": [],
+                        "faithfulness_score": 1.0,
+                        "processing_time": time.time() - start_time,
+                        "language_code": language_code,
+                        "model_used": routing_info['model_name'],
+                        "model_type": model_type,
+                        "retrieval_source": "canned",
+                        "fallback_reason": "canned_intent",
+                    }
+
                 # Parse fields
                 lang_match = re.search(r"Language:\s*([a-z]{2}|unknown)", text, re.IGNORECASE)
                 cls_match = re.search(r"Classification:\s*(on-topic|off-topic|harmful)", text, re.IGNORECASE)
