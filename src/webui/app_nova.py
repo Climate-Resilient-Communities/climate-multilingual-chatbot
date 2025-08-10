@@ -322,10 +322,56 @@ print("✓ PyTorch-Streamlit compatibility patches applied successfully")
 # === NOW IMPORT STREAMLIT AND SET PAGE CONFIG (ONLY ONCE) ===
 import streamlit as st
 
+# Robustly force initial sidebar state by temporarily flipping the state,
+# triggering a rerun, then applying the desired state. This overrides any
+# browser-persisted user choice Streamlit keeps.
+SIDEBAR_STATE = {True: "expanded", False: "collapsed"}
+
+# Determine desired sidebar open/closed from query param if present (sb=1/0)
+_desired_open_default = True
+try:
+    _params = st.query_params  # Streamlit ≥1.30
+except Exception:
+    try:
+        _params = st.experimental_get_query_params()
+    except Exception:
+        _params = {}
+
+_sb = (_params.get("sb") if isinstance(_params, dict) else None)
+if isinstance(_sb, list):
+    _sb = _sb[0] if _sb else None
+if _sb in ("0", 0):
+    _desired_open_default = False
+elif _sb in ("1", 1):
+    _desired_open_default = True
+
+if "_sb_open" not in st.session_state:
+    st.session_state._sb_open = _desired_open_default
+    st.session_state._sb_rerun = False
+else:
+    # If query param changes desired state during a session, adopt it and flip once
+    if _sb in ("0", "1", 0, 1):
+        new_open = (_sb in ("1", 1))
+        if new_open != st.session_state._sb_open:
+            st.session_state._sb_open = new_open
+            st.session_state._sb_rerun = True
+
+if st.session_state.get("_sb_rerun", False):
+    st.set_page_config(
+        layout="wide",
+        page_title="Multilingual Climate Chatbot",
+        page_icon=calculated_favicon,
+        initial_sidebar_state=SIDEBAR_STATE[not st.session_state._sb_open],
+    )
+    st.session_state._sb_rerun = False
+    st.rerun()
+
+# Final page config with the desired sidebar state
 st.set_page_config(
-    layout="wide", 
+    layout="wide",
     page_title="Multilingual Climate Chatbot",
-    page_icon=calculated_favicon
+    page_icon=calculated_favicon,
+    initial_sidebar_state=SIDEBAR_STATE[st.session_state._sb_open],
 )
 
 # === NOW OTHER IMPORTS AND SETUP ===
@@ -965,12 +1011,9 @@ def load_custom_css():
         header[data-testid="stHeader"] {
             display: none;
         }
-        .stToolbar {
-            display: none;
-        }
-        button[kind="header"] {
-            display: none;
-        }
+        /* Hide toolbar but KEEP sidebar collapse toggle hidden and force sidebar visible */
+        .stToolbar { display: none; }
+        button[kind="header"] { display: none; }
     </style>
     """, unsafe_allow_html=True)
     
@@ -1043,10 +1086,17 @@ def load_custom_css():
         box-shadow: none !important;
     }
     
-    /* Sidebar styling */
+    /* Sidebar styling and enforce visible (remove collapse) */
     section[data-testid="stSidebar"] {
         background-color: #303030 !important; /* brand dark */
+        display: block !important;
+        transform: translateX(0) !important;
+        visibility: visible !important;
     }
+    /* Hide the default collapse affordance entirely */
+    [data-testid="stSidebar"] [data-testid="stSidebarNavButton"],
+    [data-testid="stSidebar"] button[title*="Collapse"],
+    [data-testid="stSidebarCollapseControl"] { display: none !important; }
     section[data-testid="stSidebar"] > div { padding-top: 0 !important; margin-top: 0 !important; }
     section[data-testid="stSidebar"] * { color: #ffffff !important; }
     /* Keep selectbox value text black for readability on its white control */
@@ -1726,6 +1776,33 @@ def main():
 
         chatbot = chatbot_init.get("chatbot")
         
+        # Handle sidebar force-open via query param
+        try:
+            params = st.query_params  # Streamlit 1.30+
+        except Exception:
+            try:
+                params = st.experimental_get_query_params()  # fallback for older versions
+            except Exception:
+                params = {}
+        sb = (params.get("sb") if isinstance(params, dict) else None)
+        if sb:
+            val = sb[0] if isinstance(sb, list) else sb
+            if str(val) == "1":
+                st.session_state._force_sidebar_open = True
+            elif str(val) == "0":
+                st.session_state._force_sidebar_open = False
+
+        # Apply CSS to force sidebar visible when requested
+        if st.session_state.get('_force_sidebar_open'):
+            st.markdown(
+                """
+<style>
+section[data-testid="stSidebar"]{display:block !important; transform:translateX(0) !important; visibility:visible !important;}
+</style>
+                """,
+                unsafe_allow_html=True,
+            )
+
         # Sidebar
         with st.sidebar:
             st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
@@ -1740,7 +1817,22 @@ def main():
             selected_language = st.selectbox(
                 "Select your language",
                 options=languages,
-                index=default_index
+                index=default_index,
+                help="Choose your preferred language",
+            )
+            # Ensure white text in dark mode for the selectbox label and value
+            st.markdown(
+                """
+<style>
+section[data-testid="stSidebar"] label, section[data-testid="stSidebar"] div[role="combobox"] div[data-testid="stMarkdownContainer"] * {
+  color: #ffffff !important;
+}
+section[data-testid="stSidebar"] div[role="combobox"] span{ color:#000000 !important; }
+/* Keep the dropdown options readable */
+section[data-testid="stSidebar"] div[data-baseweb="select"] div[role="listbox"] * { color:#000000 !important; }
+</style>
+                """,
+                unsafe_allow_html=True,
             )
             # One-click confirm: when user clicks Confirm, flip flag and rerun immediately
             if not st.session_state.language_confirmed:
@@ -1797,9 +1889,12 @@ def main():
                 """,
                 unsafe_allow_html=True,
             )
+
         else:
             st.title("Multilingual Climate Chatbot")
             st.write("Ask me anything about climate change!")
+
+        # Remove floating toggle; sidebar collapse is disabled and sidebar always visible via CSS
 
         # FAQ Popup Modal using Streamlit native components (restored)
         if st.session_state.show_faq_popup:

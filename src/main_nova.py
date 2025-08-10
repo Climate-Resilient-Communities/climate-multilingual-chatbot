@@ -241,11 +241,18 @@ class MultilingualClimateChatbot:
     def _initialize_retrieval(self, index_name: str) -> None:
         """Initialize retrieval components."""
         # Lazy imports to avoid heavy libs at module import
-        from pinecone import Pinecone
-        from FlagEmbedding import BGEM3FlagModel
+        try:
+            import pinecone as pc_legacy
+            pc_legacy.init(api_key=self.PINECONE_API_KEY, environment=os.getenv('PINECONE_ENVIRONMENT') or os.getenv('PINECONE_ENV') or 'gcp-starter')
+            self.index = pc_legacy.Index(index_name)
+            logger.info("Pinecone index initialized via legacy client")
+        except Exception:
+            from pinecone import Pinecone
+            self.pinecone_client = Pinecone(api_key=self.PINECONE_API_KEY)
+            self.index = self.pinecone_client.Index(index_name)
+            logger.info("Pinecone index initialized via v5 client")
 
-        self.pinecone_client = Pinecone(api_key=self.PINECONE_API_KEY)
-        self.index = self.pinecone_client.Index(index_name)
+        from FlagEmbedding import BGEM3FlagModel
         self.embed_model = BGEM3FlagModel('BAAI/bge-m3', use_fp16=False)
 
     def _initialize_language_router(self) -> None:
