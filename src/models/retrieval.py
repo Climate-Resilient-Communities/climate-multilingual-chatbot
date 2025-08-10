@@ -115,8 +115,24 @@ def issue_hybrid_query(index, sparse_embedding: Dict, dense_embedding: List[floa
     if metadata_filter:
         kwargs['filter'] = metadata_filter
 
-    result = index.query(**kwargs)
-    return result
+    start = time.time()
+    try:
+        result = index.query(**kwargs)
+        elapsed_ms = int((time.time() - start) * 1000)
+        try:
+            host = getattr(index, "host", None) or getattr(index, "_host", "unknown")
+        except Exception:
+            host = "unknown"
+        logger.info(f"dep=pinecone host={host} op=query ms={elapsed_ms} status=OK")
+        return result
+    except Exception as e:
+        elapsed_ms = int((time.time() - start) * 1000)
+        try:
+            host = getattr(index, "host", None) or getattr(index, "_host", "unknown")
+        except Exception:
+            host = "unknown"
+        logger.warning(f"dep=pinecone host={host} op=query ms={elapsed_ms} status=ERR err={str(e)[:120]}")
+        raise
 
 def get_hybrid_results(index, query: str, embed_model, alpha: float, top_k: int, metadata_filter: Optional[Dict] = None):
     """Get hybrid search results."""
@@ -865,7 +881,13 @@ async def test_retrieval():
         # Setup
         print("\nInitializing components...")
         pc = Pinecone(api_key=PINECONE_API_KEY)
+        # Reuse Pinecone Index; log the host once
         index = pc.Index("climate-change-adaptation-index-10-24-prod")
+        try:
+            host = getattr(index, "host", None) or getattr(index, "_host", "unknown")
+            logger.info(f"dep=pinecone host={host} op=init status=OK")
+        except Exception:
+            pass
         import cohere
         cohere_client = cohere.Client(COHERE_API_KEY)
         

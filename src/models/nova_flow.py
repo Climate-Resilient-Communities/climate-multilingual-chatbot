@@ -34,15 +34,58 @@ class BedrockModel:
                 aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
                 region_name="us-east-1"
             )
+            # Reusable sync client
             self.sync_bedrock = self.sync_session.client(
                 service_name='bedrock-runtime',
                 region_name='us-east-1',
-                config=Config(read_timeout=300, connect_timeout=300)
+                config=Config(
+                    read_timeout=60,
+                    connect_timeout=10,
+                    retries={"max_attempts": 3, "mode": "adaptive"},
+                ),
             )
             self.model_id = model_id
+            self._aio_bedrock = None
             logger.info("✓ Bedrock client initialized")
         except Exception as e:
             logger.error(f"Bedrock client initialization failed: {str(e)}")
+            raise
+
+    async def _get_aio_client(self):
+        """Return a long-lived aioboto3 bedrock client (reused across calls)."""
+        if self._aio_bedrock is not None:
+            return self._aio_bedrock
+        client_cm = self.session.client(
+            service_name='bedrock-runtime',
+            region_name='us-east-1',
+            config=Config(
+                read_timeout=60,
+                connect_timeout=10,
+                retries={"max_attempts": 3, "mode": "adaptive"},
+            ),
+        )
+        self._aio_bedrock = await client_cm.__aenter__()
+        return self._aio_bedrock
+
+    async def _invoke_with_timing(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Invoke Bedrock with timing and structured logs."""
+        start = asyncio.get_event_loop().time()
+        host = "bedrock.us-east-1.amazonaws.com"
+        try:
+            client = await self._get_aio_client()
+            response = await client.invoke_model(
+                body=json.dumps(payload),
+                modelId=self.model_id,
+                accept="application/json",
+                contentType="application/json",
+            )
+            elapsed_ms = int((asyncio.get_event_loop().time() - start) * 1000)
+            logger.info(f"dep=bedrock host={host} op=invoke_model ms={elapsed_ms} status=OK")
+            response_body = await response['body'].read()
+            return json.loads(response_body)
+        except Exception as e:
+            elapsed_ms = int((asyncio.get_event_loop().time() - start) * 1000)
+            logger.warning(f"dep=bedrock host={host} op=invoke_model ms={elapsed_ms} status=ERR err={str(e)[:120]}")
             raise
 
     async def classify(self, prompt: str, system_message: str = None, options: List[str] = None) -> str:
@@ -90,32 +133,20 @@ Answer with ONLY the classification result, no explanations or additional text."
                 }
             }
             
-            async with self.session.client(
-                service_name='bedrock-runtime',
-                region_name='us-east-1',
-                config=Config(read_timeout=300, connect_timeout=300)
-            ) as bedrock:
-                response = await bedrock.invoke_model(
-                    body=json.dumps(payload),
-                    modelId=self.model_id,
-                    accept="application/json",
-                    contentType="application/json"
-                )
-                response_body = await response['body'].read()
-                response_json = json.loads(response_body)
-                result = response_json['output']['message']['content'][0]['text'].strip()
-                
-                # If options were provided, ensure the result is one of the options
-                if options and result not in options:
-                    # Try to extract one of the options from the result
-                    for option in options:
-                        if option.lower() in result.lower():
-                            return option
-                    # If no match found, return the first option as a fallback
-                    logger.warning(f"Classification result '{result}' not in options {options}, falling back to first option")
-                    return options[0]
-                    
-                return result
+            response_json = await self._invoke_with_timing(payload)
+            result = response_json['output']['message']['content'][0]['text'].strip()
+
+            # If options were provided, ensure the result is one of the options
+            if options and result not in options:
+                # Try to extract one of the options from the result
+                for option in options:
+                    if option.lower() in result.lower():
+                        return option
+                # If no match found, return the first option as a fallback
+                logger.warning(f"Classification result '{result}' not in options {options}, falling back to first option")
+                return options[0]
+
+            return result
         except Exception as e:
             logger.error(f"Classification error: {str(e)}")
             # Return safe fallback if options provided, otherwise empty string
@@ -157,20 +188,8 @@ Answer with ONLY the classification result, no explanations or additional text."
                 }
             }
             
-            async with self.session.client(
-                service_name='bedrock-runtime',
-                region_name='us-east-1',
-                config=Config(read_timeout=300, connect_timeout=300)
-            ) as bedrock:
-                response = await bedrock.invoke_model(
-                    body=json.dumps(payload),
-                    modelId=self.model_id,
-                    accept="application/json",
-                    contentType="application/json"
-                )
-                response_body = await response['body'].read()
-                response_json = json.loads(response_body)
-                return response_json['output']['message']['content'][0]['text'].strip()
+            response_json = await self._invoke_with_timing(payload)
+            return response_json['output']['message']['content'][0]['text'].strip()
         except Exception as e:
             logger.error(f"Content generation error: {str(e)}")
             return ""
@@ -200,20 +219,8 @@ Answer with ONLY the classification result, no explanations or additional text."
                 }
             }
 
-            async with self.session.client(
-                service_name='bedrock-runtime',
-                region_name='us-east-1',
-                config=Config(read_timeout=300, connect_timeout=300)
-            ) as bedrock:
-                response = await bedrock.invoke_model(
-                    body=json.dumps(payload),
-                    modelId=self.model_id,
-                    accept="application/json",
-                    contentType="application/json"
-                )
-                response_body = await response['body'].read()
-                response_json = json.loads(response_body)
-                return response_json['output']['message']['content'][0]['text']
+            response_json = await self._invoke_with_timing(payload)
+            return response_json['output']['message']['content'][0]['text']
 
         except Exception as e:
             logger.error(f"Query normalization error: {str(e)}")
@@ -372,27 +379,15 @@ Answer with ONLY the classification result, no explanations or additional text."
             }
             
             # Call Bedrock
-            async with self.session.client(
-                service_name='bedrock-runtime',
-                region_name='us-east-1',
-                config=Config(read_timeout=300, connect_timeout=300)
-            ) as bedrock:
-                response = await bedrock.invoke_model(
-                    body=json.dumps(prompt),
-                    modelId=self.model_id,
-                    accept="application/json",
-                    contentType="application/json"
-                )
-                response_body = await response['body'].read()
-                response_json = json.loads(response_body)
-                
-                # Extract response text
-                response_text = response_json['output']['message']['content'][0]['text']
-                
-                # Process markdown headers to ensure they don't repeat the question
-                response_text = self._ensure_proper_markdown(response_text)
-                
-                return response_text
+            response_json = await self._invoke_with_timing(prompt)
+
+            # Extract response text
+            response_text = response_json['output']['message']['content'][0]['text']
+
+            # Process markdown headers to ensure they don't repeat the question
+            response_text = self._ensure_proper_markdown(response_text)
+
+            return response_text
                     
         except Exception as e:
             logger.error(f"Error in generate_response: {str(e)}")
