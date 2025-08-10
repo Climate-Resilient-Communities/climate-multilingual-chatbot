@@ -30,18 +30,20 @@ def ensure_file_logger(
             except Exception:
                 continue
 
-    file_handler = RotatingFileHandler(
-        abs_path, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8"
-    )
-    formatter = logging.Formatter(
-        fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
-    file_handler.setFormatter(formatter)
-    file_handler.setLevel(level)
+    # Respect production default: only enable when explicitly opted-in
+    if str(os.environ.get("ENABLE_LOCAL_CHAT_LOGS", "")).strip().lower() in ("1", "true", "yes"):
+        file_handler = RotatingFileHandler(
+            abs_path, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8"
+        )
+        formatter = logging.Formatter(
+            fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
+        file_handler.setFormatter(formatter)
+        file_handler.setLevel(level)
 
-    root_logger.addHandler(file_handler)
-    if root_logger.level > level:
-        root_logger.setLevel(level)
+        root_logger.addHandler(file_handler)
+        if root_logger.level > level:
+            root_logger.setLevel(level)
 
     # Make noisy libs inherit and go to file
     for noisy in ("httpx", "urllib3"):

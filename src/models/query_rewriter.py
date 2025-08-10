@@ -15,13 +15,8 @@ from typing import List, Dict, Any
 import unicodedata
 import logging
 from src.models.nova_flow import BedrockModel
-from src.utils.logging_setup import ensure_file_logger
 
 logger = logging.getLogger("query_rewriter")
-try:
-    ensure_file_logger(os.getenv("PIPELINE_LOG_FILE", os.path.join(os.getcwd(), "logs", "pipeline_debug.log")))
-except Exception:
-    pass
 
 # Fixed canned responses for conversational classes
 CANNED_MAP = {

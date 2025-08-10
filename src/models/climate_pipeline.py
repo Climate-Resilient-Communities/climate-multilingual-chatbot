@@ -15,7 +15,6 @@ warnings.filterwarnings("ignore", category=UserWarning, module="transformers")
 warnings.filterwarnings("ignore", category=FutureWarning, module="transformers")
 
 from src.utils.env_loader import load_environment
-from src.utils.logging_setup import ensure_file_logger
 from src.models.query_routing import MultilingualRouter
 from src.models.query_rewriter import query_rewriter
 from src.models.retrieval import get_documents
@@ -37,13 +36,6 @@ class ClimateQueryPipeline:
         """Initialize the processing pipeline with eager heavy-resource setup for fast first query."""
         try:
             load_environment()
-            # Ensure file logging early
-            try:
-                log_path = os.getenv("PIPELINE_LOG_FILE", os.path.join(os.getcwd(), "logs", "pipeline_debug.log"))
-                abs_log = ensure_file_logger(log_path)
-                logger.info(f"File logging enabled at: {abs_log}")
-            except Exception as _e:
-                logger.warning(f"Failed to enable file logger: {_e}")
             
             # Lightweight components
             self.router = MultilingualRouter()
