@@ -101,6 +101,13 @@ class MultilingualRouter:
         if not text:
             return 'unknown'
         t = f" {text.lower()} "
+        # Fast path for common English short tokens (greetings/thanks/goodbye)
+        english_short_tokens = [
+            " hello ", " hi ", " hey ", " thanks ", " thank you ", " goodbye ", " bye "
+        ]
+        for token in english_short_tokens:
+            if token in t:
+                return 'en'
         # Script-based quick checks
         if re.search(r"[\u4e00-\u9fff]", t):
             return 'zh'
@@ -209,6 +216,7 @@ class MultilingualRouter:
                     f"Detected {detected_name} text while language selected is {language_name}. "
                     "You can switch the language in the sidebar."
                 )
+                routing_info['detected_language'] = detected_code
                 # Proceed but mark mismatch; pipeline can decide to translate
                 return {
                     'should_proceed': True,
