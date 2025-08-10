@@ -365,10 +365,10 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
                 metadata_filter=meta_filter,
             )
             logger.debug(f"Retrieved {len(hybrid_results.matches)} matches from hybrid search")
-
+            
             # Process search results into document format
             docs = process_search_results(hybrid_results)
-
+            
             # Fallback: if server-side lang filter returned 0 docs, retry without filter
             filter_fallback_used = False
             if not docs and meta_filter:
@@ -385,7 +385,7 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
             if not docs:
                 logger.warning("No documents with content found")
                 return []
-
+                
             # Apply domain boosts and soft boosts before gating (small positive nudges)
             try:
                 docs = _apply_domain_boosts(
@@ -561,11 +561,11 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
                 min(len(pre_final), max(final_max_docs, 10)),
                 cohere_client,
             )
-
+            
             if not reranked_docs:
                 logger.warning("No documents after reranking")
                 return []
-
+                
             # Percentile-based floor per query (clamped) with quota and guaranteed backfill
             scored = [(d, float(d.get('score', 0.0))) for d in reranked_docs]
             scores_arr = np.array([s for _, s in scored], dtype=float)
@@ -786,7 +786,7 @@ def process_search_results(search_results) -> List[Dict]:
                 
             # Normalize title
             norm_title = normalize_title(title, match.metadata.get('section_title', '').strip(), match.metadata.get('url', []))
-
+                
             # Create document
             doc = {
                 'title': norm_title,
