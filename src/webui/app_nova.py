@@ -205,10 +205,12 @@ def persist_interaction_record(message_index: int, feedback: str) -> None:
             'fallback_reason': msg.get('fallback_reason'),
         }
 
-        FEEDBACK_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(FEEDBACK_FILE, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
-        # Also append to Azure Blob (if configured)
+        # Local JSONL logging disabled by default for production; enable by setting ENABLE_LOCAL_CHAT_LOGS=1
+        if str(os.environ.get("ENABLE_LOCAL_CHAT_LOGS", "")).strip().lower() in ("1", "true", "yes"): 
+            FEEDBACK_FILE.parent.mkdir(parents=True, exist_ok=True)
+            with open(FEEDBACK_FILE, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        # Always try to append to Azure Blob (if configured)
         _persist_record_to_blob(json.dumps(record, ensure_ascii=False))
     except Exception as e:
         logger.warning(f"[FEEDBACK] Persist failed: {e}")

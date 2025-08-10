@@ -1,5 +1,9 @@
 # Multilingual Climate Change Chatbot Application
 
+Production notes
+- Local JSONL chat logs are disabled by default. To enable locally, set ENABLE_LOCAL_CHAT_LOGS=1. Azure Blob logging remains enabled when Azure env vars are present.
+- All project documentation has been moved to the `info/` directory.
+
 A sophisticated multilingual chatbot specialized in climate-related topics, leveraging advanced RAG (Retrieval Augmented Generation) architecture with Amazon Bedrock for response generation and multiple guardrails for quality assurance.
 
 ## Features
