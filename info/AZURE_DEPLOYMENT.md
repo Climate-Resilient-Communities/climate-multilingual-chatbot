@@ -76,7 +76,7 @@ For production deployments, we recommend using Azure Redis Cache:
 
 ## Deployment Methods
 
-### Method 1: Direct Deployment from GitHub
+### Method 1: Direct Deployment from GitHub (Recommended)
 
 1. In the Azure Portal, create a new App Service
 2. Under Deployment Center, select GitHub as your source
