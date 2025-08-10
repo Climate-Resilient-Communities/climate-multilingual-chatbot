@@ -675,12 +675,13 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
                         f"q='{query[:60]}', base={len(docs)}, kept_pre={kept_after_gate_pre}, refill={refill_count}, final_before={final_before}, final_after={len(final_docs)}, hybrid_refill={hybrid_refill}, floor={floor_used:.2f}, delta={delta:.3f}, max_sim_pre={max_sim_pre:.3f}, p50_sim_pre={p50_sim_pre:.3f}, p95_sim_pre={p95_sim_pre:.3f}, blocked_base={locals().get('blocked_base',0)}, dropped_top2={dropped_top2}"
                     )
 
-                    # Optional JSONL export of diagnostics
+                    # Optional JSONL export of diagnostics (off by default; enable with ENABLE_LOCAL_CHAT_LOGS)
                     try:
-                        export_dir = os.path.join(os.getcwd(), "logs")
-                        os.makedirs(export_dir, exist_ok=True)
-                        export_path = os.path.join(export_dir, "retrieval_app_debug.jsonl")
-                        rec = {
+                        if str(os.environ.get("ENABLE_LOCAL_CHAT_LOGS", "")).strip().lower() in ("1", "true", "yes"):
+                            export_dir = os.path.join(os.getcwd(), "logs")
+                            os.makedirs(export_dir, exist_ok=True)
+                            export_path = os.path.join(export_dir, "retrieval_app_debug.jsonl")
+                            rec = {
                             "query": query,
                             "base_docs": len(docs),
                             "kept_pre": kept_after_gate_pre,
@@ -704,9 +705,9 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
                             ],
                             "dropped_top2": dropped_top2,
                         }
-                        import json
-                        with open(export_path, "a", encoding="utf-8") as f:
-                            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+                            import json
+                            with open(export_path, "a", encoding="utf-8") as f:
+                                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
                     except Exception:
                         pass
                 except Exception:
