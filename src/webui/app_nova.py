@@ -321,6 +321,7 @@ print("✓ PyTorch-Streamlit compatibility patches applied successfully")
 
 # === NOW IMPORT STREAMLIT AND SET PAGE CONFIG (ONLY ONCE) ===
 import streamlit as st
+from streamlit.components.v1 import html as st_html
 
 # Robustly force initial sidebar state by temporarily flipping the state,
 # triggering a rerun, then applying the desired state. This overrides any
@@ -373,6 +374,53 @@ st.set_page_config(
     page_icon=calculated_favicon,
     initial_sidebar_state=SIDEBAR_STATE[st.session_state._sb_open],
 )
+
+# Optional: allow URL param reset_ui=1 to clear any persisted UI prefs in the browser
+# and force a fresh load with sidebar open. This is helpful when a user's stored
+# preference keeps the sidebar collapsed despite our initial state.
+try:
+    _params2 = st.query_params
+except Exception:
+    try:
+        _params2 = st.experimental_get_query_params()
+    except Exception:
+        _params2 = {}
+
+_reset_ui = None
+if isinstance(_params2, dict):
+    _reset_ui = _params2.get("reset_ui") or _params2.get("sb_reset")
+    if isinstance(_reset_ui, list):
+        _reset_ui = _reset_ui[0] if _reset_ui else None
+
+if _reset_ui in ("1", 1, True) and not st.session_state.get("_did_reset_ui"):
+    # Clear local/session storage keys related to Streamlit UI and reload
+    st_html(
+        """
+<script>
+try {
+  // Clear Streamlit/UI-related items from localStorage
+  const keys = Object.keys(localStorage);
+  for (const k of keys) {
+    const kl = k.toLowerCase();
+    if (kl.includes('streamlit') || kl.includes('sidebar') || kl.startsWith('st-') || kl.includes('siderbar')) {
+      localStorage.removeItem(k);
+    }
+  }
+  // Also clear sessionStorage to be safe
+  try { sessionStorage.clear(); } catch(e) {}
+  // Reload without reset_ui param and with sb=1 to ensure open
+  const url = new URL(window.location.href);
+  url.searchParams.delete('reset_ui');
+  url.searchParams.delete('sb_reset');
+  url.searchParams.set('sb','1');
+  window.location.replace(url.toString());
+} catch (e) { console.error('UI reset error', e); }
+</script>
+        """,
+        height=0,
+    )
+    st.session_state._did_reset_ui = True
+    st.stop()
 
 # === NOW OTHER IMPORTS AND SETUP ===
 import time
@@ -1079,7 +1127,7 @@ def load_custom_css():
     [data-testid="stChatMessage"] h4,
     [data-testid="stChatMessage"] h5,
     [data-testid="stChatMessage"] h6 {font-size: 1rem !important;}
-
+    
     /* Remove default gray bubble background so custom bubbles show cleanly */
     [data-testid="stChatMessage"] > div:has(div[data-testid="stMarkdownContainer"]) {
         background: transparent !important;
