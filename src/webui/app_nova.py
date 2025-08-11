@@ -1143,22 +1143,26 @@ def load_custom_css():
         box-shadow: none !important;
     }
     
-    /* Sidebar styling and enforce visible (remove collapse) */
+    /* Sidebar styling; allow collapse/expand to function */
     section[data-testid="stSidebar"] {
         background-color: #303030 !important; /* brand dark */
-        display: block !important;
-        transform: translateX(0) !important;
-        visibility: visible !important;
     }
-    /* Hide the default collapse affordance entirely */
+    /* Hide the default collapse affordance entirely (we provide our own button) */
     [data-testid="stSidebar"] [data-testid="stSidebarNavButton"],
     [data-testid="stSidebar"] button[title*="Collapse"],
     [data-testid="stSidebarCollapseControl"] { display: none !important; }
     section[data-testid="stSidebar"] > div { padding-top: 0 !important; margin-top: 0 !important; }
     section[data-testid="stSidebar"] * { color: #ffffff !important; }
+    
+    /* Language selectbox: make control white and text/arrow black for readability */
+    section[data-testid="stSidebar"] div[data-baseweb="select"] {
+        background-color: #ffffff !important;
+        border-radius: 8px !important;
+    }
     /* Keep selectbox value text black for readability on its white control */
     section[data-testid="stSidebar"] div[data-baseweb="select"] * { color: #000000 !important; }
     section[data-testid="stSidebar"] div[data-baseweb="select"] input { color: #000000 !important; }
+    section[data-testid="stSidebar"] div[data-baseweb="select"] svg { fill: #000000 !important; color: #000000 !important; }
 
     /* Header alignment */
     .mlcc-header { display:flex; align-items:center; gap:16px; margin-top: 8px; }
@@ -1641,7 +1645,7 @@ def show_consent_dialog():
 
     st.write(
         "Welcome! This app shares clear info on climate impacts and local action. "
-        "Please confirm you’re good with the basics below."
+        "Please confirm you're good with the basics below."
     )
 
     agreed = st.checkbox(
@@ -1804,8 +1808,56 @@ def main():
     if 'needs_rerun' not in st.session_state:
         st.session_state.needs_rerun = False
     
+    # Define sidebar toggle callback at the top of main() so it can be shared
+    def toggle_sidebar() -> None:
+        st.session_state._sb_open = not st.session_state.get('_sb_open', True)
+        st.session_state._sb_rerun = True
+
     # Load CSS
     load_custom_css()
+    # Close button CSS: maximize specificity and exclude from global button rules
+    st.markdown(
+        """
+        <style>
+        section[data-testid="stSidebar"] button[key="sb_close_btn"],
+        section[data-testid="stSidebar"] .sb-close-button-container .stButton > button,
+        section[data-testid="stSidebar"] div.stButton:first-child button,
+        section[data-testid="stSidebar"] > div > div > div > div:first-child button {
+          background-color: #303030 !important;
+          color: #ffffff !important;
+          border: 1px solid #4f4f4f !important;
+          box-shadow: none !important;
+          padding: 4px 8px !important;
+          border-radius: 8px !important;
+          min-width: 0 !important;
+          font-size: 18px !important;
+          margin-bottom: 10px !important;
+        }
+        section[data-testid="stSidebar"] button[key="sb_close_btn"]:hover,
+        section[data-testid="stSidebar"] .sb-close-button-container .stButton > button:hover,
+        section[data-testid="stSidebar"] div.stButton:first-child button:hover,
+        section[data-testid="stSidebar"] > div > div > div > div:first-child button:hover {
+          background-color: #444444 !important;
+          border-color: #555555 !important;
+          color: #ffffff !important;
+          transform: none !important;
+        }
+        /* General button styling for others; exclude the close button by key */
+        .stButton > button:not([key="sb_close_btn"]) {
+          background-color: #009376;
+          color: white;
+          border-radius: 8px;
+          border: none;
+          padding: 10px 24px;
+          font-weight: 600;
+          font-size: 16px;
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
     
     # Consent gate: show only the dialog and stop rendering anything else
     if not st.session_state.get("consent_given", False):
@@ -1849,90 +1901,122 @@ def main():
             elif str(val) == "0":
                 st.session_state._force_sidebar_open = False
 
-        # Apply CSS to force sidebar visible when requested
-        if st.session_state.get('_force_sidebar_open'):
-            st.markdown(
-                """
-<style>
-section[data-testid="stSidebar"]{display:block !important; transform:translateX(0) !important; visibility:visible !important;}
-</style>
-                """,
-                unsafe_allow_html=True,
-            )
+        # Do not force sidebar visibility via CSS; rely on page_config + toggle button
 
-        # Sidebar
-        with st.sidebar:
-            st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
-            st.markdown('<div class="content">', unsafe_allow_html=True)
-            
-            st.title('Multilingual Climate Chatbot')
-            
-            # Language selection and confirmation
-            st.write("**Please choose your preferred language to get started:**")
-            languages = sorted(chatbot.LANGUAGE_NAME_TO_CODE.keys())
-            default_index = languages.index(st.session_state.selected_language)
-            selected_language = st.selectbox(
-                "Select your language",
-                options=languages,
-                index=default_index,
-                help="Choose your preferred language",
-            )
-            # Ensure white text in dark mode for the selectbox label and value
-            st.markdown(
-                """
-<style>
-section[data-testid="stSidebar"] label, section[data-testid="stSidebar"] div[role="combobox"] div[data-testid="stMarkdownContainer"] * {
-  color: #ffffff !important;
-}
-section[data-testid="stSidebar"] div[role="combobox"] span{ color:#000000 !important; }
-/* Keep the dropdown options readable */
-section[data-testid="stSidebar"] div[data-baseweb="select"] div[role="listbox"] * { color:#000000 !important; }
-</style>
-                """,
-                unsafe_allow_html=True,
-            )
-            # One-click confirm: when user clicks Confirm, flip flag and rerun immediately
-            if not st.session_state.language_confirmed:
-                if st.button("Confirm", key="confirm_lang_btn"):
-                    st.session_state.selected_language = selected_language
-                    st.session_state.language_confirmed = True
-                    st.rerun()
-            else:
-                st.session_state.selected_language = selected_language
-            
-            if len(st.session_state.chat_history) == 0:
+        if st.session_state.get('_sb_open', True):
+            with st.sidebar:
+                # Add a close button at the top of the sidebar, wrapped in a unique div
+                st.markdown('<div class="sb-close-button-container">', unsafe_allow_html=True)
+                st.button("⬅️", on_click=toggle_sidebar, key="sb_close_btn", help="Close sidebar")
+                st.markdown('</div>', unsafe_allow_html=True)
+
+                st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
+                st.markdown('<div class="content">', unsafe_allow_html=True)
+                
+                st.title('Multilingual Climate Chatbot')
+                
+                # Language selection and confirmation
+                st.write("**Please choose your preferred language to get started:**")
+                languages = sorted(chatbot.LANGUAGE_NAME_TO_CODE.keys())
+                default_index = languages.index(st.session_state.selected_language)
+                selected_language = st.selectbox(
+                    "Select your language",
+                    options=languages,
+                    index=default_index,
+                    help="Choose your preferred language",
+                )
+                # Ensure white text in dark mode for the selectbox label and value
                 st.markdown(
                     """
-                    <div style="margin-top: 10px;">
-                    <h3 style="color: #009376; font-size: 20px; margin-bottom: 10px;">How It Works</h3>
-                    <ul style="padding-left: 20px; margin-bottom: 20px; font-size: 14px;">
-                        <li style="margin-bottom: 8px;"><b>Choose Language</b>: Select from 200+ options.</li>
-                        <li style="margin-bottom: 8px;"><b>Ask Questions</b>: <i>"What are the local impacts of climate change in Toronto?"</i> or <i>"Why is summer so hot now in Toronto?"</i></li>
-                        <li style="margin-bottom: 8px;"><b>Act</b>: Ask about actionable steps such as <i>"What can I do about flooding in Toronto?"</i> or <i>"How to reduce my carbon footprint?"</i> and receive links to local resources (e.g., city programs, community groups).</li>
-                    </ul>
-                    </div>
+    <style>
+    section[data-testid="stSidebar"] label, section[data-testid="stSidebar"] div[role="combobox"] div[data-testid="stMarkdownContainer"] * {
+      color: #ffffff !important;
+    }
+    section[data-testid="stSidebar"] div[role="combobox"] span{ color:#000000 !important; }
+    /* Keep the dropdown options readable */
+    section[data-testid="stSidebar"] div[data-baseweb="select"] div[role="listbox"] * { color:#000000 !important; }
+    </style>
                     """,
-                    unsafe_allow_html=True
+                    unsafe_allow_html=True,
                 )
-            if len(st.session_state.chat_history) > 0:
-                # Tighten spacing before chat history to avoid large gaps
-                st.markdown('<div style="margin: 8px 0;"></div>', unsafe_allow_html=True)
-                display_chat_history_section()
-            
-            if 'show_faq_popup' not in st.session_state:
-                st.session_state.show_faq_popup = False
-            if st.button("📚 Support & FAQs"):
-                st.session_state.show_faq_popup = True
-            st.markdown('<div class="footer" style="margin-top: 20px; margin-bottom: 20px;">', unsafe_allow_html=True)
-            st.markdown('<div>Made by:</div>', unsafe_allow_html=True)
-            if TREE_ICON:
-                st.image(TREE_ICON, width=40)
-            st.markdown('<div style="font-size: 18px; display:flex; align-items:center; gap:6px;">\
-                <a href="https://crc.place/" target="_blank" title="Climate Resilient Communities">Climate Resilient Communities</a>\
-                <span title="Trademark">™</span>\
-                </div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+                # One-click confirm: when user clicks Confirm, flip flag and rerun immediately
+                if not st.session_state.language_confirmed:
+                    if st.button("Confirm", key="confirm_lang_btn"):
+                        st.session_state.selected_language = selected_language
+                        st.session_state.language_confirmed = True
+                        st.rerun()
+                else:
+                    st.session_state.selected_language = selected_language
+                
+                if len(st.session_state.chat_history) == 0:
+                    st.markdown(
+                        """
+                        <div style="margin-top: 10px;">
+                        <h3 style="color: #009376; font-size: 20px; margin-bottom: 10px;">How It Works</h3>
+                        <ul style="padding-left: 20px; margin-bottom: 20px; font-size: 14px;">
+                            <li style="margin-bottom: 8px;"><b>Choose Language</b>: Select from 200+ options.</li>
+                            <li style="margin-bottom: 8px;"><b>Ask Questions</b>: <i>"What are the local impacts of climate change in Toronto?"</i> or <i>"Why is summer so hot now in Toronto?"</i></li>
+                            <li style="margin-bottom: 8px;"><b>Act</b>: Ask about actionable steps such as <i>"What can I do about flooding in Toronto?"</i> or <i>"How to reduce my carbon footprint?"</i> and receive links to local resources (e.g., city programs, community groups).</li>
+                        </ul>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                if len(st.session_state.chat_history) > 0:
+                    # Tighten spacing before chat history to avoid large gaps
+                    st.markdown('<div style="margin: 8px 0;"></div>', unsafe_allow_html=True)
+                    display_chat_history_section()
+                
+                if 'show_faq_popup' not in st.session_state:
+                    st.session_state.show_faq_popup = False
+                if st.button("📚 Support & FAQs"):
+                    st.session_state.show_faq_popup = True
+                st.markdown('<div class="footer" style="margin-top: 20px; margin-bottom: 20px;">', unsafe_allow_html=True)
+                st.markdown('<div>Made by:</div>', unsafe_allow_html=True)
+                if TREE_ICON:
+                    st.image(TREE_ICON, width=40)
+                st.markdown('<div style="font-size: 18px; display:flex; align-items:center; gap:6px;">\
+                    <a href="https://crc.place/" target="_blank" title="Climate Resilient Communities">Climate Resilient Communities</a>\
+                    <span title="Trademark">™</span>\
+                    </div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+        # Sidebar toggle control in main content area (only shows when sidebar is closed)
+        if not st.session_state.get('_sb_open', True):
+            arrow_icon = "➡️"
+            # Anchor element to uniquely target the very next st.button with CSS
+            st.markdown('<div id="sb-toggle-anchor"></div>', unsafe_allow_html=True)
+            # Subtle, light-grey, fixed-position styling near the top-left; fills on hover
+            st.markdown(
+                """
+                <style>
+                #sb-toggle-anchor + div.stButton {
+                    position: fixed; top: 8px; left: 10px; z-index: 100;
+                }
+                #sb-toggle-anchor + div.stButton > button {
+                    background: transparent !important;
+                    color: #666666 !important;
+                    border: 1px solid #d9d9d9 !important;
+                    border-radius: 8px !important;
+                    padding: 4px 8px !important;
+                    font-size: 14px !important;
+                    min-width: 0 !important;
+                    box-shadow: none !important;
+                }
+                #sb-toggle-anchor + div.stButton > button:hover:not(:disabled) {
+                    background: #e9e9e9 !important;
+                    color: #444444 !important;
+                }
+                #sb-toggle-anchor + div.stButton > button:active:not(:disabled) {
+                    background: #dcdcdc !important;
+                    color: #333333 !important;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )
+            st.button(arrow_icon, key="sb_toggle_btn", help="Toggle sidebar", on_click=toggle_sidebar)
 
         # Header
         if CCC_ICON_B64:
@@ -2317,6 +2401,26 @@ section[data-testid="stSidebar"] div[data-baseweb="select"] div[role="listbox"] 
 
             # Sidebar
             with st.sidebar:
+                # Style the close button to match the sidebar panel color
+                st.markdown('<div id="sb-close-anchor"></div>', unsafe_allow_html=True)
+                st.markdown(
+                    """
+                    <style>
+                    section[data-testid=\"stSidebar\"] #sb-close-anchor + div.stButton > button {
+                        background-color: #303030 !important; /* same as sidebar */
+                        color: #ffffff !important;
+                        border: 1px solid #303030 !important;
+                        border-radius: 8px !important;
+                        padding: 4px 8px !important;
+                        box-shadow: none !important;
+                    }
+                    section[data-testid=\"stSidebar\"] #sb-close-anchor + div.stButton > button:hover {
+                        background-color: #2f2f2f !important; /* subtle hover */
+                    }
+                    </style>
+                    """,
+                    unsafe_allow_html=True,
+                )
                 st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
                 st.markdown('<div class="content">', unsafe_allow_html=True)
 
@@ -2347,17 +2451,17 @@ section[data-testid="stSidebar"] div[data-baseweb="select"] div[role="listbox"] 
                     # Remove the green banner from sidebar - it will only be in main content area
                     st.markdown(
                         """
-                        <div style="margin-top: 10px;">
-                        <h3 style="color: #009376; font-size: 20px; margin-bottom: 10px;">How It Works</h3>
+                        <div style=\"margin-top: 10px;\"> 
+                        <h3 style=\"color: #009376; font-size: 20px; margin-bottom: 10px;\">How It Works</h3>
 
-                        <ul style="padding-left: 20px; margin-bottom: 20px; font-size: 14px;">
-                            <li style="margin-bottom: 8px;"><b>Choose Language</b>: Select from 200+ options.</li>
-                            <li style="margin-bottom: 8px;"><b>Ask Questions</b>: <i>"What are the local impacts of climate change in Toronto?"</i> or <i>"Why is summer so hot now in Toronto?"</i></li>
-                            <li style="margin-bottom: 8px;"><b>Act</b>: Ask about actionable steps such as <i>"What can I do about flooding in Toronto?"</i> or <i>"How to reduce my carbon footprint?"</i> and receive links to local resources (e.g., city programs, community groups).</li>
-                    </ul>
-                    </div>
-                    """,
-                        unsafe_allow_html=True
+                        <ul style=\"padding-left: 20px; margin-bottom: 20px; font-size: 14px;\">
+                            <li style=\"margin-bottom: 8px;\"><b>Choose Language</b>: Select from 200+ options.</li>
+                            <li style=\"margin-bottom: 8px;\"><b>Ask Questions</b>: <i>\"What are the local impacts of climate change in Toronto?\"</i> or <i>\"Why is summer so hot now in Toronto?\"</i></li>
+                            <li style=\"margin-bottom: 8px;\"><b>Act</b>: Ask about actionable steps such as <i>\"What can I do about flooding in Toronto?\"</i> or <i>\"How to reduce my carbon footprint?\"</i> and receive links to local resources (e.g., city programs, community groups).</li>
+                        </ul>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
                     )
 
                 # FIXED: Show chat history if there are any messages
@@ -2365,7 +2469,7 @@ section[data-testid="stSidebar"] div[data-baseweb="select"] div[role="listbox"] 
                     # This is the Chat History section that appears after asking questions
                     st.markdown("---")
                     display_chat_history_section()
-                
+
                 # Support and FAQs section with popup behavior
                 if 'show_faq_popup' not in st.session_state:
                     st.session_state.show_faq_popup = False
@@ -2382,8 +2486,6 @@ section[data-testid="stSidebar"] div[data-baseweb="select"] div[role="listbox"] 
                     <a href="https://crc.place/" target="_blank" title="Climate Resilient Communities">Climate Resilient Communities</a>\
                     <span title="Trademark">™</span>\
                     </div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-                
                 st.markdown('</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
