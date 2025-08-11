@@ -349,6 +349,14 @@ ACTUAL DETECTED LANGUAGE: [You must detect this from the user query, considering
             cls = "on-topic"
     except Exception:
         pass
+    # Final guard using the model's English rewrite (post-translation) if available
+    try:
+        if cls == "off-topic":
+            rewritten_en = (data.get("rewrite_en") or "").strip()
+            if rewritten_en and _looks_climate_any(rewritten_en):
+                cls = "on-topic"
+    except Exception:
+        pass
 
     # Extract actual detected language from model output
     detected_lang = (data.get("language") or "").lower()
