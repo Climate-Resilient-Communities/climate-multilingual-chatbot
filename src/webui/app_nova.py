@@ -368,7 +368,7 @@ else:
 
 if st.session_state.get("_sb_rerun", False):
     st.set_page_config(
-        layout="wide",
+        layout="wide", 
         page_title="Multilingual Climate Chatbot",
         page_icon=calculated_favicon,
         initial_sidebar_state=SIDEBAR_STATE[not st.session_state._sb_open],

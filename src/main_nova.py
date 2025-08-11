@@ -220,6 +220,18 @@ class MultilingualClimateChatbot:
         try:
             self.pipeline = ClimateQueryPipeline(index_name=index_name)
             logger.info("✓ ClimateQueryPipeline initialized")
+            # One-time prewarm to reduce first-query latency
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # Schedule and wait briefly in running loop
+                    logger.info("Scheduling pipeline.prewarm() in running loop")
+                    loop.create_task(self.pipeline.prewarm())
+                else:
+                    logger.info("Running pipeline.prewarm() before serving")
+                    loop.run_until_complete(self.pipeline.prewarm())
+            except Exception as e:
+                logger.warning(f"Prewarm skipped: {e}")
         except Exception as e:
             logger.error(f"Failed to initialize ClimateQueryPipeline: {str(e)}")
             # Fall back to individual components (without legacy BERT)
@@ -1011,6 +1023,14 @@ class MultilingualClimateChatbot:
             except Exception as e:
                 cleanup_errors.append(f"Cleanup tasks error: {str(e)}")
                 logger.error(f"Error in cleanup tasks: {str(e)}")
+
+        # Close Bedrock async client if present
+        try:
+            if hasattr(self, 'nova_model') and self.nova_model and hasattr(self.nova_model, 'close'):
+                await self.nova_model.close()
+        except Exception as e:
+            cleanup_errors.append(f"Bedrock close error: {str(e)}")
+            logger.error(f"Error closing Bedrock async client: {str(e)}")
 
         # Reset instance variables
         self.redis_client = None
