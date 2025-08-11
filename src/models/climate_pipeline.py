@@ -81,6 +81,19 @@ class ClimateQueryPipeline:
             if self.embed_model is None:
                 self.embed_model = self._initialize_embedding_model()
             logger.info(f"Prewarm: embeddings ready in {time.time() - t0:.2f}s")
+            
+            # Force the BGE-M3 model to fully initialize (fixes 6-second cold start)
+            logger.info("Prewarming embed model...")
+            dummy_text = "This is a prewarm query to initialize the model"
+            start_prewarm = time.time()
+            _ = self.embed_model.encode([dummy_text])
+            logger.info(f"Prewarm encode took {(time.time()-start_prewarm)*1000:.0f}ms")
+            
+            # Do it twice to ensure everything is cached
+            start_second = time.time()
+            _ = self.embed_model.encode([dummy_text])
+            logger.info(f"Second prewarm took {(time.time()-start_second)*1000:.0f}ms")
+            
             # Pinecone index
             t1 = time.time()
             if self.index is None:
