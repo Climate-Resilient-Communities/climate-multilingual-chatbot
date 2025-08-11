@@ -1925,6 +1925,54 @@ def main():
                     index=default_index,
                     help="Choose your preferred language",
                 )
+                # Simplest visibility fix: make the select control background white in the dark sidebar
+                st.markdown('<style>section[data-testid="stSidebar"] .stSelectbox > div > div {background: white !important;}</style>', unsafe_allow_html=True)
+                # Robust selectbox visibility fix for dark sidebar
+                st.markdown(
+                    """
+                    <style>
+                    /* Fix language selectbox visibility in dark sidebar */
+                    section[data-testid="stSidebar"] div[data-baseweb="select"] {
+                        background-color: #ffffff !important;  /* White background for the dropdown */
+                        border-radius: 8px !important;
+                        border: 1px solid #cccccc !important;
+                    }
+                    
+                    /* Make sure the text inside is black and visible on white background */
+                    section[data-testid="stSidebar"] div[data-baseweb="select"] > div {
+                        background-color: #ffffff !important;  /* Ensure white background for inner div */
+                    }
+                    
+                    section[data-testid="stSidebar"] div[data-baseweb="select"] span {
+                        color: #000000 !important;  /* Black text */
+                    }
+                    
+                    section[data-testid="stSidebar"] div[data-baseweb="select"] input {
+                        color: #000000 !important;  /* Black text for input */
+                        background-color: #ffffff !important;  /* White background */
+                    }
+                    
+                    section[data-testid="stSidebar"] div[data-baseweb="select"] svg {
+                        fill: #000000 !important;  /* Black arrow */
+                    }
+                    
+                    /* Dropdown menu items */
+                    div[data-baseweb="popover"] ul[role="listbox"] {
+                        background-color: #ffffff !important;
+                    }
+                    
+                    div[data-baseweb="popover"] ul[role="listbox"] li {
+                        color: #000000 !important;
+                        background-color: #ffffff !important;
+                    }
+                    
+                    div[data-baseweb="popover"] ul[role="listbox"] li:hover {
+                        background-color: #f0f0f0 !important;
+                    }
+                    </style>
+                    """,
+                    unsafe_allow_html=True,
+                )
                 # Ensure white text in dark mode for the selectbox label and value
                 st.markdown(
                     """
