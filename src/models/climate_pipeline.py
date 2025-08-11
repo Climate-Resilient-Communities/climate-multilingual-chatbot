@@ -322,8 +322,8 @@ class ClimateQueryPipeline:
             except Exception:
                 pass
             
-            # Check for language mismatch early
-            if route_result.get('routing_info', {}).get('language_mismatch'):
+            # Check for language mismatch early: do not block English; only warn for non-English
+            if route_result.get('routing_info', {}).get('language_mismatch') and language_code != 'en':
                 detected_lang = route_result['routing_info'].get('detected_language', 'unknown')
                 lang_code_to_name = {
                     'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
@@ -338,12 +338,10 @@ class ClimateQueryPipeline:
                     'sl': 'Slovenian', 'et': 'Estonian', 'lv': 'Latvian', 'lt': 'Lithuanian'
                 }
                 detected_name = lang_code_to_name.get(detected_lang, detected_lang.upper())
-                # Show mismatch message immediately
-                return self._create_error_response(
-                    "Whoops! You wrote in a different language than the one you selected. Please choose the language you want me to respond in on the side panel so I can ensure the best translation for you!",
-                    language_code,
-                    time.time() - start_time
-                )
+                selected_name = lang_code_to_name.get(language_code, language_code.upper())
+                logger.warning(f"Router language mismatch: query is in {detected_name} but {selected_name} was selected")
+                # Soft warning only; proceed with processing
+                logger.info("Proceeding despite router mismatch (soft warning only)")
             
             if not route_result['should_proceed']:
                 return self._create_error_response(
@@ -483,8 +481,8 @@ class ClimateQueryPipeline:
                     except Exception:
                         pass
 
-                    # Handle language mismatch
-                    if language_match_result == 'no' or (detected_lang != 'unknown' and detected_lang != language_code):
+                    # Handle language mismatch: do not block English; only warn for non-English
+                    if language_code != 'en' and (language_match_result == 'no' or (detected_lang != 'unknown' and detected_lang != language_code)):
                         lang_code_to_name = {
                             'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
                             'it': 'Italian', 'pt': 'Portuguese', 'nl': 'Dutch', 'ru': 'Russian',
@@ -502,11 +500,8 @@ class ClimateQueryPipeline:
                         logger.warning(
                             f"Language mismatch detected by query rewriter: query is in {detected_name} but {selected_name} was selected"
                         )
-                        return self._create_error_response(
-                            "Whoops! You wrote in a different language than the one you selected. Please choose the language you want me to respond in on the side panel so I can ensure the best translation for you!",
-                            language_code,
-                            time.time() - start_time
-                        )
+                        # Soft warning only; proceed with processing
+                        logger.info("Proceeding despite mismatch (soft warning only)")
 
                     # Short-circuit canned (translate to selected language if needed)
                     if canned_enabled and canned_text:
@@ -531,13 +526,8 @@ class ClimateQueryPipeline:
                             "fallback_reason": "canned_intent",
                         }
 
-                    # Off-topic / harmful
-                    if classification == 'off-topic':
-                        return self._create_error_response(
-                            "I'm a climate change assistant and can only help with questions about climate, environment, and sustainability.",
-                            language_code,
-                            time.time() - start_time
-                        )
+                    # Only hard-block harmful. Off-topic proceeds to retrieval/generation,
+                    # which will naturally produce climate-specific guidance or ask to rephrase.
                     if classification == 'harmful':
                         return self._create_error_response(
                             "I can't assist with that request. Please ask me questions about climate change, environmental issues, or sustainability.",
@@ -558,7 +548,11 @@ class ClimateQueryPipeline:
                     lang_match = re.search(r"Language:\s*([a-z]{2}|unknown)", text, re.IGNORECASE)
                     cls_match = re.search(r"Classification:\s*(on-topic|off-topic|harmful)", text, re.IGNORECASE)
                     match_match = re.search(r"LanguageMatch:\s*(yes|no)", text, re.IGNORECASE)
-                    rew_match = re.search(r"Rewritten:\s*(.+)", text, re.IGNORECASE)
+                    rew_match = None
+                    try:
+                        rew_match = re.search(r"Rewritten:\s*(.+)", text, re.IGNORECASE)
+                    except Exception:
+                        rew_match = None
                     detected_lang = (lang_match.group(1).lower() if lang_match else 'unknown')
                     classification = (cls_match.group(1).lower() if cls_match else 'off-topic')
                     language_match_result = (match_match.group(1).lower() if match_match else 'unknown')
@@ -567,7 +561,10 @@ class ClimateQueryPipeline:
                     )
 
                 # Check for language mismatch based on query rewriter analysis
-                if language_match_result == 'no' or (detected_lang != 'unknown' and detected_lang != language_code):
+                # Do NOT block English queries on mismatch. Only warn for non-English when high-confidence.
+                if language_code != 'en' and (
+                    language_match_result == 'no' or (detected_lang != 'unknown' and detected_lang != language_code)
+                ):
                     lang_code_to_name = {
                         'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
                         'it': 'Italian', 'pt': 'Portuguese', 'nl': 'Dutch', 'ru': 'Russian',
@@ -584,18 +581,10 @@ class ClimateQueryPipeline:
                     selected_name = lang_code_to_name.get(language_code, language_code.upper())
                     
                     logger.warning(f"Language mismatch detected by query rewriter: query is in {detected_name} but {selected_name} was selected")
-                    return self._create_error_response(
-                        "Whoops! You wrote in a different language than the one you selected. Please choose the language you want me to respond in on the side panel so I can ensure the best translation for you!",
-                        language_code,
-                        time.time() - start_time
-                    )
+                    # Soft warning only; proceed with processing
+                    logger.info("Proceeding despite mismatch (soft warning only)")
 
-                if classification == 'off-topic':
-                    return self._create_error_response(
-                        "I'm a climate change assistant and can only help with questions about climate, environment, and sustainability.",
-                        language_code,
-                        time.time() - start_time
-                    )
+                # Only hard-block harmful
                 if classification == 'harmful':
                     return self._create_error_response(
                         "I can't assist with that request. Please ask me questions about climate change, environmental issues, or sustainability.",
@@ -940,6 +929,27 @@ class ClimateQueryPipeline:
         """Cleanup resources."""
         cleanup_errors = []
         
+        # Close Nova model (BedrockModel) async client
+        if hasattr(self, 'nova_model') and self.nova_model:
+            try:
+                await self.nova_model.close()
+                logger.info("✓ Nova model client closed")
+            except Exception as e:
+                cleanup_errors.append(f"Nova model cleanup error: {str(e)}")
+                logger.error(f"Error closing Nova model: {str(e)}")
+        
+        # Close Cohere client connections (if it has async connections)
+        if hasattr(self, 'cohere_client') and self.cohere_client:
+            try:
+                # Cohere client is synchronous, but we can still set it to None
+                if hasattr(self.cohere_client, 'close'):
+                    await self.cohere_client.close()
+                self.cohere_client = None
+                logger.info("✓ Cohere client closed")
+            except Exception as e:
+                cleanup_errors.append(f"Cohere client cleanup error: {str(e)}")
+                logger.error(f"Error closing Cohere client: {str(e)}")
+        
         # Close Redis connection
         if self.redis_client and not getattr(self.redis_client, '_closed', False):
             try:
@@ -948,6 +958,7 @@ class ClimateQueryPipeline:
                     await cache.close()
                 elif hasattr(self.redis_client, 'close'):
                     self.redis_client.close()
+                logger.info("✓ Redis client closed")
             except Exception as e:
                 cleanup_errors.append(f"Redis cleanup error: {str(e)}")
                 logger.error(f"Error closing Redis connection: {str(e)}")

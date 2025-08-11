@@ -39,6 +39,7 @@ azure-storage-blob = "^12.26.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0"
+pytest-asyncio = "^0.23.7"
 black = "^24.2"
 isort = "^5.13"
 flake8 = "^7.0"

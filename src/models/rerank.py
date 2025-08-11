@@ -1,6 +1,9 @@
 import logging
 from typing import List, Dict
 import cohere
+import asyncio
+import time
+from typing import Optional
 from src.utils.env_loader import load_environment
 
 # Configure logging
@@ -43,6 +46,14 @@ def prepare_docs_for_rerank(docs_to_rerank: List[Dict]) -> List[Dict]:
             
     return prepared_docs
 
+MAX_CHARS = 1500  # clip per doc to control payload size (~300-400 tokens)
+
+def _clip_text(text: str, limit: int = MAX_CHARS) -> str:
+    try:
+        return (text or "")[: int(limit)]
+    except Exception:
+        return text or ""
+
 def rerank_fcn(query: str, docs_to_rerank: List[Dict], top_k: int, cohere_client) -> List[Dict]:
     """
     Rerank documents using Cohere's rerank endpoint.
@@ -66,28 +77,48 @@ def rerank_fcn(query: str, docs_to_rerank: List[Dict], top_k: int, cohere_client
         if docs_to_rerank:
             logger.debug(f"Sample document structure: {docs_to_rerank[0]}")
             
-        # Extract document texts
-        docs = [doc.get('content', '') for doc in docs_to_rerank]
+        # Extract and clip document texts
+        docs = [_clip_text(doc.get('content', '')) for doc in docs_to_rerank]
+        total_chars = sum(len(d or "") for d in docs)
+        logger.info(f"dep=cohere_rerank payload_chars={total_chars} n_docs={len(docs)}")
         
-        # Call Cohere rerank
-        rerank_results = cohere_client.rerank(
-            query=query,
-            documents=docs,
-            top_n=top_k,
-            model="rerank-english-v3.0"
-        )
+        # Call Cohere rerank with hard timeout and timing
+        t0 = time.perf_counter()
+        rerank_results = None
+        try:
+            # Cohere SDK is sync; run it in a thread and enforce timeout using wait_for on the outer future
+            async def _call():
+                loop = asyncio.get_event_loop()
+                return await loop.run_in_executor(
+                    None,
+                    lambda: cohere_client.rerank(
+                        query=query,
+                        documents=docs,
+                        top_n=top_k,
+                        model="rerank-english-v3.0",
+                        return_documents=True,
+                    ),
+                )
+
+            rerank_results = asyncio.run(asyncio.wait_for(_call(), timeout=10))
+            ms = (time.perf_counter() - t0) * 1000
+            logger.info(f"dep=cohere_rerank host=api.cohere.com op=rerank ms={ms:.1f} status=OK")
+        except Exception as e:
+            ms = (time.perf_counter() - t0) * 1000
+            logger.warning(f"dep=cohere_rerank host=api.cohere.com op=rerank ms={ms:.1f} status=FALLBACK err={type(e).__name__}: {e}")
+            rerank_results = None
         
         # Process results
         reranked_docs = []
-        for result in rerank_results.results:
-            # Get original document
-            original_doc = docs_to_rerank[result.index]
-            
-            # Create reranked document with original metadata and new score
-            reranked_doc = {**original_doc}  # Copy original doc
-            reranked_doc['score'] = result.relevance_score
-            
-            reranked_docs.append(reranked_doc)
+        if rerank_results and getattr(rerank_results, 'results', None):
+            for result in rerank_results.results:
+                original_doc = docs_to_rerank[result.index]
+                reranked_doc = {**original_doc}
+                reranked_doc['score'] = result.relevance_score
+                reranked_docs.append(reranked_doc)
+        else:
+            # Graceful fallback: keep Pinecone order
+            return docs_to_rerank[:top_k] if docs_to_rerank else []
             
         return reranked_docs
             

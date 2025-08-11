@@ -1012,6 +1012,14 @@ class MultilingualClimateChatbot:
                 cleanup_errors.append(f"Cleanup tasks error: {str(e)}")
                 logger.error(f"Error in cleanup tasks: {str(e)}")
 
+        # Close Bedrock async client if present
+        try:
+            if hasattr(self, 'nova_model') and self.nova_model and hasattr(self.nova_model, 'close'):
+                await self.nova_model.close()
+        except Exception as e:
+            cleanup_errors.append(f"Bedrock close error: {str(e)}")
+            logger.error(f"Error closing Bedrock async client: {str(e)}")
+
         # Reset instance variables
         self.redis_client = None
         self.response_cache = {}
