@@ -149,6 +149,8 @@ def get_hybrid_results(index, query: str, embed_model, alpha: float, top_k: int,
 
 def issue_sparse_query(index, sparse_embedding: Dict, top_k: int, metadata_filter: Optional[Dict] = None):
     """Execute sparse-only (BM25-like) search on Pinecone index."""
+    # Some indexes are dense-only; when they reject sparse-only queries,
+    # include a tiny zero dense vector to satisfy schema.
     kwargs = {
         'sparse_vector': sparse_embedding,
         'top_k': int(top_k),
@@ -156,8 +158,18 @@ def issue_sparse_query(index, sparse_embedding: Dict, top_k: int, metadata_filte
     }
     if metadata_filter:
         kwargs['filter'] = metadata_filter
-    result = index.query(**kwargs)
-    return result
+    try:
+        return index.query(**kwargs)
+    except Exception as e:
+        # Fallback: add a tiny zero dense vector with expected dimension if available
+        try:
+            dim = getattr(index.describe_index_stats(), 'dimension', None)
+        except Exception:
+            dim = None
+        if dim and isinstance(dim, int) and dim > 0:
+            kwargs['vector'] = [0.0] * dim
+            return index.query(**kwargs)
+        raise
 
 
 def get_sparse_results(index, query: str, embed_model, top_k: int, metadata_filter: Optional[Dict] = None):
