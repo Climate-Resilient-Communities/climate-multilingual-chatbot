@@ -25,6 +25,17 @@ class MultilingualClimateChatbot:
         # Initialize the new pipeline
         self.pipeline = ClimateQueryPipeline(index_name=index_name)
         logger.info("✓ MultilingualClimateChatbot initialized with new pipeline")
+        # One-time prewarm to reduce first-query latency
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                logger.info("Scheduling pipeline.prewarm() in running loop (legacy wrapper)")
+                loop.create_task(self.pipeline.prewarm())
+            else:
+                logger.info("Running pipeline.prewarm() before serving (legacy wrapper)")
+                loop.run_until_complete(self.pipeline.prewarm())
+        except Exception as e:
+            logger.warning(f"Prewarm skipped (legacy wrapper): {e}")
 
     async def cleanup(self) -> None:
         """Cleanup resources."""

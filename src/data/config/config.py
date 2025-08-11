@@ -28,19 +28,20 @@ RETRIEVAL_CONFIG = {
     "top_k_retrieve": 15,           # legacy top-k before rerank (kept for compatibility)
     "top_k_rerank": 5,              # cross-encoder final cap
     "hybrid_alpha": 0.5,            # dense/sparse fusion weight
-    "overfetch": 12,                # initial vector overfetch before gating (reduced for latency)
+    # Overfetch controls: balance latency vs recall
+    "overfetch": 10,                # smaller initial vector overfetch for interactive UX
     # Similarity gating
     "similarity_base": 0.65,
     "similarity_fallback": 0.55,
     "adaptive_margin": 0.10,
     "min_kept": 3,
     # Refill
-    "refill_enabled": False,        # avoid second round-trip on server
-    "refill_overfetch": 6,
+    "refill_enabled": False,        # keep off for interactivity; can flip on for batch
+    "refill_overfetch": 6,          # stays modest if enabled
     # MMR diversification
     "mmr_enabled": True,
     "mmr_lambda": 0.30,
-    "mmr_overfetch": 8,
+    "mmr_overfetch": 8,             # keep tight to limit extra embeddings
     # Optional quality gates (None disables the filter)
     "min_pinecone_score": None,     # e.g., 0.30 for cosine metric; confirm index metric first
     "min_rerank_score": 0.70,       # tuned via calibration; drop very weak contexts
