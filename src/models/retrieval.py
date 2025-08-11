@@ -90,6 +90,10 @@ def get_query_embeddings(query: str, embed_model) -> tuple:
     
     To potentially reduce the warning frequency, we ensure optimal input format.
     """
+    import time
+    t_start = time.perf_counter()
+    logger.info(f"Query embedding IN: query_len={len(query)} chars, query_repr='{query[:100]}...'")
+    
     # Suppress XLMRobertaTokenizerFast warnings during embedding
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)
@@ -97,22 +101,64 @@ def get_query_embeddings(query: str, embed_model) -> tuple:
         warnings.filterwarnings("ignore", message=".*fast tokenizer.*")
         
         # Ensure query is properly formatted for optimal tokenization
-        if isinstance(query, str) and query.strip():
-            # Use list format which is more efficient for batch processing
-            embeddings = embed_model.encode(
-                [query.strip()], 
-                return_dense=True, 
-                return_sparse=True, 
-                return_colbert_vecs=False
-            )
-        else:
-            # Fallback for edge cases
-            embeddings = embed_model.encode(
-                [query] if isinstance(query, str) else query,
-                return_dense=True, 
-                return_sparse=True, 
-                return_colbert_vecs=False
-            )
+        # Try multiple approaches to handle the array ambiguity bug in BGE-M3
+        embeddings = None
+        last_error = None
+        
+        try:
+            if isinstance(query, str) and query.strip():
+                # Use list format which is more efficient for batch processing
+                embeddings = embed_model.encode(
+                    [query.strip()], 
+                    return_dense=True, 
+                    return_sparse=True, 
+                    return_colbert_vecs=False
+                )
+            else:
+                # Fallback for edge cases
+                embeddings = embed_model.encode(
+                    [query] if isinstance(query, str) else query,
+                    return_dense=True, 
+                    return_sparse=True, 
+                    return_colbert_vecs=False
+                )
+        except Exception as e:
+            last_error = e
+            logger.warning(f"BGE-M3 encoding failed: {str(e)[:100]}")
+            if "ambiguous" in str(e).lower():
+                logger.warning(f"Detected array ambiguity error, attempting fallback encoding")
+                # Try with different parameters as workaround
+                try:
+                    embeddings = embed_model.encode(
+                        [str(query).strip()],  # Force string conversion
+                        return_dense=True, 
+                        return_sparse=False,  # Disable sparse to avoid the bug
+                        return_colbert_vecs=False
+                    )
+                    # Create empty sparse embeddings as fallback
+                    if 'lexical_weights' not in embeddings:
+                        embeddings['lexical_weights'] = [{}]
+                    logger.info("Successfully used sparse-disabled fallback for BGE-M3")
+                except Exception as e2:
+                    logger.error(f"Both encoding attempts failed: {str(e)} -> {str(e2)}")
+                    raise last_error
+            else:
+                raise
+    
+    elapsed_ms = int((time.perf_counter() - t_start) * 1000)
+    
+    # Safe extraction of dimensions without triggering array boolean evaluation
+    dense_vecs = embeddings.get('dense_vecs')
+    dense_dim = len(dense_vecs[0]) if dense_vecs is not None and len(dense_vecs) > 0 else 0
+    
+    # Fix lexical_weights access - it's a list of dicts, not dicts with 'indices'
+    lw = embeddings.get('lexical_weights')
+    if isinstance(lw, list) and lw and isinstance(lw[0], dict):
+        sparse_tokens = len(lw[0])  # number of token ids in the first query
+    else:
+        sparse_tokens = 0
+        
+    logger.info(f"dep=query_embed op=encode ms={elapsed_ms} dense_dim={dense_dim} sparse_tokens={sparse_tokens}")
     
     query_dense_embeddings = embeddings['dense_vecs']
     query_sparse_embeddings_lst = embeddings['lexical_weights']
@@ -188,8 +234,13 @@ def issue_hybrid_query(index, sparse_embedding: Dict, dense_embedding: List[floa
 
 def get_hybrid_results(index, query: str, embed_model, alpha: float, top_k: int, metadata_filter: Optional[Dict] = None):
     """Get hybrid search results."""
+    import time
+    t_total = time.perf_counter()
+    
     query_dense_embeddings, query_sparse_embeddings = get_query_embeddings(query, embed_model)
-    return issue_hybrid_query(
+    
+    t_query = time.perf_counter()
+    result = issue_hybrid_query(
         index, 
         query_sparse_embeddings[0], 
         query_dense_embeddings[0], 
@@ -197,6 +248,12 @@ def get_hybrid_results(index, query: str, embed_model, alpha: float, top_k: int,
         top_k,
         metadata_filter=metadata_filter,
     )
+    
+    query_ms = int((time.perf_counter() - t_query) * 1000)
+    total_ms = int((time.perf_counter() - t_total) * 1000)
+    logger.info(f"dep=hybrid_search embed_ms={total_ms - query_ms} query_ms={query_ms} total_ms={total_ms}")
+    
+    return result
 
 
 def issue_sparse_query(index, sparse_embedding: Dict, top_k: int, metadata_filter: Optional[Dict] = None):
@@ -377,8 +434,11 @@ def _dedup_by_title_url(docs: List[Dict]) -> List[Dict]:
 
 
 def _cosine_sim_np(a: np.ndarray, b: np.ndarray) -> float:
-    denom = (np.linalg.norm(a) * np.linalg.norm(b))
-    if denom == 0:
+    norm_a = np.linalg.norm(a)
+    norm_b = np.linalg.norm(b)
+    denom = norm_a * norm_b
+    # Use np.isclose for safer zero comparison with floats
+    if np.isclose(denom, 0.0):
         return 0.0
     return float(np.dot(a, b) / denom)
 
@@ -640,28 +700,43 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
                     to_embed_indices.append(i)
             if to_embed_indices:
                 texts = [(mmr_pool[i].get('content') or '') for i in to_embed_indices]
-                emb_out = embed_model.encode(texts, return_dense=True, return_sparse=False, return_colbert_vecs=False)
-                dense_list = emb_out['dense_vecs']
-                for idx, vec in zip(to_embed_indices, dense_list):
-                    doc_vecs_list[idx] = vec
-                    k = mmr_pool[idx].get('segment_id') or mmr_pool[idx].get('id')
-                    if not k:
-                        try:
-                            k = hashlib.sha1((mmr_pool[idx].get('content') or '').encode('utf-8')).hexdigest()
-                        except Exception:
-                            k = None
-                    _EMB_CACHE.put(k, vec)
-            doc_vecs = np.array(doc_vecs_list, dtype=float)
-            # Query embedding (dense)
-            t_q = time.perf_counter()
-            q_dense, _ = get_query_embeddings(query, embed_model)
-            mmr_ms = int((time.perf_counter() - t_mmr) * 1000)
-            logger.info(
-                f"dep=mmr_embed used_index={used_index} used_cache={used_cache} embedded={len(to_embed_indices)} ms={mmr_ms} n_docs={len(mmr_pool)} q_embed_ms={int((time.perf_counter()-t_q)*1000)}"
-            )
-            q_vec = np.array(q_dense[0], dtype=float)
-            sel_idx = _mmr_select_indices(q_vec, doc_vecs, float(mmr_lambda), int(max_before_rerank))
-            pool = [mmr_pool[i] for i in sel_idx]
+                try:
+                    emb_out = embed_model.encode(texts, return_dense=True, return_sparse=False, return_colbert_vecs=False)
+                    dense_list = emb_out['dense_vecs']
+                    for idx, vec in zip(to_embed_indices, dense_list):
+                        doc_vecs_list[idx] = vec
+                        k = mmr_pool[idx].get('segment_id') or mmr_pool[idx].get('id')
+                        if not k:
+                            try:
+                                k = hashlib.sha1((mmr_pool[idx].get('content') or '').encode('utf-8')).hexdigest()
+                            except Exception:
+                                k = None
+                        _EMB_CACHE.put(k, vec)
+                except Exception as e:
+                    logger.warning(f"MMR document embedding failed (will skip these docs): {str(e)[:120]}")
+                    # Leave corresponding doc_vecs_list entries as None - they'll be filtered out
+            # Filter out None values before creating numpy array
+            valid_vecs = [v for v in doc_vecs_list if v is not None]
+            if not valid_vecs:
+                logger.warning(f"MMR: No valid vectors found for {len(mmr_pool)} documents, skipping MMR")
+                pool = mmr_pool[:int(max_before_rerank)]
+            else:
+                doc_vecs = np.array(valid_vecs, dtype=float)
+                # Map back to original pool indices for valid vectors only
+                valid_indices = [i for i, v in enumerate(doc_vecs_list) if v is not None]
+                mmr_pool_valid = [mmr_pool[i] for i in valid_indices]
+                # Query embedding (dense)
+                t_q = time.perf_counter()
+                q_dense, _ = get_query_embeddings(query, embed_model)
+                q_embed_ms = int((time.perf_counter()-t_q)*1000)
+                mmr_ms = int((time.perf_counter() - t_mmr) * 1000)
+                logger.info(
+                    f"dep=mmr_embed used_index={used_index} used_cache={used_cache} embedded={len(to_embed_indices)} ms={mmr_ms} n_docs={len(mmr_pool)} valid_vecs={len(valid_vecs)} q_embed_ms={q_embed_ms}"
+                )
+                q_vec = np.array(q_dense[0], dtype=float)
+                sel_idx = _mmr_select_indices(q_vec, doc_vecs, float(mmr_lambda), int(max_before_rerank))
+                # Map selected indices back to original mmr_pool
+                pool = [mmr_pool_valid[i] for i in sel_idx]
 
         # Trim pool size before rerank to reduce latency
         pre_final = pool[:max_before_rerank]
