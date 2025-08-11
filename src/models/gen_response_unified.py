@@ -1,6 +1,7 @@
 import os
 import logging
 import json
+import asyncio
 from typing import List, Dict, Tuple, Any, Optional, Union
 from src.models.nova_flow import BedrockModel
 from src.models.cohere_flow import CohereModel
@@ -243,14 +244,22 @@ class UnifiedResponseGenerator:
                     
                     # Use the appropriate model for relevance scoring
                     if model_type == 'nova':
-                        relevance_result = await model.content_generation(
-                            prompt=context_prompt,
-                            system_message="Rate the relevance of conversation turns to the current query"
+                        # Add timeout protection to prevent 5+ minute hangs
+                        relevance_result = await asyncio.wait_for(
+                            model.content_generation(
+                                prompt=context_prompt,
+                                system_message="Rate the relevance of conversation turns to the current query"
+                            ),
+                            timeout=10.0  # 10 seconds should be enough for relevance scoring
                         )
                     else:  # cohere
-                        relevance_result = await model.generate(
-                            prompt=context_prompt,
-                            system_message="Rate the relevance of conversation turns to the current query"
+                        # Add timeout protection to prevent 5+ minute hangs
+                        relevance_result = await asyncio.wait_for(
+                            model.generate(
+                                prompt=context_prompt,
+                                system_message="Rate the relevance of conversation turns to the current query"
+                            ),
+                            timeout=10.0  # 10 seconds should be enough for relevance scoring
                         )
                     
                     # Process relevance scores (same logic as before)
@@ -288,20 +297,28 @@ class UnifiedResponseGenerator:
                 except Exception as ctx_err:
                     logger.warning(f"Error optimizing conversation context: {str(ctx_err)}")
             
-            # Generate response using the appropriate model
+            # Generate response using the appropriate model with timeout protection
             if model_type == 'nova':
-                response = await model.generate_response(
-                    query=query,
-                    documents=processed_docs,
-                    description=description,
-                    conversation_history=conversation_history
+                # Add timeout protection to prevent 5+ minute hangs
+                response = await asyncio.wait_for(
+                    model.generate_response(
+                        query=query,
+                        documents=processed_docs,
+                        description=description,
+                        conversation_history=conversation_history
+                    ),
+                    timeout=30.0  # 30 seconds for main response generation
                 )
             else:  # cohere
-                response = await model.generate_response(
-                    query=query,
-                    documents=processed_docs,
-                    description=description,
-                    conversation_history=conversation_history
+                # Add timeout protection to prevent 5+ minute hangs
+                response = await asyncio.wait_for(
+                    model.generate_response(
+                        query=query,
+                        documents=processed_docs,
+                        description=description,
+                        conversation_history=conversation_history
+                    ),
+                    timeout=30.0  # 30 seconds for main response generation
                 )
             
             # Extract citations (unified format)
