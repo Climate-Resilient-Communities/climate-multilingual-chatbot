@@ -69,7 +69,15 @@ class BedrockModel:
                 contentType="application/json",
             )
             elapsed_ms = int((time.time() - start) * 1000)
-            logger.info(f"dep=bedrock host={host} op=invoke_model ms={elapsed_ms} status=OK")
+            # Try to log AWS request id if available
+            req_id = None
+            try:
+                req_id = response.get('ResponseMetadata', {}).get('RequestId')
+            except Exception:
+                pass
+            logger.info(
+                f"dep=bedrock host={host} op=invoke_model ms={elapsed_ms} status=OK request_id={req_id}".rstrip()
+            )
             # boto3 returns 'body' as StreamingBody
             body_bytes = response["body"].read()
             return json.loads(body_bytes)
@@ -271,7 +279,7 @@ Answer with ONLY the classification result, no explanations or additional text."
             )
             zh_rules = (
                 "If the target language is Chinese, use standard climate-science terms from the China Meteorological Administration and IPCC: "
-                "use ‘全球气候变化’ when referring to the global phenomenon, ‘气候变化缓解’ for mitigation, and ‘极端气候事件’ for extreme events."
+                "Example do not use this example for non Chinise: ‘全球气候变化’ when referring to the global phenomenon, ‘气候变化缓解’ for mitigation, and ‘极端气候事件’ for extreme events."
             )
             extra = zh_rules if tgt.lower() in {"zh", "zh-cn", "zh-tw", "chinese"} else ""
 
@@ -362,6 +370,7 @@ Answer with ONLY the classification result, no explanations or additional text."
             
             text_content = (
                 f"[SYSTEM INSTRUCTION]: {CLIMATE_SYSTEM_MESSAGE}\n\n"
+                "Hard rule: If the selected language is English, do not include any non-English words, scripts, or parenthetical translations in the response. Only include another language if it is part of an official proper noun or a direct quote from a source; present it verbatim without added translations.\n\n"
                 f"Based on the following documents and any relevant conversation history, provide a direct answer to this question: {enhanced_query}\n\n"
                 "Documents for context:\n"
                 f"{formatted_docs}\n"

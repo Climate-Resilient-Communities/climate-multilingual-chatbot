@@ -293,6 +293,7 @@ ACTUAL DETECTED LANGUAGE: [You must detect this from the user query, considering
     cls = (data.get("classification") or "").lower()
     if cls not in CATEGORIES:
         cls = "off-topic"
+    # English exemption should not bypass classification. Always return the model's class.
 
     # Extract actual detected language from model output
     detected_lang = (data.get("language") or "").lower()

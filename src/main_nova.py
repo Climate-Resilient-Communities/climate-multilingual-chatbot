@@ -220,6 +220,18 @@ class MultilingualClimateChatbot:
         try:
             self.pipeline = ClimateQueryPipeline(index_name=index_name)
             logger.info("✓ ClimateQueryPipeline initialized")
+            # One-time prewarm to reduce first-query latency
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # Schedule and wait briefly in running loop
+                    logger.info("Scheduling pipeline.prewarm() in running loop")
+                    loop.create_task(self.pipeline.prewarm())
+                else:
+                    logger.info("Running pipeline.prewarm() before serving")
+                    loop.run_until_complete(self.pipeline.prewarm())
+            except Exception as e:
+                logger.warning(f"Prewarm skipped: {e}")
         except Exception as e:
             logger.error(f"Failed to initialize ClimateQueryPipeline: {str(e)}")
             # Fall back to individual components (without legacy BERT)

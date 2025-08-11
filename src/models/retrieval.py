@@ -17,6 +17,7 @@ warnings.filterwarnings("ignore", message="You're using a XLMRobertaTokenizerFas
 warnings.filterwarnings("ignore", message=".*XLMRobertaTokenizerFast.*", category=UserWarning)
 
 import os
+import hashlib
 import time
 import logging
 import warnings
@@ -38,6 +39,46 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+class EmbeddingCache:
+    """A simple LRU cache for document embeddings keyed by stable ids."""
+    def __init__(self, max_size: int = 5000):
+        self.max_size = int(max_size)
+        self._store: Dict[str, List[float]] = {}
+        self._lru: List[str] = []
+
+    def get(self, key: Optional[str]) -> Optional[List[float]]:
+        if not key:
+            return None
+        vec = self._store.get(key)
+        if vec is not None:
+            try:
+                self._lru.remove(key)
+            except ValueError:
+                pass
+            self._lru.append(key)
+        return vec
+
+    def put(self, key: Optional[str], vector: Optional[List[float]]) -> None:
+        if not key or vector is None:
+            return
+        if key not in self._store and len(self._store) >= self.max_size:
+            # Evict oldest
+            try:
+                oldest = self._lru.pop(0)
+                self._store.pop(oldest, None)
+            except Exception:
+                self._store.clear()
+                self._lru.clear()
+        self._store[key] = vector
+        try:
+            if key in self._lru:
+                self._lru.remove(key)
+        except ValueError:
+            pass
+        self._lru.append(key)
+
+_EMB_CACHE = EmbeddingCache(max_size=int(os.getenv("EMBED_CACHE_MAX", "4000")))
 
 def get_query_embeddings(query: str, embed_model) -> tuple:
     """
@@ -110,6 +151,7 @@ def issue_hybrid_query(index, sparse_embedding: Dict, dense_embedding: List[floa
         'sparse_vector': scaled_sparse,
         'top_k': top_k,
         'include_metadata': True,
+        'include_values': True,  # fetch stored dense vectors to avoid re-embedding for MMR
     }
     # Optional server-side metadata filter
     if metadata_filter:
@@ -124,6 +166,16 @@ def issue_hybrid_query(index, sparse_embedding: Dict, dense_embedding: List[floa
         except Exception:
             host = "unknown"
         logger.info(f"dep=pinecone host={host} op=query ms={elapsed_ms} status=OK")
+        # Debug the actual match structure to verify values presence
+        try:
+            if getattr(result, 'matches', None):
+                m = result.matches[0]
+                logger.info(
+                    f"pinecone.match type={type(m)} attrs_have_values={hasattr(m,'values')} "
+                    f"has_values={(m.values is not None) if hasattr(m,'values') else False}"
+                )
+        except Exception:
+            pass
         return result
     except Exception as e:
         elapsed_ms = int((time.time() - start) * 1000)
@@ -155,6 +207,7 @@ def issue_sparse_query(index, sparse_embedding: Dict, top_k: int, metadata_filte
         'sparse_vector': sparse_embedding,
         'top_k': int(top_k),
         'include_metadata': True,
+        'include_values': True,  # fetch stored dense vectors when available
     }
     if metadata_filter:
         kwargs['filter'] = metadata_filter
@@ -565,12 +618,47 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
         # 3) MMR diversification on overfetch pool
         mmr_pool = pool[:max(mmr_overfetch, len(pool))]
         if mmr_enabled and len(mmr_pool) > 1:
-            # Embed docs for MMR
-            doc_texts = [d.get('content', '') for d in mmr_pool]
-            emb_out = embed_model.encode(doc_texts, return_dense=True, return_sparse=False, return_colbert_vecs=False)
-            doc_vecs = np.array(emb_out['dense_vecs'], dtype=float)
+            # Prefer index-returned vectors or cached embeddings to avoid re-embedding
+            t_mmr = time.perf_counter()
+            doc_vecs_list: List[List[float]] = [None] * len(mmr_pool)
+            used_index = used_cache = 0
+            to_embed_indices: List[int] = []
+            for i, d in enumerate(mmr_pool):
+                v = d.get('values') or d.get('vector') or d.get('dense')
+                if isinstance(v, list) and v and isinstance(v[0], (int, float)):
+                    doc_vecs_list[i] = v; used_index += 1; continue
+                key = d.get('segment_id') or d.get('id')
+                if not key:
+                    try:
+                        key = hashlib.sha1((d.get('content') or '').encode('utf-8')).hexdigest()
+                    except Exception:
+                        key = None
+                cached = _EMB_CACHE.get(key)
+                if cached is not None:
+                    doc_vecs_list[i] = cached; used_cache += 1
+                else:
+                    to_embed_indices.append(i)
+            if to_embed_indices:
+                texts = [(mmr_pool[i].get('content') or '') for i in to_embed_indices]
+                emb_out = embed_model.encode(texts, return_dense=True, return_sparse=False, return_colbert_vecs=False)
+                dense_list = emb_out['dense_vecs']
+                for idx, vec in zip(to_embed_indices, dense_list):
+                    doc_vecs_list[idx] = vec
+                    k = mmr_pool[idx].get('segment_id') or mmr_pool[idx].get('id')
+                    if not k:
+                        try:
+                            k = hashlib.sha1((mmr_pool[idx].get('content') or '').encode('utf-8')).hexdigest()
+                        except Exception:
+                            k = None
+                    _EMB_CACHE.put(k, vec)
+            doc_vecs = np.array(doc_vecs_list, dtype=float)
             # Query embedding (dense)
+            t_q = time.perf_counter()
             q_dense, _ = get_query_embeddings(query, embed_model)
+            mmr_ms = int((time.perf_counter() - t_mmr) * 1000)
+            logger.info(
+                f"dep=mmr_embed used_index={used_index} used_cache={used_cache} embedded={len(to_embed_indices)} ms={mmr_ms} n_docs={len(mmr_pool)} q_embed_ms={int((time.perf_counter()-t_q)*1000)}"
+            )
             q_vec = np.array(q_dense[0], dtype=float)
             sel_idx = _mmr_select_indices(q_vec, doc_vecs, float(mmr_lambda), int(max_before_rerank))
             pool = [mmr_pool[i] for i in sel_idx]
@@ -693,7 +781,8 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
                         {
                             'title': d.get('title', '')[:80],
                             'pinecone_score': d.get('pinecone_score', d.get('score')),
-                            'rerank_score': d.get('score')
+                            'rerank_score': d.get('score'),
+                            'has_values': bool(d.get('values') or d.get('vector') or d.get('dense')),
                         }
                         for d in final_docs
                     ]
@@ -825,10 +914,28 @@ def process_search_results(search_results) -> List[Dict]:
                 'score': float(match.score),
                 'section_title': match.metadata.get('section_title', '').strip(),
                 'segment_id': match.metadata.get('segment_id', ''),
+                'id': getattr(match, 'id', ''),
                 'doc_keywords': match.metadata.get('doc_keywords', []),
                 'segment_keywords': match.metadata.get('segment_keywords', []),
                 'url': match.metadata.get('url', [])
             }
+            # Attach vector values if returned
+            try:
+                # Try multiple ways to access vectors from Pinecone response
+                vals = None
+                if hasattr(match, '_data_store') and isinstance(match._data_store, dict):
+                    vals = match._data_store.get('values')
+                if not vals:
+                    vals = getattr(match, 'values', None)
+                
+                if isinstance(vals, list) and vals and isinstance(vals[0], (int, float)):
+                    doc['values'] = vals
+                    logger.debug(f"Vector attached: len={len(vals)}")
+                else:
+                    logger.debug(f"No valid vector found: type={type(vals)}, len={len(vals) if vals else 0}")
+            except Exception as e:
+                logger.debug(f"Vector extraction error: {e}")
+                pass
             
             processed_docs.append(doc)
             seen_titles.add(title)

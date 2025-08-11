@@ -1,7 +1,6 @@
 import logging
 from typing import List, Dict
 import cohere
-import asyncio
 import time
 from typing import Optional
 from src.utils.env_loader import load_environment
@@ -82,27 +81,32 @@ def rerank_fcn(query: str, docs_to_rerank: List[Dict], top_k: int, cohere_client
         total_chars = sum(len(d or "") for d in docs)
         logger.info(f"dep=cohere_rerank payload_chars={total_chars} n_docs={len(docs)}")
         
-        # Call Cohere rerank with hard timeout and timing
+        # Call Cohere rerank with hard timeout and timing (pure sync path)
         t0 = time.perf_counter()
         rerank_results = None
         try:
-            # Cohere SDK is sync; run it in a thread and enforce timeout using wait_for on the outer future
-            async def _call():
-                loop = asyncio.get_event_loop()
-                return await loop.run_in_executor(
-                    None,
-                    lambda: cohere_client.rerank(
-                        query=query,
-                        documents=docs,
-                        top_n=top_k,
-                        model="rerank-english-v3.0",
-                        return_documents=True,
-                    ),
+            from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+
+            def _do_call():
+                return cohere_client.rerank(
+                    query=query,
+                    documents=docs,
+                    top_n=top_k,
+                    model="rerank-english-v3.0",
+                    return_documents=True,
                 )
 
-            rerank_results = asyncio.run(asyncio.wait_for(_call(), timeout=10))
+            # Run the blocking SDK call in a worker thread and enforce a hard timeout
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_do_call)
+                rerank_results = future.result(timeout=10)
+
             ms = (time.perf_counter() - t0) * 1000
             logger.info(f"dep=cohere_rerank host=api.cohere.com op=rerank ms={ms:.1f} status=OK")
+        except FuturesTimeoutError as e:
+            ms = (time.perf_counter() - t0) * 1000
+            logger.warning(f"dep=cohere_rerank host=api.cohere.com op=rerank ms={ms:.1f} status=FALLBACK err=Timeout: {e}")
+            rerank_results = None
         except Exception as e:
             ms = (time.perf_counter() - t0) * 1000
             logger.warning(f"dep=cohere_rerank host=api.cohere.com op=rerank ms={ms:.1f} status=FALLBACK err={type(e).__name__}: {e}")
