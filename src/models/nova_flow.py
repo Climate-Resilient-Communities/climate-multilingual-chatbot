@@ -39,9 +39,9 @@ class BedrockModel:
                 service_name='bedrock-runtime',
                 region_name='us-east-1',
                 config=Config(
-                    read_timeout=300,
+                    read_timeout=30,  # Reduced from 300s to prevent production hangs
                     connect_timeout=10,
-                    retries={"max_attempts": 3, "mode": "adaptive"},
+                    retries={"max_attempts": 2, "mode": "adaptive"},  # Reduced retries
                 ),
             )
             self.model_id = model_id
@@ -90,9 +90,9 @@ class BedrockModel:
                     service_name='bedrock-runtime',
                     region_name='us-east-1',
                     config=Config(
-                        read_timeout=300,
+                        read_timeout=30,  # Reduced from 300s to prevent production hangs
                         connect_timeout=10,
-                        retries={"max_attempts": 3, "mode": "adaptive"},
+                        retries={"max_attempts": 2, "mode": "adaptive"},  # Reduced retries
                     ),
                 )
             except Exception:
@@ -100,9 +100,28 @@ class BedrockModel:
             raise
 
     async def _invoke_with_timing(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Invoke Bedrock with timing and structured logs using sync client in a worker thread."""
-        # Use asyncio.to_thread to isolate from event loop lifecycle issues
-        return await asyncio.to_thread(self._invoke_bedrock_sync, payload)
+        """Invoke Bedrock with timeout protection to prevent production hangs."""
+        import time
+        start = time.time()
+        
+        try:
+            # Hard timeout wrapper to prevent 5+ minute hangs like in production
+            timeout_seconds = 30  # Much shorter than 300s default
+            result = await asyncio.wait_for(
+                asyncio.to_thread(self._invoke_bedrock_sync, payload),
+                timeout=timeout_seconds
+            )
+            return result
+            
+        except asyncio.TimeoutError:
+            elapsed_ms = int((time.time() - start) * 1000)
+            logger.error(f"dep=bedrock op=invoke_model ms={elapsed_ms} status=TIMEOUT after {timeout_seconds}s - preventing production hang")
+            raise Exception(f"Bedrock timeout after {timeout_seconds}s - preventing production hang")
+            
+        except Exception as e:
+            elapsed_ms = int((time.time() - start) * 1000)
+            logger.warning(f"dep=bedrock op=invoke_model ms={elapsed_ms} status=ERR err={str(e)[:120]}")
+            raise
 
     async def close(self) -> None:
         """Close the long-lived async client when the app shuts down."""
