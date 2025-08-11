@@ -34,12 +34,12 @@ class BedrockModel:
                 aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
                 region_name="us-east-1"
             )
-            # Reusable sync client
+            # Reusable sync client (prefer sync client and call via threads to avoid event loop coupling)
             self.sync_bedrock = self.sync_session.client(
                 service_name='bedrock-runtime',
                 region_name='us-east-1',
                 config=Config(
-                    read_timeout=60,
+                    read_timeout=300,
                     connect_timeout=10,
                     retries={"max_attempts": 3, "mode": "adaptive"},
                 ),
@@ -52,41 +52,77 @@ class BedrockModel:
             raise
 
     async def _get_aio_client(self):
-        """Return a long-lived aioboto3 bedrock client (reused across calls)."""
-        if self._aio_bedrock is not None:
-            return self._aio_bedrock
-        client_cm = self.session.client(
-            service_name='bedrock-runtime',
-            region_name='us-east-1',
-            config=Config(
-                read_timeout=60,
-                connect_timeout=10,
-                retries={"max_attempts": 3, "mode": "adaptive"},
-            ),
-        )
-        self._aio_bedrock = await client_cm.__aenter__()
-        return self._aio_bedrock
+        """Deprecated in favor of sync client via threads. Kept for compatibility."""
+        # We avoid using aio clients to prevent 'Event loop is closed' issues in Streamlit reruns.
+        return None
 
-    async def _invoke_with_timing(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Invoke Bedrock with timing and structured logs."""
-        start = asyncio.get_event_loop().time()
+    def _invoke_bedrock_sync(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Invoke Bedrock synchronously and return parsed JSON."""
+        import time
         host = "bedrock.us-east-1.amazonaws.com"
+        start = time.time()
         try:
-            client = await self._get_aio_client()
-            response = await client.invoke_model(
+            response = self.sync_bedrock.invoke_model(
                 body=json.dumps(payload),
                 modelId=self.model_id,
                 accept="application/json",
                 contentType="application/json",
             )
-            elapsed_ms = int((asyncio.get_event_loop().time() - start) * 1000)
-            logger.info(f"dep=bedrock host={host} op=invoke_model ms={elapsed_ms} status=OK")
-            response_body = await response['body'].read()
-            return json.loads(response_body)
+            elapsed_ms = int((time.time() - start) * 1000)
+            # Try to log AWS request id if available
+            req_id = None
+            try:
+                req_id = response.get('ResponseMetadata', {}).get('RequestId')
+            except Exception:
+                pass
+            logger.info(
+                f"dep=bedrock host={host} op=invoke_model ms={elapsed_ms} status=OK request_id={req_id}".rstrip()
+            )
+            # boto3 returns 'body' as StreamingBody
+            body_bytes = response["body"].read()
+            return json.loads(body_bytes)
         except Exception as e:
-            elapsed_ms = int((asyncio.get_event_loop().time() - start) * 1000)
+            elapsed_ms = int((time.time() - start) * 1000)
             logger.warning(f"dep=bedrock host={host} op=invoke_model ms={elapsed_ms} status=ERR err={str(e)[:120]}")
+            # Attempt one client refresh on error
+            try:
+                self.sync_bedrock = self.sync_session.client(
+                    service_name='bedrock-runtime',
+                    region_name='us-east-1',
+                    config=Config(
+                        read_timeout=300,
+                        connect_timeout=10,
+                        retries={"max_attempts": 3, "mode": "adaptive"},
+                    ),
+                )
+            except Exception:
+                pass
             raise
+
+    async def _invoke_with_timing(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Invoke Bedrock with timing and structured logs using sync client in a worker thread."""
+        # Use asyncio.to_thread to isolate from event loop lifecycle issues
+        return await asyncio.to_thread(self._invoke_bedrock_sync, payload)
+
+    async def close(self) -> None:
+        """Close the long-lived async client when the app shuts down."""
+        try:
+            if self._aio_bedrock is not None:
+                try:
+                    await self._aio_bedrock.__aexit__(None, None, None)
+                except RuntimeError as e:
+                    # Handle "Event loop is closed" errors gracefully
+                    if "event loop is closed" in str(e).lower():
+                        logger.debug("Event loop already closed during BedrockModel cleanup")
+                    else:
+                        raise
+                finally:
+                    self._aio_bedrock = None
+                logger.debug("✓ BedrockModel async client closed successfully")
+        except Exception as e:
+            logger.debug(f"BedrockModel cleanup warning: {str(e)}")
+            # Ensure client is set to None even if cleanup fails
+            self._aio_bedrock = None
 
     async def classify(self, prompt: str, system_message: str = None, options: List[str] = None) -> str:
         """
@@ -243,7 +279,7 @@ Answer with ONLY the classification result, no explanations or additional text."
             )
             zh_rules = (
                 "If the target language is Chinese, use standard climate-science terms from the China Meteorological Administration and IPCC: "
-                "use ‘全球气候变化’ when referring to the global phenomenon, ‘气候变化缓解’ for mitigation, and ‘极端气候事件’ for extreme events."
+                "Example do not use this example for non Chinise: ‘全球气候变化’ when referring to the global phenomenon, ‘气候变化缓解’ for mitigation, and ‘极端气候事件’ for extreme events."
             )
             extra = zh_rules if tgt.lower() in {"zh", "zh-cn", "zh-tw", "chinese"} else ""
 
@@ -268,20 +304,9 @@ Answer with ONLY the classification result, no explanations or additional text."
                 }
             }
 
-            async with self.session.client(
-                service_name='bedrock-runtime',
-                region_name='us-east-1',
-                config=Config(read_timeout=300, connect_timeout=300)
-            ) as bedrock:
-                response = await bedrock.invoke_model(
-                    body=json.dumps(payload),
-                    modelId=self.model_id,
-                    accept="application/json",
-                    contentType="application/json"
-                )
-                response_body = await response['body'].read()
-                response_json = json.loads(response_body)
-                return response_json['output']['message']['content'][0]['text']
+            # Use the same unified invocation path
+            response_json = await self._invoke_with_timing(payload)
+            return response_json['output']['message']['content'][0]['text']
 
         except Exception as e:
             logger.error(f"Translation error: {str(e)}")
@@ -345,6 +370,7 @@ Answer with ONLY the classification result, no explanations or additional text."
             
             text_content = (
                 f"[SYSTEM INSTRUCTION]: {CLIMATE_SYSTEM_MESSAGE}\n\n"
+                "Hard rule: If the selected language is English, do not include any non-English words, scripts, or parenthetical translations in the response. Only include another language if it is part of an official proper noun or a direct quote from a source; present it verbatim without added translations.\n\n"
                 f"Based on the following documents and any relevant conversation history, provide a direct answer to this question: {enhanced_query}\n\n"
                 "Documents for context:\n"
                 f"{formatted_docs}\n"

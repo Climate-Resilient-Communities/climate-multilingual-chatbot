@@ -241,15 +241,23 @@ class ConversationTestSuite:
             print(result)
             print("-" * 50)
             
-            # Parse results
-            import re
-            lang_match = re.search(r"Language:\s*([a-z]{2}|unknown)", result, re.IGNORECASE)
-            match_match = re.search(r"LanguageMatch:\s*(yes|no)", result, re.IGNORECASE)
-            cls_match = re.search(r"Classification:\s*(on-topic|off-topic|harmful)", result, re.IGNORECASE)
-            
-            detected_lang = lang_match.group(1).lower() if lang_match else 'unknown'
-            language_match = match_match.group(1).lower() if match_match else 'unknown'
-            classification = cls_match.group(1).lower() if cls_match else 'unknown'
+            # Parse results (expecting JSON format)
+            import json
+            try:
+                parsed_result = json.loads(result)
+                detected_lang = parsed_result.get('language', 'unknown').lower()
+                language_match = 'yes' if parsed_result.get('language_match', False) else 'no'
+                classification = parsed_result.get('classification', 'unknown').lower()
+            except (json.JSONDecodeError, AttributeError):
+                # Fallback to regex parsing for legacy format
+                import re
+                lang_match = re.search(r"Language:\s*([a-z]{2}|unknown)", result, re.IGNORECASE)
+                match_match = re.search(r"LanguageMatch:\s*(yes|no)", result, re.IGNORECASE)
+                cls_match = re.search(r"Classification:\s*(on-topic|off-topic|harmful)", result, re.IGNORECASE)
+                
+                detected_lang = lang_match.group(1).lower() if lang_match else 'unknown'
+                language_match = match_match.group(1).lower() if match_match else 'unknown'
+                classification = cls_match.group(1).lower() if cls_match else 'unknown'
             
             print(f"\n📈 Parsed Results:")
             print(f"   Detected Language: {detected_lang}")

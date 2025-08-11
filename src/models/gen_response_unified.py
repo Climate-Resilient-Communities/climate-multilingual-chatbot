@@ -159,6 +159,25 @@ class UnifiedResponseGenerator:
                         description=description,
                         conversation_history=conversation_history
                     )
+
+                # Hard guard: if language_code is English, strip any non-ASCII/Latin scripts that are not part of URLs or citations
+                if (language_code or "en").lower().startswith("en") and isinstance(response, str):
+                    import re
+                    # Allow basic punctuation, spaces, latin letters/numbers
+                    # Keep URLs and markdown links intact
+                    def _clean_non_english(text: str) -> str:
+                        # Preserve markdown links and URLs as-is
+                        url_pattern = r"(https?://\S+|\[[^\]]+\]\([^\)]+\))"
+                        parts = re.split(url_pattern, text)
+                        cleaned = []
+                        for part in parts:
+                            if re.match(url_pattern, part or ""):
+                                cleaned.append(part)
+                            else:
+                                # Remove characters outside basic Latin and common punctuation
+                                cleaned.append(re.sub(r"[^\x09\x0A\x0D\x20-\x7E]", "", part or ""))
+                        return "".join(cleaned)
+                    response = _clean_non_english(response)
                     
                 # Cache the result
                 if cache.redis_client:
