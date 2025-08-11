@@ -1,4 +1,5 @@
 import os
+import json
 import asyncio
 import logging
 import time
@@ -251,21 +252,77 @@ class ClimateQueryPipeline:
                 "faithfulness_score": 0.0,
             }
 
+    def _load_language_maps(self) -> None:
+        """Load language name/code maps from src/utils/languages.json once."""
+        if hasattr(self, "_lang_name_to_code") and getattr(self, "_lang_name_to_code", None):
+            return
+        try:
+            json_path = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "..", "utils", "languages.json")
+            )
+            with open(json_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            languages = (data.get("speculative_supported_languages_nova_proxy", {}) or {}).get("languages", {})
+            # Build name -> code map (lowercased names)
+            name_to_code = {str(name).strip().lower(): str(code) for code, name in languages.items()}
+            # Add common synonyms and UI labels
+            if "tagalog" in name_to_code:
+                name_to_code.setdefault("filipino", name_to_code.get("tagalog"))  # tl
+            name_to_code.setdefault("farsi", "fa")
+            name_to_code.setdefault("mandarin", "zh")
+            name_to_code.setdefault("burmese", "my")
+            name_to_code.setdefault("cantonese", "zh")
+            # Ensure Belarusian present
+            name_to_code.setdefault("belarusian", "be")
+            # Keep a set of valid ISO codes
+            code_set = set(languages.keys())
+            setattr(self, "_lang_name_to_code", name_to_code)
+            setattr(self, "_lang_code_set", code_set)
+            try:
+                logger.info(
+                    "✓ Language map loaded from languages.json: %d names → %d codes (e.g., belarusian→%s)",
+                    len(name_to_code), len(code_set), name_to_code.get("belarusian", "be")
+                )
+            except Exception:
+                pass
+        except Exception as e:
+            logger.warning(f"Failed to load languages.json, falling back to defaults: {e}")
+            setattr(self, "_lang_name_to_code", {
+                'english': 'en', 'spanish': 'es', 'french': 'fr', 'german': 'de',
+                'italian': 'it', 'portuguese': 'pt', 'dutch': 'nl', 'russian': 'ru',
+                'chinese': 'zh', 'japanese': 'ja', 'korean': 'ko', 'arabic': 'ar',
+                'hindi': 'hi', 'bengali': 'bn', 'urdu': 'ur', 'tamil': 'ta',
+                'gujarati': 'gu', 'persian': 'fa', 'vietnamese': 'vi', 'thai': 'th',
+                'turkish': 'tr', 'polish': 'pl', 'czech': 'cs', 'hungarian': 'hu',
+                'romanian': 'ro', 'greek': 'el', 'hebrew': 'he', 'ukrainian': 'uk',
+                'indonesian': 'id', 'danish': 'da', 'swedish': 'sv', 'norwegian': 'no',
+                'finnish': 'fi', 'bulgarian': 'bg', 'slovak': 'sk', 'slovenian': 'sl',
+                'estonian': 'et', 'latvian': 'lv', 'lithuanian': 'lt', 'belarusian': 'be',
+            })
+            setattr(self, "_lang_code_set", {"en", "es", "fr", "de"})
+
     def get_language_code(self, language_name: str) -> str:
-        """Convert language name to code."""
-        language_map = {
-            'english': 'en', 'spanish': 'es', 'french': 'fr', 'german': 'de',
-            'italian': 'it', 'portuguese': 'pt', 'dutch': 'nl', 'russian': 'ru',
-            'chinese': 'zh', 'japanese': 'ja', 'korean': 'ko', 'arabic': 'ar',
-            'hindi': 'hi', 'bengali': 'bn', 'urdu': 'ur', 'tamil': 'ta',
-            'gujarati': 'gu', 'persian': 'fa', 'vietnamese': 'vi', 'thai': 'th',
-            'turkish': 'tr', 'polish': 'pl', 'czech': 'cs', 'hungarian': 'hu',
-            'romanian': 'ro', 'greek': 'el', 'hebrew': 'he', 'ukrainian': 'uk',
-            'indonesian': 'id', 'filipino': 'tl', 'danish': 'da', 'swedish': 'sv',
-            'norwegian': 'no', 'finnish': 'fi', 'bulgarian': 'bg', 'slovak': 'sk',
-            'slovenian': 'sl', 'estonian': 'et', 'latvian': 'lv', 'lithuanian': 'lt'
-        }
-        return language_map.get(language_name.lower(), 'en')
+        """Convert a UI language name or code to ISO 639-1 code using languages.json.
+
+        - Accepts names like 'Belarusian' or codes like 'be' or 'pt-br'
+        - Falls back to 'en' if unknown
+        """
+        self._load_language_maps()
+        value = (language_name or "").strip().lower()
+        # Direct code match
+        if len(value) == 2 and value in getattr(self, "_lang_code_set", set()):
+            return value
+        # Region variants like pt-br → pt
+        if "-" in value:
+            base = value.split("-", 1)[0]
+            if base in getattr(self, "_lang_code_set", set()):
+                return base
+        # Name to code
+        code = getattr(self, "_lang_name_to_code", {}).get(value)
+        if code:
+            return code
+        # As a last resort, default to English
+        return "en"
 
     @traceable(name="climate_query_processing")
     async def process_query(
@@ -490,6 +547,22 @@ class ClimateQueryPipeline:
                     canned_info = qr.get("canned", {}) or {}
                     canned_enabled = bool(canned_info.get("enabled", False))
                     canned_text = canned_info.get("text") or ""
+
+                    # Check if rewriter had an error and apply safety net
+                    qr_error = (qr.get("error") or {}).get("message")
+                    if qr_error:
+                        logger.warning("Rewriter error detected → applying safety net", extra={"error": qr_error[:100]})
+                        # Use original query as fallback
+                        processed_query = (
+                            route_result.get("english_query")
+                            or route_result.get("processed_query")
+                            or query
+                        )
+                        # Don't block a climate query just because the rewriter errored
+                        from src.models.query_rewriter import _looks_climate_any
+                        if _looks_climate_any(processed_query):
+                            logger.info("Safety net: detected climate query despite rewriter error → forcing on-topic")
+                            classification = "on-topic"
 
                     try:
                         logger.info(
@@ -742,13 +815,16 @@ class ClimateQueryPipeline:
             _gen_start = time.time()
             report("Formulating response…", 0.7)
             try:
-                # Generate response in English first
-                response, citations = await self.response_generator.generate_response(
-                    query=processed_query,
-                    documents=documents,
-                    model_type=model_type,
-                    language_code='en',  # Always generate in English first
-                    conversation_history=conversation_history
+                # Generate response in English first - add timeout protection
+                response, citations = await asyncio.wait_for(
+                    self.response_generator.generate_response(
+                        query=processed_query,
+                        documents=documents,
+                        model_type=model_type,
+                        language_code='en',  # Always generate in English first
+                        conversation_history=conversation_history
+                    ),
+                    timeout=45.0  # 45 seconds total for the entire generation process
                 )
                 logger.info("✓ Response generated successfully in English")
             except Exception as e:
@@ -838,6 +914,14 @@ class ClimateQueryPipeline:
                 "model_type": model_type,
                 "retrieval_source": retrieval_source,
                 "fallback_reason": fallback_reason,
+                "original_query": query,  # Add for debugging
+                # Debug info to help diagnose production issues
+                "debug_info": {
+                    "classification": classification if 'classification' in locals() else 'not_processed',
+                    "detected_language": detected_lang if 'detected_lang' in locals() else 'not_detected',
+                    "language_match": language_match_result if 'language_match_result' in locals() else 'not_checked',
+                    "query_rewritten": processed_query != query if 'processed_query' in locals() else False,
+                },
             }
 
             # STEP 10: CACHE THE RESULT IN THE CORRECT LANGUAGE

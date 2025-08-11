@@ -686,9 +686,13 @@ class MultilingualClimateChatbot:
                                         retrieve relevant climate-related information for the current query.
                                         """
                                         
-                                        topic_result = await self.nova_model.nova_content_generation(
-                                            prompt=topic_prompt,
-                                            system_message="Extract key topics from text. Be brief and precise."
+                                        # Add timeout protection to prevent 5+ minute hangs
+                                        topic_result = await asyncio.wait_for(
+                                            self.nova_model.content_generation(
+                                                prompt=topic_prompt,
+                                                system_message="Extract key topics from text. Be brief and precise."
+                                            ),
+                                            timeout=10.0  # 10 seconds should be enough for topic extraction
                                         )
                                         
                                         # Use these extracted topics to enhance the current query
@@ -743,12 +747,15 @@ class MultilingualClimateChatbot:
                                 if formatted_history:
                                     logger.debug(f"Sample conversation turn: {formatted_history[:2]}")
                             
-                            # Call nova_chat with conversation history
-                            response, citations = await generate_chat_response(
-                                english_query, 
-                                reranked_docs, 
-                                self.nova_model,
-                                conversation_history=formatted_history
+                            # Call nova_chat with conversation history - add timeout protection
+                            response, citations = await asyncio.wait_for(
+                                generate_chat_response(
+                                    english_query, 
+                                    reranked_docs, 
+                                    self.nova_model,
+                                    conversation_history=formatted_history
+                                ),
+                                timeout=45.0  # 45 seconds total for the entire generation process
                             )
                             step_times['generation'] = time.time() - generation_start
                             logger.info("✍️ Response generation complete")

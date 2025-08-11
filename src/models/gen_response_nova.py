@@ -1,6 +1,7 @@
 import os
 import logging
 import json
+import asyncio
 from typing import List, Dict, Tuple, Any, Optional, Union, AsyncGenerator
 from src.models.title_normalizer import normalize_title
 from src.models.nova_flow import BedrockModel
@@ -216,9 +217,13 @@ async def _process_documents_and_generate(
                     
                     # The relevance scores will be used to optimize the conversation history
                     try:
-                        relevance_result = await model.content_generation(
-                            prompt=context_prompt,
-                            system_message="Rate the relevance of conversation turns to the current query"
+                        # Add timeout protection to prevent 5+ minute hangs
+                        relevance_result = await asyncio.wait_for(
+                            model.content_generation(
+                                prompt=context_prompt,
+                                system_message="Rate the relevance of conversation turns to the current query"
+                            ),
+                            timeout=10.0  # 10 seconds should be enough for relevance scoring
                         )
                         
                         logger.debug(f"Relevance scores for conversation history: {relevance_result}")
@@ -259,11 +264,15 @@ async def _process_documents_and_generate(
                 # Continue with the original conversation history
         
         # Generate response with Nova, now passing optimized conversation_history
-        response = await model.generate_response(
-            query=query,
-            documents=processed_docs,
-            description=description,
-            conversation_history=conversation_history
+        # Add timeout protection to prevent 5+ minute hangs
+        response = await asyncio.wait_for(
+            model.generate_response(
+                query=query,
+                documents=processed_docs,
+                description=description,
+                conversation_history=conversation_history
+            ),
+            timeout=30.0  # 30 seconds for main response generation
         )
         
         # Extract citations with full document details
@@ -296,7 +305,7 @@ async def _process_documents_and_generate(
 
 async def process_batch_queries(queries: List[str], documents: List[Dict], nova_client) -> List[str]:
     """Process multiple queries in parallel using asyncio.gather"""
-    tasks = [nova_chat(query, documents, nova_client) for query in queries]
+    tasks = [generate_chat_response(query, documents, nova_client) for query in queries]
     results = await asyncio.gather(*tasks)
     return [response for response, _ in results]
 
@@ -324,7 +333,7 @@ if __name__ == "__main__":
     
     try:
         import asyncio
-        response, citations = asyncio.run(nova_chat(query, test_docs, nova_client))
+        response, citations = asyncio.run(generate_chat_response(query, test_docs, nova_client))
         print("\nResponse:", response)
         print("\nCitations:", citations)
         

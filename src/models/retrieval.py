@@ -474,10 +474,42 @@ def _mmr_select_indices(query_vec: np.ndarray, doc_vecs: np.ndarray, lambda_para
 
 async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top_k=8):
     """
-    Get relevant documents from vector store using hybrid search.
-    Returns reranked documents sorted by relevance.
+    Get documents with optimized query embedding caching to avoid redundant encode() calls.
+    
+    Production Issue: Previously made 5+ separate embedding calls per query due to:
+    - Initial hybrid search
+    - Fallback without metadata filter  
+    - Refill operations
+    - Secondary hybrid searches
+    
+    Fix: Cache query embeddings at the start and reuse throughout the function.
     """
     try:
+        # ⚡ PERFORMANCE FIX: Pre-compute query embeddings once and reuse
+        # This prevents 5+ redundant embedding calls seen in production
+        logger.info(f"🔄 Pre-computing query embeddings to avoid redundant encode() calls")
+        query_dense_embeddings, query_sparse_embeddings = get_query_embeddings(query, embed_model)
+        
+        def get_hybrid_results_cached(index, alpha: float, top_k: int, metadata_filter: Optional[Dict] = None):
+            """Use cached query embeddings instead of re-encoding."""
+            import time
+            t_total = time.perf_counter()
+            
+            t_query = time.perf_counter()
+            result = issue_hybrid_query(
+                index, 
+                query_sparse_embeddings[0], 
+                query_dense_embeddings[0],
+                alpha,
+                top_k,
+                metadata_filter
+            )
+            
+            query_ms = int((time.perf_counter() - t_query) * 1000)
+            total_ms = int((time.perf_counter() - t_total) * 1000)
+            logger.info(f"dep=hybrid_search embed_ms=0 query_ms={query_ms} total_ms={total_ms}")  # embed_ms=0 since cached
+            
+            return result
         from langsmith import trace
         
         # Main retrieval trace
@@ -497,10 +529,8 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
                 meta_filter = None
 
             overfetch = int(RETRIEVAL_CONFIG.get("overfetch", max(top_k, 8)))
-            hybrid_results = get_hybrid_results(
+            hybrid_results = get_hybrid_results_cached(
                 index, 
-                query,
-                embed_model, 
                 alpha=alpha,
                 top_k=int(overfetch),
                 metadata_filter=meta_filter,
@@ -513,10 +543,8 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
             # Fallback: if server-side lang filter returned 0 docs, retry without filter
             filter_fallback_used = False
             if not docs and meta_filter:
-                hybrid_results = get_hybrid_results(
+                hybrid_results = get_hybrid_results_cached(
                     index,
-                    query,
-                    embed_model,
                     alpha=alpha,
                     top_k=int(overfetch),
                     metadata_filter=None,
@@ -622,10 +650,8 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
         refill_triggered = False
         if refill_enabled and len(kept_pre) < min_kept:
             # Re-query hybrid with overfetch for refill
-            refill_results = get_hybrid_results(
+            refill_results = get_hybrid_results_cached(
                 index,
-                query,
-                embed_model,
                 alpha=alpha,
                 top_k=int(overfetch) + int(refill_overfetch),
                 metadata_filter=meta_filter,
@@ -633,10 +659,8 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
             refill_docs = process_search_results(refill_results)
             if not refill_docs and meta_filter:
                 # fallback without filter
-                refill_results = get_hybrid_results(
+                refill_results = get_hybrid_results_cached(
                     index,
-                    query,
-                    embed_model,
                     alpha=alpha,
                     top_k=int(overfetch) + int(refill_overfetch),
                     metadata_filter=None,
@@ -725,10 +749,10 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
                 # Map back to original pool indices for valid vectors only
                 valid_indices = [i for i, v in enumerate(doc_vecs_list) if v is not None]
                 mmr_pool_valid = [mmr_pool[i] for i in valid_indices]
-                # Query embedding (dense)
+                # Query embedding (dense) - reuse pre-computed embeddings
                 t_q = time.perf_counter()
-                q_dense, _ = get_query_embeddings(query, embed_model)
-                q_embed_ms = int((time.perf_counter()-t_q)*1000)
+                q_dense = query_dense_embeddings  # Use cached embeddings
+                q_embed_ms = int((time.perf_counter()-t_q)*1000)  # Should be ~0ms since cached
                 mmr_ms = int((time.perf_counter() - t_mmr) * 1000)
                 logger.info(
                     f"dep=mmr_embed used_index={used_index} used_cache={used_cache} embedded={len(to_embed_indices)} ms={mmr_ms} n_docs={len(mmr_pool)} valid_vecs={len(valid_vecs)} q_embed_ms={q_embed_ms}"
@@ -790,10 +814,8 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
                 )
                 sec_docs_sparse = process_search_results(sec_results_sparse)
                 # 2b) Hybrid widened as additional supplement
-                sec_results_hybrid = get_hybrid_results(
+                sec_results_hybrid = get_hybrid_results_cached(
                     index,
-                    query,
-                    embed_model,
                     alpha=alpha,
                     top_k=int(overfetch) + int(refill_overfetch) + 20,
                     metadata_filter=None,

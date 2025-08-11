@@ -81,14 +81,27 @@ def _invalid_query(q: str) -> bool:
     return not any(ch.isalnum() for ch in s)
 
 
-def _error_payload(message: str, expected_lang: str) -> Dict[str, Any]:
+def _looks_climate_any(text: str) -> bool:
+    """Check if text contains climate-related keywords in any language."""
+    t = (text or "").lower()
+    latin = ("clim", "carbon", "co2", "emission", "mitig", "adapt",
+             "flood", "heat", "wildfire", "air quality", "aqi",
+             "renewab", "solar", "wind", "ev", "biodivers", "environment",
+             "sustain", "greenhouse", "warming", "weather", "temperature")
+    nonlatin = ("气候","氣候","климат","مناخ","जलवायु","気候","기후")
+    return any(k in t for k in latin) or any(k in t for k in nonlatin)
+
+def _error_payload(message: str, expected_lang: str, user_query: str) -> Dict[str, Any]:
+    """Create error payload that preserves language and detects climate intent."""
+    expected = (expected_lang or "en").lower()
+    is_climate = _looks_climate_any(user_query)
     return {
-        "reason": "Runtime error",
-        "language": "unknown",
-        "expected_language": expected_lang,
+        "reason": "timeout_or_model_error",
+        "language": expected,                # keep selected language, not "unknown"
+        "expected_language": expected,
         "language_match": True,
-        "classification": "off-topic",
-        "rewrite_en": None,
+        "classification": "on-topic" if is_climate else "off-topic",
+        "rewrite_en": user_query if (expected == "en" and is_climate) else None,
         "canned": EMPTY_CANNED,
         "ask_how_to_use": False,
         "how_it_works": None,
@@ -245,25 +258,39 @@ ACTUAL DETECTED LANGUAGE: [You must detect this from the user query, considering
 """
 
     try:
+        # Try with short 2-second timeout first for responsiveness
         raw = await asyncio.wait_for(
             nova_model.content_generation(
-                prompt=prompt,
+        prompt=prompt,
                 system_message="Classify safely. Output strictly valid minified JSON only.",
             ),
-            timeout=30.0,
+            timeout=2.0,
         )
         try:
             logger.info("Model raw (first 300): %s", (raw or "")[:300])
         except Exception:
             pass
     except asyncio.TimeoutError:
+        # 2-second timeout hit - fallback to original query with smart classification
+        logger.warning("REWRITER_TIMEOUT_2S → using original query fallback", extra={"expected_lang": expected_lang, "query_len": len(user_query)})
+        is_climate = _looks_climate_any(user_query)
+        fallback_payload = {
+            "reason": "Rewriter timeout - using original query",
+            "language": expected_lang,
+            "expected_language": expected_lang,
+            "language_match": True,
+            "classification": "on-topic" if is_climate else "off-topic",
+            "rewrite_en": user_query if (expected_lang == "en" and is_climate) else None,
+            "canned": EMPTY_CANNED,
+            "ask_how_to_use": False,
+            "how_it_works": None,
+            "error": None,  # Not an error, just a fallback
+        }
+        return json.dumps(fallback_payload, ensure_ascii=False)
+    except Exception as e:
+        logger.warning("REWRITER_ERROR → fallback to original query", extra={"error": str(e)[:100], "expected_lang": expected_lang})
         return json.dumps(
-            _error_payload("Sorry, we are having technical difficulties, please try again later.", expected_lang),
-            ensure_ascii=False,
-        )
-    except Exception:
-        return json.dumps(
-            _error_payload("Sorry, we are having technical difficulties, please try again later.", expected_lang),
+            _error_payload("Technical difficulties with classification, using fallback.", expected_lang, user_query),
             ensure_ascii=False,
         )
 
@@ -319,4 +346,20 @@ ACTUAL DETECTED LANGUAGE: [You must detect this from the user query, considering
         "how_it_works": how_it_works,
         "error": None,
     }
+    
+    # 🐛 DEBUG: Enhanced logging to debug production classification discrepancies
+    logger.info(
+        f"🔍 CLASSIFICATION_DEBUG: query='{user_query[:50]}...' "
+        f"expected_lang={expected_lang} detected_lang={detected_lang} "
+        f"classification={cls} language_match={language_match} "
+        f"reason='{data.get('reason', '')[:100]}...'"
+    )
+    
+    # Additional debug for specific problematic queries
+    if "help" in user_query.lower() and "climate" in user_query.lower() and cls == "off-topic":
+        logger.warning(
+            f"🚨 POTENTIAL_MISCLASSIFICATION: Climate help query classified as off-topic! "
+            f"query='{user_query}' classification={cls} reason='{data.get('reason', '')}'"
+        )
+    
     return json.dumps(result, ensure_ascii=False)
