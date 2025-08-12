@@ -2042,6 +2042,9 @@ def main():
         st.session_state.language_confirmed = False
     if 'selected_language' not in st.session_state:
         st.session_state.selected_language = 'english'
+    # Ensure FAQ popup flag always exists before any path references it
+    if 'show_faq_popup' not in st.session_state:
+        st.session_state.show_faq_popup = False
     if 'event_loop' not in st.session_state:
         st.session_state.event_loop = create_event_loop()
     if 'chatbot_init' not in st.session_state:
