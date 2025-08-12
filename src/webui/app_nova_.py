@@ -480,7 +480,7 @@ st.set_page_config(
     initial_sidebar_state=SIDEBAR_STATE[st.session_state._sb_open],
 )
 
-        # On load: if a previous action requested closing the sidebar via sessionStorage,
+# On load: if a previous action requested closing the sidebar via sessionStorage,
 # perform a best-effort close using the native collapse control or CSS transform.
 st_html(
     """
@@ -1066,45 +1066,65 @@ def render_message_actions_ui(message_index: int, message: dict) -> None:
     # Only show actions for assistant messages
     if not is_assistant:
         return
-    # Use columns to force horizontal layout; keep first three columns tight
-    col1, col2, col3, col4 = st.columns([0.5, 0.5, 0.5, 10])
-    with col1:
-        if st.button('👍', key=f'msg_up_{message_index}', help='Thumbs up', use_container_width=True):
-            st.session_state.message_feedback[message_index] = 'up'
-            log_feedback_event(message_index, 'up')
-    with col2:
-        if st.button('👎', key=f'msg_down_{message_index}', help='Thumbs down', use_container_width=True):
-            st.session_state.message_feedback[message_index] = 'down'
-            log_feedback_event(message_index, 'down')
-    with col3:
-        if st.button('↻', key=f'msg_retry_{message_index}', help='Retry this answer', use_container_width=True):
-            prior_query = ''
-            user_index = -1
-            j = message_index - 1
-            hist = st.session_state.chat_history
-            while j >= 0:
-                if hist[j].get('role') == 'user':
-                    prior_query = hist[j].get('content', '')
-                    user_index = j
-                    break
-                j -= 1
-            # Remove the current assistant message immediately so the loader can occupy its spot
-            try:
-                if 0 <= message_index < len(st.session_state.chat_history):
-                    st.session_state.chat_history.pop(message_index)
-            except Exception as _e:
-                logger.warning(f"Retry removal failed: {_e}")
-            # Mark retry request with exact user index and query; pipeline will run inline at that spot
-            st.session_state.retry_request = {
-                'assistant_index': message_index,
-                'user_index': user_index,
-                'query': prior_query,
-            }
-            st.rerun()
+    # Alternative simpler approach: render custom HTML buttons that encode action in URL
+    up_clicked = False
+    down_clicked = False
+    retry_clicked = False
+    st.markdown(
+        f"""
+        <div class=\"msg-actions-custom\" style=\"display:flex; gap:8px; margin:8px 0;\">
+          <button onclick=\"(function(){{try{{var u=new URL(window.location.href);u.searchParams.set('fb','up');u.searchParams.set('i','{message_index}');window.history.replaceState({{}},'',u);window.location.reload();}}catch(e){{}}}})()\" 
+                  style=\"width:44px;height:44px;border-radius:10px;border:1px solid #e0e0e0;background:white;font-size:20px;cursor:pointer;\">👍</button>
+          <button onclick=\"(function(){{try{{var u=new URL(window.location.href);u.searchParams.set('fb','down');u.searchParams.set('i','{message_index}');window.history.replaceState({{}},'',u);window.location.reload();}}catch(e){{}}}})()\" 
+                  style=\"width:44px;height:44px;border-radius:10px;border:1px solid #e0e0e0;background:white;font-size:20px;cursor:pointer;\">👎</button>
+          <button onclick=\"(function(){{try{{var u=new URL(window.location.href);u.searchParams.set('fb','retry');u.searchParams.set('i','{message_index}');window.history.replaceState({{}},'',u);window.location.reload();}}catch(e){{}}}})()\" 
+                  style=\"width:44px;height:44px;border-radius:10px;border:1px solid #e0e0e0;background:white;font-size:20px;cursor:pointer;\">↻</button>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    # No extra paths needed; actions handled inline above
+    if retry_clicked:
+        prior_query = ''
+        user_index = -1
+        j = message_index - 1
+        hist = st.session_state.chat_history
+        while j >= 0:
+            if hist[j].get('role') == 'user':
+                prior_query = hist[j].get('content', '')
+                user_index = j
+                break
+            j -= 1
+        # Remove the current assistant message immediately so the loader can occupy its spot
+        try:
+            if 0 <= message_index < len(st.session_state.chat_history):
+                st.session_state.chat_history.pop(message_index)
+        except Exception as _e:
+            logger.warning(f"Retry removal failed: {_e}")
+        # Mark retry request with exact user index and query; pipeline will run inline at that spot
+        st.session_state.retry_request = {
+            'assistant_index': message_index,
+            'user_index': user_index,
+            'query': prior_query,
+        }
+        st.rerun()
+    # Handle thumbs feedback after rendering to avoid double-rerun conflicts
+    if up_clicked:
+        st.session_state.message_feedback[message_index] = 'up'
+        log_feedback_event(message_index, 'up')
+    if down_clicked:
+        st.session_state.message_feedback[message_index] = 'down'
+        log_feedback_event(message_index, 'down')
 
-    # No extra UI
+    # Minimal CSS for custom buttons
+    st.markdown(
+        """
+        <style>
+        .msg-actions-custom button:hover { background: rgba(10,143,121,0.08) !important; border-color:#0a8f79 !important; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 def display_chat_messages(retry_request=None):
     """Display chat messages in a custom format.
@@ -1134,7 +1154,41 @@ def display_chat_messages(retry_request=None):
 
     injected_retry_placeholder = None
     
-    # Note: custom URL-param based feedback handling removed; using native Streamlit buttons
+    # Process any feedback action encoded in query params (from custom buttons)
+    try:
+        fb_action, fb_index = _pop_feedback_action_from_query_params()
+        if fb_action and fb_index is not None:
+            if fb_action == 'up':
+                st.session_state.message_feedback[fb_index] = 'up'
+                log_feedback_event(fb_index, 'up')
+            elif fb_action == 'down':
+                st.session_state.message_feedback[fb_index] = 'down'
+                log_feedback_event(fb_index, 'down')
+            elif fb_action == 'retry':
+                # Emulate retry button behavior
+                prior_query = ''
+                user_index = -1
+                j = fb_index - 1
+                hist = st.session_state.chat_history
+                while j >= 0:
+                    if hist[j].get('role') == 'user':
+                        prior_query = hist[j].get('content', '')
+                        user_index = j
+                        break
+                    j -= 1
+                try:
+                    if 0 <= fb_index < len(st.session_state.chat_history):
+                        st.session_state.chat_history.pop(fb_index)
+                except Exception as _e:
+                    logger.warning(f"Retry removal failed: {_e}")
+                st.session_state.retry_request = {
+                    'assistant_index': fb_index,
+                    'user_index': user_index,
+                    'query': prior_query,
+                }
+                st.rerun()
+    except Exception:
+        pass
 
     for i, message in enumerate(st.session_state.chat_history):
         if message['role'] == 'user':
@@ -1413,39 +1467,6 @@ def load_responsive_css():
     st.markdown(
         """
         <style>
-        /* Force horizontal layout for action buttons on mobile */
-        [data-testid="stChatMessage"] [data-testid="stHorizontalBlock"] {
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            gap: 4px !important;
-            overflow-x: visible !important;
-        }
-
-        /* Force columns to stay horizontal on mobile */
-        [data-testid="stChatMessage"] [data-testid="column"] {
-            flex: 0 0 auto !important;
-            width: 48px !important;
-            min-width: 48px !important;
-            max-width: 48px !important;
-        }
-
-        /* Make buttons square and consistent */
-        [data-testid="stChatMessage"] button {
-            width: 44px !important;
-            height: 44px !important;
-            min-width: 44px !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            font-size: 20px !important;
-            border-radius: 8px !important;
-            background: white !important;
-            border: 1px solid #e0e0e0 !important;
-        }
-
         /* Base typography and container */
         html { font-size: 16px; }
         .main .block-container { padding-top: 0 !important; margin-top: 0 !important; max-width: 100% !important; }
@@ -2063,10 +2084,30 @@ def main():
             _set_query_params_robust({"sb": "1" if new_open else "0"}, merge=True)
         except Exception:
             pass
+        # Immediately rerun to apply page_config flip logic
+        try:
+            st.rerun()
+        except Exception:
+            pass
 
     # Load CSS
     load_custom_css()
-    # Removed client-side transform sync to avoid overriding server-driven sidebar state
+    # Ensure client UI matches server-side sidebar state on each run
+    try:
+        st_html(
+            f"""
+<script>
+setTimeout(() => {{
+  const sidebar = document.querySelector('section[data-testid="stSidebar"]');
+  if (!sidebar) return;
+  {"sidebar.style.transform=''; sidebar.style.display='';" if st.session_state.get('_sb_open', True) else "sidebar.style.transform='translateX(-100%)';"}
+}}, 60);
+</script>
+""",
+            height=0,
+        )
+    except Exception:
+        pass
     load_responsive_css()
     # Close button CSS: maximize specificity and exclude from global button rules
     st.markdown(
@@ -2245,11 +2286,13 @@ def main():
                     if st.button("Confirm", key="confirm_lang_btn"):
                         st.session_state.selected_language = selected_language
                         st.session_state.language_confirmed = True
-                        # AUTO-CLOSE SIDEBAR ON MOBILE ONLY (server-driven only)
+                        # AUTO-CLOSE SIDEBAR ON MOBILE ONLY (robust param-based detection)
                         if _is_mobile_from_query_params():
                             st.session_state._sb_open = False
                             st.session_state._sb_rerun = True
                             _set_query_params_robust({"sb": "0"}, merge=True)
+                            # Aid client-side collapse on next load
+                            st_html('<script>try{sessionStorage.setItem("closeSidebarOnLoad","1");}catch(e){}</script>', height=0)
                         st.rerun()
                 else:
                     st.session_state.selected_language = selected_language
@@ -2277,11 +2320,19 @@ def main():
                     st.session_state.show_faq_popup = False
                 if st.button("📚 Support & FAQs"):
                     st.session_state.show_faq_popup = True
-                    # Auto-close sidebar on mobile if FAQ opened (server-driven only)
+                    # Auto-close sidebar on mobile if FAQ opened
                     if _is_mobile_from_query_params():
                         st.session_state._sb_open = False
                         st.session_state._sb_rerun = True
                         _set_query_params_robust({"sb": "0"}, merge=True)
+                        st_html('<script>try{sessionStorage.setItem("closeSidebarOnLoad","1");}catch(e){}</script>', height=0)
+                        st.rerun()
+                    # Auto-close sidebar on mobile if FAQ opened
+                    if _is_mobile_from_query_params():
+                        st.session_state._sb_open = False
+                        st.session_state._sb_rerun = True
+                        _set_query_params_robust({"sb": "0"}, merge=True)
+                        st_html('<script>try{sessionStorage.setItem("closeSidebarOnLoad","1");}catch(e){}</script>', height=0)
                         st.rerun()
                 st.markdown('<div class="footer" style="margin-top: 20px; margin-bottom: 20px;">', unsafe_allow_html=True)
                 st.markdown('<div>Made by:</div>', unsafe_allow_html=True)
@@ -2757,11 +2808,13 @@ def main():
                     if st.button("Confirm", key="confirm_lang_btn_2"):
                         st.session_state.selected_language = selected_language
                         st.session_state.language_confirmed = True
-                        # AUTO-CLOSE SIDEBAR ON MOBILE ONLY (server-driven only)
+                        # AUTO-CLOSE SIDEBAR ON MOBILE ONLY (robust param-based detection)
                         if _is_mobile_from_query_params():
                             st.session_state._sb_open = False
                             st.session_state._sb_rerun = True
                             _set_query_params_robust({"sb": "0"}, merge=True)
+                            # Aid client-side collapse on next load
+                            st_html('<script>try{sessionStorage.setItem("closeSidebarOnLoad","1");}catch(e){}</script>', height=0)
                         st.rerun()
                 else:
                     st.session_state.selected_language = selected_language
@@ -3220,8 +3273,7 @@ def main():
             # This would be handled by st.cache_resource's cleanup mechanism
             
         except Exception as e:
-            # Suppress noisy UI error; log instead to avoid breaking UX
-            logger.error(f"Error initializing chatbot: {str(e)}")
+            st.error(f"Error initializing chatbot: {str(e)}")
             st.info("Make sure the .env file exists in the project root directory")
 
 if __name__ == "__main__":

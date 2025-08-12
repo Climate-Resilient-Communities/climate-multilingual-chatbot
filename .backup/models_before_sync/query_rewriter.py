@@ -82,35 +82,13 @@ def _invalid_query(q: str) -> bool:
 
 
 def _looks_climate_any(text: str) -> bool:
-    """Check if text contains climate- or scope-related keywords in any language.
-
-    Includes broader resilience/health/energy/preparedness topics explicitly in scope.
-    """
+    """Check if text contains climate-related keywords in any language."""
     t = (text or "").lower()
-    # Stems/phrases to reduce false negatives while avoiding broad false positives
-    latin = (
-        # Core climate
-        "clim", "carbon", "co2", "emission", "mitig", "adapt", "greenhouse",
-        "warming", "weather", "temperature", "environment", "sustain", "biodivers",
-        # Hazards
-        "flood", "wildfire", "heat wave", "heatwave", "air quality", "aqi",
-        # Energy and transition
-        "renewab", "solar", "wind", "ev", "energy transition",
-        # Urban and resilience
-        "resilienc", "urban resilience",
-        # Health and equity
-        "health inequ", "inequit", "mental health", "heat stress", "occupational heat",
-        # Household/home topics
-        "home maintenance", "home insulation", "weatherization",
-        # Waste
-        "waste management", "recycl", "compost",
-        # Science
-        "paleoclimate", "paleo-climate",
-        # Preparedness / supplies / food security
-        "emergency preparedness", "emergency kit", "go bag", "household preparedness",
-        "food storage", "food security", "non-perishable", "stockpile",
-    )
-    nonlatin = ("气候", "氣候", "климат", "مناخ", "जलवायु", "気候", "기후")
+    latin = ("clim", "carbon", "co2", "emission", "mitig", "adapt",
+             "flood", "heat", "wildfire", "air quality", "aqi",
+             "renewab", "solar", "wind", "ev", "biodivers", "environment",
+             "sustain", "greenhouse", "warming", "weather", "temperature")
+    nonlatin = ("气候","氣候","климат","مناخ","जलवायु","気候","기후")
     return any(k in t for k in latin) or any(k in t for k in nonlatin)
 
 def _error_payload(message: str, expected_lang: str, user_query: str) -> Dict[str, Any]:
@@ -215,7 +193,6 @@ IMPORTANT: Detect the actual language of the user query considering conversation
   9) Keyword lists count as valid queries. If a list contains climate terms in any language, classify as "on-topic".
 
  [EXAMPLES]
- - [on topic examples:Urban resilience, health inequities, mental health, home maintenance, flood/wildfire management, climate adaptation, paleoclimate, waste management, occupational heat stress, energy transition, renewable energy, food storage, emergency preparedness/household supplies, fires, flooding, climate anxiety]
  - User Query: "气候 变化 对 加拿大 冬天 的 影响"
    language: "zh"
    classification: "on-topic"
@@ -343,20 +320,7 @@ ACTUAL DETECTED LANGUAGE: [You must detect this from the user query, considering
     cls = (data.get("classification") or "").lower()
     if cls not in CATEGORIES:
         cls = "off-topic"
-    # Ensure in-scope topics aren't marked off-topic even if the model is conservative
-    try:
-        if cls == "off-topic" and _looks_climate_any(user_query):
-            cls = "on-topic"
-    except Exception:
-        pass
-    # Final guard using the model's English rewrite (post-translation) if available
-    try:
-        if cls == "off-topic":
-            rewritten_en = (data.get("rewrite_en") or "").strip()
-            if rewritten_en and _looks_climate_any(rewritten_en):
-                cls = "on-topic"
-    except Exception:
-        pass
+    # English exemption should not bypass classification. Always return the model's class.
 
     # Extract actual detected language from model output
     detected_lang = (data.get("language") or "").lower()

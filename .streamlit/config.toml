@@ -1,10 +1,10 @@
 [server]
 # Disable file watcher to prevent the Streamlit file watcher from
 # triggering the "__path__._path" error with PyTorch internals
-watcher_type = "none"
+# Use valid keys supported by current Streamlit versions
+fileWatcherType = "none"
 runOnSave = false
 enableCORS = true
-fileWatcherType = "none"
 
 [theme]
 base = "light"
