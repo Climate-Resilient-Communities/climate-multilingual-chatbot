@@ -110,7 +110,26 @@ def _looks_climate_any(text: str) -> bool:
         "emergency preparedness", "emergency kit", "go bag", "household preparedness",
         "food storage", "food security", "non-perishable", "stockpile",
     )
-    nonlatin = ("气候", "氣候", "климат", "مناخ", "जलवायु", "気候", "기후")
+    # Minimal, high-signal non‑Latin terms (weather/hazards) to catch clear in‑scope queries
+    # without over-broad matches. This list focuses on common equivalents of
+    # climate/weather/hazards/emissions in several scripts.
+    nonlatin_core = ("气候", "氣候", "климат", "مناخ", "जलवायु", "気候", "기후")
+    nonlatin_extra = (
+        # Chinese (Simplified/Traditional)
+        "天气", "天氣", "变暖", "變暖", "洪水", "热浪", "熱浪", "空气质量", "空氣質量", "污染", "干旱", "旱灾",
+        "降雨", "暴雨", "冬天", "夏天", "温室气体", "溫室氣體", "排放",
+        # Japanese
+        "天気", "洪水", "熱波",
+        # Korean
+        "날씨", "홍수", "폭염",
+        # Russian
+        "погода", "наводнение", "лесной пожар",
+        # Arabic
+        "طقس", "فيضانات",
+        # Hindi
+        "मौसम", "बाढ़",
+    )
+    nonlatin = nonlatin_core + nonlatin_extra
     return any(k in t for k in latin) or any(k in t for k in nonlatin)
 
 def _error_payload(message: str, expected_lang: str, user_query: str) -> Dict[str, Any]:
@@ -343,6 +362,8 @@ ACTUAL DETECTED LANGUAGE: [You must detect this from the user query, considering
     cls = (data.get("classification") or "").lower()
     if cls not in CATEGORIES:
         cls = "off-topic"
+    # Track the final rewrite that should be returned when on-topic
+    final_rewrite_en = (data.get("rewrite_en") or None)
     # Ensure in-scope topics aren't marked off-topic even if the model is conservative
     try:
         if cls == "off-topic" and _looks_climate_any(user_query):
@@ -355,6 +376,7 @@ ACTUAL DETECTED LANGUAGE: [You must detect this from the user query, considering
             rewritten_en = (data.get("rewrite_en") or "").strip()
             if rewritten_en and _looks_climate_any(rewritten_en):
                 cls = "on-topic"
+                final_rewrite_en = rewritten_en
     except Exception:
         pass
 
@@ -373,6 +395,7 @@ ACTUAL DETECTED LANGUAGE: [You must detect this from the user query, considering
                     cls = "on-topic"
                     # Preserve the helpful English rewrite so downstream can use it
                     data["rewrite_en"] = translated_en
+                    final_rewrite_en = translated_en
     except Exception:
         pass
 
@@ -394,7 +417,7 @@ ACTUAL DETECTED LANGUAGE: [You must detect this from the user query, considering
         "expected_language": expected_lang,
         "language_match": language_match,
         "classification": cls,
-        "rewrite_en": data.get("rewrite_en") if cls == "on-topic" else None,
+        "rewrite_en": final_rewrite_en if cls == "on-topic" else None,
         "canned": canned,
         "ask_how_to_use": ask_how_to_use,
         "how_it_works": how_it_works,
