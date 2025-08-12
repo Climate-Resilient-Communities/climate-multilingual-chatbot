@@ -39,7 +39,7 @@ class BedrockModel:
                 service_name='bedrock-runtime',
                 region_name='us-east-1',
                 config=Config(
-                    read_timeout=30,  # Reduced from 300s to prevent production hangs
+                    read_timeout=45,  # Allow longer generations observed in prod
                     connect_timeout=10,
                     retries={"max_attempts": 2, "mode": "adaptive"},  # Reduced retries
                 ),
@@ -90,7 +90,7 @@ class BedrockModel:
                     service_name='bedrock-runtime',
                     region_name='us-east-1',
                     config=Config(
-                        read_timeout=30,  # Reduced from 300s to prevent production hangs
+                        read_timeout=45,  # Allow longer generations observed in prod
                         connect_timeout=10,
                         retries={"max_attempts": 2, "mode": "adaptive"},  # Reduced retries
                     ),
