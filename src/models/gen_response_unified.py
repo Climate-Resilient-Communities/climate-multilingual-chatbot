@@ -307,7 +307,7 @@ class UnifiedResponseGenerator:
                         description=description,
                         conversation_history=conversation_history
                     ),
-                    timeout=30.0  # 30 seconds for main response generation
+                    timeout=45.0  # 45 seconds for main response generation
                 )
             else:  # cohere
                 # Add timeout protection to prevent 5+ minute hangs
@@ -318,7 +318,7 @@ class UnifiedResponseGenerator:
                         description=description,
                         conversation_history=conversation_history
                     ),
-                    timeout=30.0  # 30 seconds for main response generation
+                    timeout=45.0  # 45 seconds for main response generation
                 )
             
             # Extract citations (unified format)
