@@ -627,12 +627,27 @@ class ClimateQueryPipeline:
                             "I'm a climate change assistant and can only help with questions about climate, environment, and sustainability. "
                             "Please ask me about topics like climate change causes, effects, or solutions."
                         )
+                        # Translate guard using detected language if available; fall back to selected language
                         final_msg = msg_en
-                        if language_code != 'en':
-                            try:
-                                final_msg = await self.nova_model.translate(msg_en, 'english', language_name)
-                            except Exception:
-                                final_msg = msg_en
+                        try:
+                            target_code = detected_lang if detected_lang and detected_lang != 'unknown' else language_code
+                            if target_code != 'en':
+                                code_to_name = {
+                                    'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
+                                    'it': 'Italian', 'pt': 'Portuguese', 'nl': 'Dutch', 'ru': 'Russian',
+                                    'zh': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean', 'ar': 'Arabic',
+                                    'hi': 'Hindi', 'bn': 'Bengali', 'ur': 'Urdu', 'ta': 'Tamil',
+                                    'gu': 'Gujarati', 'fa': 'Persian', 'vi': 'Vietnamese', 'th': 'Thai',
+                                    'tr': 'Turkish', 'pl': 'Polish', 'cs': 'Czech', 'hu': 'Hungarian',
+                                    'ro': 'Romanian', 'el': 'Greek', 'he': 'Hebrew', 'uk': 'Ukrainian',
+                                    'id': 'Indonesian', 'tl': 'Filipino', 'da': 'Danish', 'sv': 'Swedish',
+                                    'no': 'Norwegian', 'fi': 'Finnish', 'bg': 'Bulgarian', 'sk': 'Slovak',
+                                    'sl': 'Slovenian', 'et': 'Estonian', 'lv': 'Latvian', 'lt': 'Lithuanian'
+                                }
+                                target_name = code_to_name.get(target_code, target_code)
+                                final_msg = await self.nova_model.translate(msg_en, 'english', target_name)
+                        except Exception:
+                            final_msg = msg_en
                         return self._create_error_response(
                             final_msg,
                             language_code,
