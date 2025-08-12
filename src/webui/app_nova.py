@@ -337,6 +337,102 @@ from streamlit.components.v1 import html as st_html
 # browser-persisted user choice Streamlit keeps.
 SIDEBAR_STATE = {True: "expanded", False: "collapsed"}
 
+# --- Query param helpers (robust across Streamlit versions) ---
+def _get_query_param_single_value(name, default=None):
+    """Return a single string value for a query param across Streamlit versions.
+    Handles both st.query_params (QueryParams) and st.experimental_get_query_params (dict[str, list[str]]).
+    """
+    try:
+        params = st.query_params
+    except Exception:
+        try:
+            params = st.experimental_get_query_params()
+        except Exception:
+            return default
+
+    # Access value
+    try:
+        value = params.get(name)
+    except Exception:
+        value = None
+
+    # Normalize lists
+    if isinstance(value, list):
+        return value[0] if value else default
+    return value if value is not None else default
+
+def _is_mobile_from_query_params():
+    """Determine mobile intent from query params (?mobile=1 or ?m=1/true/yes)."""
+    raw = _get_query_param_single_value("mobile") or _get_query_param_single_value("m")
+    if isinstance(raw, str) and raw.lower() in ("1", "true", "yes", "y"):  # allow a few truthy forms
+        return True
+    return False
+
+def _get_all_query_params_single_values():
+    """Return current query params as {str: str} with list values collapsed to first element."""
+    try:
+        params = st.query_params
+    except Exception:
+        try:
+            params = st.experimental_get_query_params()
+        except Exception:
+            return {}
+    collapsed = {}
+    try:
+        items = params.items() if hasattr(params, "items") else []
+        for key, value in items:
+            if isinstance(value, list):
+                collapsed[key] = value[0] if value else ""
+            else:
+                collapsed[key] = value
+    except Exception:
+        pass
+    return collapsed
+
+def _set_query_params_robust(new_params: dict, merge: bool = True) -> None:
+    """Set query params using new API when available, with optional merge of existing params."""
+    try:
+        current = _get_all_query_params_single_values() if merge else {}
+        # ensure string values
+        for k, v in (new_params or {}).items():
+            if v is None:
+                continue
+            current[str(k)] = str(v)
+        try:
+            st.query_params = current  # Streamlit ≥1.30
+        except Exception:
+            try:
+                st.experimental_set_query_params(**current)  # Fallback
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+def _pop_feedback_action_from_query_params():
+    """Return (action, index) if a feedback action is encoded in the URL, then remove it.
+    Action is one of {up, down, retry}. Index is int.
+    """
+    try:
+        current = _get_all_query_params_single_values()
+        action = (current.get("fb") or current.get("action") or "").strip()
+        idx_raw = current.get("i") or current.get("idx") or current.get("message_index")
+        if not action:
+            return None, None
+        try:
+            idx = int(idx_raw) if idx_raw is not None else None
+        except Exception:
+            idx = None
+        # Remove the action params to avoid repeat on rerun
+        current.pop("fb", None)
+        current.pop("action", None)
+        current.pop("i", None)
+        current.pop("idx", None)
+        current.pop("message_index", None)
+        _set_query_params_robust(current, merge=False)
+        return action, idx
+    except Exception:
+        return None, None
+
 # Determine desired sidebar open/closed from query param if present (sb=1/0)
 _desired_open_default = True
 try:
@@ -382,6 +478,36 @@ st.set_page_config(
     page_title="Multilingual Climate Chatbot",
     page_icon=calculated_favicon,
     initial_sidebar_state=SIDEBAR_STATE[st.session_state._sb_open],
+)
+
+        # On load: if a previous action requested closing the sidebar via sessionStorage,
+# perform a best-effort close using the native collapse control or CSS transform.
+st_html(
+    """
+<script>
+try {
+  if (sessionStorage.getItem('closeSidebarOnLoad') === '1') {
+    sessionStorage.removeItem('closeSidebarOnLoad');
+    const tryClose = () => {
+      const collapseBtn = document.querySelector('[data-testid="collapsedControl"]') ||
+                          document.querySelector('[aria-label*="Collapse"]') ||
+                          document.querySelector('button[kind="header"]');
+      if (collapseBtn && collapseBtn.getAttribute('aria-expanded') === 'true') {
+        collapseBtn.click();
+      }
+      const sidebar = document.querySelector('section[data-testid="stSidebar"]');
+      if (sidebar) {
+        sidebar.style.transition = 'transform 0.2s ease';
+        sidebar.style.transform = 'translateX(-100%)';
+      }
+    };
+    setTimeout(tryClose, 50);
+    setTimeout(tryClose, 200);
+  }
+} catch (e) {}
+</script>
+""",
+    height=0,
 )
 
 # Optional: allow URL param reset_ui=1 to clear any persisted UI prefs in the browser
@@ -940,17 +1066,18 @@ def render_message_actions_ui(message_index: int, message: dict) -> None:
     # Only show actions for assistant messages
     if not is_assistant:
         return
-    spacer, c_up, c_down, c_retry = st.columns([13, 1, 1, 1])
-    with c_up:
-        if st.button('👍', key=f'msg_up_{message_index}', help='Thumbs up'):
+    # Use columns to force horizontal layout; keep first three columns tight
+    col1, col2, col3, col4 = st.columns([0.5, 0.5, 0.5, 10])
+    with col1:
+        if st.button('👍', key=f'msg_up_{message_index}', help='Thumbs up', use_container_width=True):
             st.session_state.message_feedback[message_index] = 'up'
             log_feedback_event(message_index, 'up')
-    with c_down:
-        if st.button('👎', key=f'msg_down_{message_index}', help='Thumbs down'):
+    with col2:
+        if st.button('👎', key=f'msg_down_{message_index}', help='Thumbs down', use_container_width=True):
             st.session_state.message_feedback[message_index] = 'down'
             log_feedback_event(message_index, 'down')
-    with c_retry:
-        if st.button('↻', key=f'msg_retry_{message_index}', help='Retry this answer'):
+    with col3:
+        if st.button('↻', key=f'msg_retry_{message_index}', help='Retry this answer', use_container_width=True):
             prior_query = ''
             user_index = -1
             j = message_index - 1
@@ -974,6 +1101,9 @@ def render_message_actions_ui(message_index: int, message: dict) -> None:
                 'query': prior_query,
             }
             st.rerun()
+
+    # No extra paths needed; actions handled inline above
+
     # No extra UI
 
 def display_chat_messages(retry_request=None):
@@ -1004,6 +1134,8 @@ def display_chat_messages(retry_request=None):
 
     injected_retry_placeholder = None
     
+    # Note: custom URL-param based feedback handling removed; using native Streamlit buttons
+
     for i, message in enumerate(st.session_state.chat_history):
         if message['role'] == 'user':
             user_msg = st.chat_message("user")
@@ -1276,6 +1408,119 @@ def load_custom_css():
             <link rel="shortcut icon" href="{TREE_ICON}" type="image/x-icon">
         ''', unsafe_allow_html=True)
 
+def load_responsive_css():
+    """Mobile-first responsive CSS to improve usability on small screens."""
+    st.markdown(
+        """
+        <style>
+        /* Force horizontal layout for action buttons on mobile */
+        [data-testid="stChatMessage"] [data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 4px !important;
+            overflow-x: visible !important;
+        }
+
+        /* Force columns to stay horizontal on mobile */
+        [data-testid="stChatMessage"] [data-testid="column"] {
+            flex: 0 0 auto !important;
+            width: 48px !important;
+            min-width: 48px !important;
+            max-width: 48px !important;
+        }
+
+        /* Make buttons square and consistent */
+        [data-testid="stChatMessage"] button {
+            width: 44px !important;
+            height: 44px !important;
+            min-width: 44px !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 20px !important;
+            border-radius: 8px !important;
+            background: white !important;
+            border: 1px solid #e0e0e0 !important;
+        }
+
+        /* Base typography and container */
+        html { font-size: 16px; }
+        .main .block-container { padding-top: 0 !important; margin-top: 0 !important; max-width: 100% !important; }
+
+        /* Buttons – touch targets */
+        .stButton > button { min-height: 44px; }
+
+        /* Header responsiveness */
+        .mlcc-header { display:flex; align-items:center; gap:16px; margin-top:8px; flex-wrap:wrap; }
+
+        @media (max-width: 768px) {
+          html { font-size: 14px; }
+          .main .block-container { padding-left: 1rem !important; padding-right: 1rem !important; }
+          .stButton > button { padding: 12px 20px; font-size: 0.95rem; width: 100%; }
+          [data-testid="stChatMessage"] { padding: 0.5rem; }
+          [data-testid="stChatMessage"] h1 {font-size: 1.25rem !important;}
+          [data-testid="stChatMessage"] h2 {font-size: 1.1rem !important;}
+          [data-testid="stChatMessage"] h3 {font-size: 1rem !important;}
+          [data-testid="stChatMessage"] p  {font-size: 0.95rem !important;}
+          .mlcc-header { gap: 12px; justify-content: center; text-align: center; }
+          .mlcc-header h1 { font-size: 1.5rem !important; }
+          .mlcc-header .mlcc-logo { width: 48px; }
+        }
+
+        /* Sidebar sizing for mobile */
+        @media (max-width: 768px) {
+          section[data-testid="stSidebar"] { width: 85% !important; max-width: 320px !important; }
+          section[data-testid="stSidebar"] > div { padding: 1rem !important; }
+        }
+
+        /* Consent + FAQ modals responsive */
+        @media (max-width: 768px) {
+          div[data-testid="column"]:has(.consent-modal-marker) { width: 95vw !important; top: 2vh !important; padding: 16px !important; }
+          div[data-testid="column"]:has(.consent-modal-marker) h1 { font-size: 1.5rem !important; }
+          div[data-testid="column"]:has(.consent-modal-marker) h3 { font-size: 1rem !important; }
+          div[data-testid="column"]:has(.consent-modal-marker) p,
+          div[data-testid="column"]:has(.consent-modal-marker) li { font-size: 0.9rem !important; }
+
+          div[data-testid="column"]:has(.faq-popup-marker) { width: 95vw !important; max-height: 90vh !important; padding: 12px !important; }
+          div[data-testid="column"]:has(.faq-popup-marker) h1 { font-size: 1.3rem !important; }
+          div[data-testid="column"]:has(.faq-popup-marker) h2 { font-size: 1.1rem !important; }
+        }
+
+        /* Touch-friendly expanders */
+        @media (max-width: 768px) {
+          [data-testid="stExpander"] summary { min-height: 44px; padding: 12px !important; }
+        }
+
+        /* Sources buttons smaller on mobile */
+        @media (max-width: 768px) {
+          .sources-section .stButton > button { font-size: 0.85rem !important; padding: 8px 12px !important; }
+        }
+
+        /* Hide custom sidebar toggle on mobile; use Streamlit native menu */
+        @media (max-width: 768px) {
+          #sb-toggle-anchor + div.stButton { display: none !important; }
+        }
+
+        /* User bubbles max width on mobile */
+        @media (max-width: 768px) {
+          div[style*="max-width:85%"] { max-width: 90% !important; }
+        }
+
+        /* Fix chat input on mobile */
+        @media (max-width: 768px) {
+          [data-testid="stChatInput"] {
+            position: fixed; bottom: 0; left: 0; right: 0; padding: 8px;
+            background: white; border-top: 1px solid #ddd; z-index: 100;
+          }
+          .main { padding-bottom: 80px !important; }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 def generate_chat_history_text():
     """Convert chat history to downloadable text format."""
     history_text = "Chat History\n\n"
@@ -1810,11 +2055,19 @@ def main():
     
     # Define sidebar toggle callback at the top of main() so it can be shared
     def toggle_sidebar() -> None:
-        st.session_state._sb_open = not st.session_state.get('_sb_open', True)
+        new_open = not st.session_state.get('_sb_open', True)
+        st.session_state._sb_open = new_open
         st.session_state._sb_rerun = True
+        # Keep URL param in sync so top-of-file logic doesn't override user toggle
+        try:
+            _set_query_params_robust({"sb": "1" if new_open else "0"}, merge=True)
+        except Exception:
+            pass
 
     # Load CSS
     load_custom_css()
+    # Removed client-side transform sync to avoid overriding server-driven sidebar state
+    load_responsive_css()
     # Close button CSS: maximize specificity and exclude from global button rules
     st.markdown(
         """
@@ -1992,6 +2245,11 @@ def main():
                     if st.button("Confirm", key="confirm_lang_btn"):
                         st.session_state.selected_language = selected_language
                         st.session_state.language_confirmed = True
+                        # AUTO-CLOSE SIDEBAR ON MOBILE ONLY (server-driven only)
+                        if _is_mobile_from_query_params():
+                            st.session_state._sb_open = False
+                            st.session_state._sb_rerun = True
+                            _set_query_params_robust({"sb": "0"}, merge=True)
                         st.rerun()
                 else:
                     st.session_state.selected_language = selected_language
@@ -2019,6 +2277,12 @@ def main():
                     st.session_state.show_faq_popup = False
                 if st.button("📚 Support & FAQs"):
                     st.session_state.show_faq_popup = True
+                    # Auto-close sidebar on mobile if FAQ opened (server-driven only)
+                    if _is_mobile_from_query_params():
+                        st.session_state._sb_open = False
+                        st.session_state._sb_rerun = True
+                        _set_query_params_robust({"sb": "0"}, merge=True)
+                        st.rerun()
                 st.markdown('<div class="footer" style="margin-top: 20px; margin-bottom: 20px;">', unsafe_allow_html=True)
                 st.markdown('<div>Made by:</div>', unsafe_allow_html=True)
                 if TREE_ICON:
@@ -2060,6 +2324,10 @@ def main():
                     background: #dcdcdc !important;
                     color: #333333 !important;
                 }
+                    /* Ensure the toggle button remains visible on mobile */
+                    @media (max-width: 768px) {
+                        #sb-toggle-anchor + div.stButton { display: block !important; }
+                    }
                 </style>
                 """,
                 unsafe_allow_html=True,
@@ -2489,6 +2757,11 @@ def main():
                     if st.button("Confirm", key="confirm_lang_btn_2"):
                         st.session_state.selected_language = selected_language
                         st.session_state.language_confirmed = True
+                        # AUTO-CLOSE SIDEBAR ON MOBILE ONLY (server-driven only)
+                        if _is_mobile_from_query_params():
+                            st.session_state._sb_open = False
+                            st.session_state._sb_rerun = True
+                            _set_query_params_robust({"sb": "0"}, merge=True)
                         st.rerun()
                 else:
                     st.session_state.selected_language = selected_language
@@ -2947,7 +3220,8 @@ def main():
             # This would be handled by st.cache_resource's cleanup mechanism
             
         except Exception as e:
-            st.error(f"Error initializing chatbot: {str(e)}")
+            # Suppress noisy UI error; log instead to avoid breaking UX
+            logger.error(f"Error initializing chatbot: {str(e)}")
             st.info("Make sure the .env file exists in the project root directory")
 
 if __name__ == "__main__":
