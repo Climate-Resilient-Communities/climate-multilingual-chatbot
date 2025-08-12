@@ -103,7 +103,7 @@ def _looks_climate_any(text: str) -> bool:
         # Household/home topics
         "home maintenance", "home insulation", "weatherization",
         # Waste
-        "waste management", "recycl", "compost",
+        "waste management", "food waste", "recycl", "compost",
         # Science
         "paleoclimate", "paleo-climate",
         # Preparedness / supplies / food security
@@ -355,6 +355,24 @@ ACTUAL DETECTED LANGUAGE: [You must detect this from the user query, considering
             rewritten_en = (data.get("rewrite_en") or "").strip()
             if rewritten_en and _looks_climate_any(rewritten_en):
                 cls = "on-topic"
+    except Exception:
+        pass
+
+    # If still off-topic and non-English, proactively translate the original query to English
+    # and re-evaluate scope using keyword heuristic. This avoids false off-topic for
+    # in-scope topics expressed in other languages when the model omits rewrite_en.
+    try:
+        if cls == "off-topic":
+            detected_lang = (data.get("language") or "").lower() or expected_lang
+            if detected_lang and detected_lang != "en":
+                try:
+                    translated_en = await nova_model.translate(user_query, detected_lang, "english")
+                except Exception:
+                    translated_en = None
+                if isinstance(translated_en, str) and _looks_climate_any(translated_en):
+                    cls = "on-topic"
+                    # Preserve the helpful English rewrite so downstream can use it
+                    data["rewrite_en"] = translated_en
     except Exception:
         pass
 
