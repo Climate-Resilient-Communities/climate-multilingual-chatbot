@@ -433,6 +433,101 @@ def _pop_feedback_action_from_query_params():
     except Exception:
         return None, None
 
+# --- Mobile simplification helpers ---
+def is_mobile_device() -> bool:
+    """Lightweight server-side mobile hint.
+
+    Uses query params (?mobile=1 or ?m=1) which we can set during testing or via
+    client-side scripts if desired. UI CSS is still responsive even without this.
+    """
+    try:
+        return bool(_is_mobile_from_query_params())
+    except Exception:
+        return False
+
+def load_mobile_css() -> None:
+    """Inject mobile-first CSS that hides the sidebar and presents a simple header.
+
+    This does not affect desktop thanks to media queries.
+    """
+    st.markdown(
+        """
+        <style>
+        /* Hide sidebar and any toggle buttons on small screens */
+        @media (max-width: 768px) {
+          section[data-testid="stSidebar"],
+          [data-testid="collapsedControl"],
+          #sb-toggle-anchor + div.stButton,
+          button[kind="header"] {
+            display: none !important;
+          }
+          /* Reduce top padding to make room for fixed mobile header */
+          .main .block-container { padding-top: 64px !important; }
+        }
+
+        /* Fixed mobile header shell */
+        .mobile-header { display: none; }
+        @media (max-width: 768px) {
+          .mobile-header { 
+            position: fixed; top: 0; left: 0; right: 0; 
+            z-index: 1000; padding: 12px 14px; 
+            background: var(--background-color, #fff);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+          }
+          /* Hide existing desktop header to avoid duplication on mobile */
+          .mlcc-header, .mlcc-subtitle { display: none !important; }
+        }
+
+        /* Chat input pinned at bottom with subtle border on mobile */
+        @media (max-width: 768px) {
+          [data-testid="stChatInput"] { 
+            position: fixed; left: 0; right: 0; bottom: 0; 
+            padding: 10px 12px; background: white; 
+            border-top: 1px solid #e6e6e6; 
+          }
+          .main { padding-bottom: 84px !important; }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+def _update_language_from_mobile_select() -> None:
+    sel = st.session_state.get("mobile_language_select")
+    if isinstance(sel, str) and sel:
+        st.session_state.selected_language = sel
+        st.session_state.language_confirmed = True
+
+def render_mobile_header(chatbot) -> None:
+    """Render a simple mobile header with immediate language selection and FAQ."""
+    # Ensure CSS present
+    load_mobile_css()
+    # Wrapper
+    st.markdown('<div class="mobile-header">', unsafe_allow_html=True)
+    # Use Streamlit columns (they'll be fixed by the wrapper styles above)
+    left, right = st.columns([6, 1])
+    with left:
+        try:
+            languages = sorted(chatbot.LANGUAGE_NAME_TO_CODE.keys())
+        except Exception:
+            languages = [st.session_state.get("selected_language", "english")]
+        default_idx = 0
+        if st.session_state.get("selected_language") in languages:
+            default_idx = languages.index(st.session_state.get("selected_language"))
+        st.selectbox(
+            "languages",
+            options=languages,
+            index=default_idx,
+            key="mobile_language_select",
+            label_visibility="collapsed",
+            on_change=_update_language_from_mobile_select,
+        )
+    with right:
+        if st.button("?", key="mobile_faq_btn", help="Support & FAQ"):
+            st.session_state.show_faq_popup = True
+            st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
 # Determine desired sidebar open/closed from query param if present (sb=1/0)
 _desired_open_default = True
 try:
@@ -2067,10 +2162,14 @@ def main():
         except Exception:
             pass
 
-    # Load CSS
-    load_custom_css()
-    # Removed client-side transform sync to avoid overriding server-driven sidebar state
-    load_responsive_css()
+    # Decide mobile vs desktop early
+    mobile = is_mobile_device()
+    if mobile:
+        load_mobile_css()
+    else:
+        # Load desktop CSS
+        load_custom_css()
+        load_responsive_css()
     # Close button CSS: maximize specificity and exclude from global button rules
     st.markdown(
         """
@@ -2159,7 +2258,7 @@ def main():
 
         # Do not force sidebar visibility via CSS; rely on page_config + toggle button
 
-        if st.session_state.get('_sb_open', True):
+        if (not mobile) and st.session_state.get('_sb_open', True):
             with st.sidebar:
                 # Add a close button at the top of the sidebar, wrapped in a unique div
                 st.markdown('<div class="sb-close-button-container">', unsafe_allow_html=True)
@@ -2298,7 +2397,7 @@ def main():
                 st.markdown('</div>', unsafe_allow_html=True)
 
         # Sidebar toggle control in main content area (only shows when sidebar is closed)
-        if not st.session_state.get('_sb_open', True):
+        if (not mobile) and not st.session_state.get('_sb_open', True):
             arrow_icon = "➡️"
             # Anchor element to uniquely target the very next st.button with CSS
             st.markdown('<div id="sb-toggle-anchor"></div>', unsafe_allow_html=True)
@@ -2338,7 +2437,19 @@ def main():
             st.button(arrow_icon, key="sb_toggle_btn", help="Toggle sidebar", on_click=toggle_sidebar)
 
         # Header
-        if CCC_ICON_B64:
+        if mobile:
+            # Render simplified mobile header (language + FAQ) and a compact title/subtitle
+            render_mobile_header(chatbot)
+            st.markdown(
+                """
+                <div style="text-align:center;margin:8px 0 4px 0;">
+                  <h3 style="margin:0;">Multilingual Climate Chatbot</h3>
+                  <div style="color:#6b6b6b; font-size:14px;">Ask me anything about climate change!</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        elif CCC_ICON_B64:
             st.markdown(
                 f"""
                 <div class="mlcc-header">
