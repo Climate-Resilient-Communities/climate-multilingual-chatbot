@@ -499,64 +499,72 @@ def _update_language_from_mobile_select() -> None:
         st.session_state.language_confirmed = True
 
 def render_mobile_header(chatbot) -> None:
-    """Render a compact mobile header using a single Streamlit row: centered language, FAQ on right."""
+    """Render a compact mobile header with the language centered and a right-aligned FAQ button (single row)."""
     st.markdown(
         """
         <style>
         @media (max-width: 768px) {
-          .main .block-container { padding-top: 60px !important; }
-          .mlcc-header, .mlcc-subtitle { display: none !important; }
-          /* Compact select */
-          div[data-baseweb="select"] { min-height: 36px !important; max-height: 36px !important; }
-          div[data-baseweb="select"] > div { min-height: 36px !important; padding: 6px 10px !important; }
-          /* Round FAQ */
-          button[key="mobile_faq_btn"] { width:36px!important; height:36px!important; min-width:36px!important; border-radius:50%!important; padding:0!important; background:#fff!important; border:1px solid #d0d0d0!important; color:#333!important; }
-          button[key="mobile_faq_btn"]:hover { background:#f5f5f5!important; }
+          section[data-testid=stSidebar], [data-testid=collapsedControl], #sb-toggle-anchor + div.stButton, button[kind=header] { display: none !important; }
+          .main .block-container { padding-top: 60px !important; padding-left: 8px !important; padding-right: 8px !important; }
+        }
+        .mobile-header-wrapper { display: none; }
+        @media (max-width: 768px) {
+          .mobile-header-wrapper { display: block !important; position: fixed; top: 0; left: 0; right: 0; height: 50px; background: #fff; border-bottom: 1px solid #e0e0e0; z-index: 1000; padding: 0 8px; }
+          /* Stack FAQ (top-right) then language (center) in two rows for clarity */
+          .mobile-header-grid { display: grid !important; grid-template-columns: 1fr !important; grid-template-rows: auto auto !important; align-items: center !important; height: 50px !important; gap: 0 !important; }
+          .mobile-lang-wrapper { display: flex !important; justify-content: center !important; align-items: center !important; max-width: 180px !important; margin: 0 auto !important; }
+          .mobile-lang-wrapper .stSelectbox { margin: 0 !important; width: 100% !important; }
+          .mobile-lang-wrapper [data-testid=stSelectbox] > div:first-child { display: none !important; }
+          .mobile-lang-wrapper [data-baseweb=select] { min-height: 36px !important; max-height: 36px !important; font-size: 14px !important; }
+          .mobile-lang-wrapper [data-baseweb=select] > div { min-height: 36px !important; padding: 6px 10px !important; }
+          .mobile-faq-wrapper { display: flex !important; align-items: center !important; justify-content: flex-end !important; }
+          .mobile-faq-wrapper button { width: 36px !important; height: 36px !important; min-width: 36px !important; border-radius: 50% !important; padding: 0 !important; background: #fff !important; border: 1px solid #d0d0d0 !important; color: #333 !important; font-size: 18px !important; display: flex !important; align-items: center !important; justify-content: center !important; }
+          .mobile-faq-wrapper button:hover { background: #f5f5f5 !important; }
+          [data-testid=stChatInput] { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 12px; background: #fff; border-top: 1px solid #e6e6e6; z-index: 999; }
+          .main { padding-bottom: 70px !important; }
         }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
-    c_left, c_center, c_right = st.columns([1, 2, 1])
-    with c_center:
-        try:
-            languages = sorted(chatbot.LANGUAGE_NAME_TO_CODE.keys())
-        except Exception:
-            languages = [st.session_state.get("selected_language", "english")]
-        curr = st.session_state.get("selected_language", "english")
-        idx = languages.index(curr) if curr in languages else 0
-        inner = st.container()
-        with inner:
-            st.selectbox(
-                "Language",
-                options=languages,
-                index=idx,
-                key="mobile_language_select",
-                label_visibility="collapsed",
-                on_change=_update_language_from_mobile_select,
-            )
-        st.markdown(
-            """
-            <style>
-            @media (max-width: 768px) {
-              /* last select inside this column */
-              div[data-testid="column"] div[data-testid="stVerticalBlock"] > div:last-child [data-testid="stSelectbox"] {
-                max-width: 180px !important; margin: 0 auto !important;
-              }
-            }
-            </style>
-            """,
-            unsafe_allow_html=True,
-        )
-    with c_right:
-        wrapper = st.container()
-        with wrapper:
-            st.markdown('<div style="text-align:right;">', unsafe_allow_html=True)
-            if st.button("?", key="mobile_faq_btn", help="Support & FAQ"):
-                st.session_state.show_faq_popup = True
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+    # Build HTML wrappers so widgets slot into precise grid regions
+    # Header row with FAQ above, language beneath (both right-aligned on mobile)
+    st.markdown('<div class="mobile-header-wrapper"><div class="mobile-header-grid">', unsafe_allow_html=True)
+    # Row 1: FAQ aligned right
+    st.markdown('<div class="mobile-faq-wrapper" style="text-align:right;">', unsafe_allow_html=True)
+    if st.button("?", key="mobile_faq_btn", help="Support & FAQ"):
+        st.session_state.show_faq_popup = True
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+    # Row 2: Centered language select
+    st.markdown('<div class="mobile-lang-wrapper">', unsafe_allow_html=True)
+    try:
+        languages = sorted(chatbot.LANGUAGE_NAME_TO_CODE.keys())
+    except Exception:
+        languages = [st.session_state.get("selected_language", "english")]
+    default_idx = 0
+    current_lang = st.session_state.get("selected_language", "english")
+    if current_lang in languages:
+        default_idx = languages.index(current_lang)
+    st.selectbox(
+        "Language",
+        options=languages,
+        index=default_idx,
+        key="mobile_language_select",
+        label_visibility="collapsed",
+        on_change=_update_language_from_mobile_select,
+    )
+    st.markdown('</div></div>', unsafe_allow_html=True)
+    # Blurb under the language on mobile
+    st.markdown(
+        """
+        <div style="text-align:center; font-size:12px; color:#666; font-style:italic; margin-top:4px;">
+          Please select your language to ensure the best translation.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 # Determine desired sidebar open/closed from query param if present (sb=1/0)
 _desired_open_default = True
