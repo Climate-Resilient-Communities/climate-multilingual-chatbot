@@ -475,7 +475,9 @@ def load_mobile_css() -> None:
             box-shadow: 0 2px 4px rgba(0,0,0,0.06);
           }
           /* Hide existing desktop header to avoid duplication on mobile */
-          .mlcc-header, .mlcc-subtitle { display: none !important; }
+          .mlcc-header.desktop, .mlcc-subtitle.desktop { display: none !important; }
+          /* Keep the mobile one visible */
+          .mlcc-header.mobile { display: block !important; }
         }
 
         /* Chat input pinned at bottom with subtle border on mobile */
@@ -499,72 +501,138 @@ def _update_language_from_mobile_select() -> None:
         st.session_state.language_confirmed = True
 
 def render_mobile_header(chatbot) -> None:
-    """Render a compact mobile header with the language centered and a right-aligned FAQ button (single row)."""
+    """Compact mobile header: sticky language bar centered, '?' fixed at top-right."""
+
+    # Create a container for the FAQ button with explicit positioning
+    faq_container = st.container()
+    with faq_container:
+        col1, col2, col3 = st.columns([8, 1, 1])  # Adjust column ratios to push button right
+        with col3:  # Place button in rightmost column
+            if st.button("?", key="mobile_faq_btn", help="Support & FAQ"):
+                st.session_state.show_faq_popup = True
+                st.rerun()
+
+    # 2) Sticky bar: Made by + language select
+    with st.container():
+        # "Made by" line (tiny, centered)
+        if CCC_ICON_B64:
+            st.markdown(
+                f"""
+                <div style="text-align:center; margin: 0 0 4px 0;">
+                  <img src="data:image/png;base64,{CCC_ICON_B64}" alt="Logo"
+                       style="width:20px;height:20px;vertical-align:middle;margin-right:6px;">
+                  <span style="color:#009376;font-size:13px;">Made by
+                    <a href="https://crc.place/" target="_blank" style="color:#009376;text-decoration:none;">
+                      Climate Resilient Communities
+                    </a>
+                  </span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        # Language select (centered)
+        try:
+            languages = sorted(chatbot.LANGUAGE_NAME_TO_CODE.keys())
+        except Exception:
+            languages = [st.session_state.get("selected_language", "english")]
+
+        current = st.session_state.get("selected_language", "english")
+        idx = languages.index(current) if current in languages else 0
+
+        st.selectbox(
+            "Language",
+            options=languages,
+            index=idx,
+            key="mobile_language_select",
+            label_visibility="collapsed",
+            on_change=_update_language_from_mobile_select,
+        )
+
+    # 3) Updated Mobile CSS for proper positioning
     st.markdown(
         """
         <style>
         @media (max-width: 768px) {
-          section[data-testid=stSidebar], [data-testid=collapsedControl], #sb-toggle-anchor + div.stButton, button[kind=header] { display: none !important; }
-          .main .block-container { padding-top: 60px !important; padding-left: 8px !important; padding-right: 8px !important; }
-        }
-        .mobile-header-wrapper { display: none; }
-        @media (max-width: 768px) {
-          .mobile-header-wrapper { display: block !important; position: fixed; top: 0; left: 0; right: 0; height: 50px; background: #fff; border-bottom: 1px solid #e0e0e0; z-index: 1000; padding: 0 8px; }
-          /* Stack FAQ (top-right) then language (center) in two rows for clarity */
-          .mobile-header-grid { display: grid !important; grid-template-columns: 1fr !important; grid-template-rows: auto auto !important; align-items: center !important; height: 50px !important; gap: 0 !important; }
-          .mobile-lang-wrapper { display: flex !important; justify-content: center !important; align-items: center !important; max-width: 180px !important; margin: 0 auto !important; }
-          .mobile-lang-wrapper .stSelectbox { margin: 0 !important; width: 100% !important; }
-          .mobile-lang-wrapper [data-testid=stSelectbox] > div:first-child { display: none !important; }
-          .mobile-lang-wrapper [data-baseweb=select] { min-height: 36px !important; max-height: 36px !important; font-size: 14px !important; }
-          .mobile-lang-wrapper [data-baseweb=select] > div { min-height: 36px !important; padding: 6px 10px !important; }
-          .mobile-faq-wrapper { display: flex !important; align-items: center !important; justify-content: flex-end !important; }
-          .mobile-faq-wrapper button { width: 36px !important; height: 36px !important; min-width: 36px !important; border-radius: 50% !important; padding: 0 !important; background: #fff !important; border: 1px solid #d0d0d0 !important; color: #333 !important; font-size: 18px !important; display: flex !important; align-items: center !important; justify-content: center !important; }
-          .mobile-faq-wrapper button:hover { background: #f5f5f5 !important; }
-          [data-testid=stChatInput] { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 12px; background: #fff; border-top: 1px solid #e6e6e6; z-index: 999; }
-          .main { padding-bottom: 70px !important; }
+          /* Ensure proper spacing at top */
+          .main .block-container {
+            padding-top: max(2px, env(safe-area-inset-top)) !important;
+          }
+
+          /* Target the FAQ button's container and position it properly */
+          /* Use the column structure to position the button */
+          [data-testid="column"]:has(button[key="mobile_faq_btn"]) {
+            position: fixed !important;
+            top: calc(env(safe-area-inset-top, 0px) + 8px) !important;
+            right: max(8px, env(safe-area-inset-right, 0px)) !important;
+            width: auto !important;
+            z-index: 1001 !important;
+            background: transparent !important;
+          }
+          
+          /* Style the FAQ button itself */
+          button[key="mobile_faq_btn"] {
+            width: 36px !important;
+            height: 36px !important;
+            min-width: 36px !important;
+            border-radius: 50% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: 1px solid #d0d0d0 !important;
+            background: #ffffff !important;
+            color: #333333 !important;
+            font-size: 16px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+          }
+
+          /* Make the language container sticky */
+          .main > div > div > div:has(select[key="mobile_language_select"]) {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: #fff;
+            padding: 8px 12px 6px 12px;
+            border-bottom: 1px solid #e0e0e0;
+          }
+
+          /* Ensure language select is properly styled */
+          [data-testid=stSelectbox]:has(select[key="mobile_language_select"]) { 
+            margin: 0 !important; 
+          }
+          
+          select[key="mobile_language_select"] + div [data-baseweb=select] { 
+            min-height: 36px !important; 
+          }
+          
+          select[key="mobile_language_select"] + div [data-baseweb=select] > div {
+            min-height: 36px !important;
+            padding: 6px 10px 0 10px !important;
+          }
+
+          /* Chat input positioning */
+          [data-testid="stChatInput"] {
+            position: fixed; 
+            left: 0; 
+            right: 0; 
+            bottom: 0;
+            padding: 10px 12px; 
+            background: #fff; 
+            border-top: 1px solid #e6e6e6; 
+            z-index: 999;
+          }
+          
+          .main { 
+            padding-bottom: 70px !important; 
+          }
         }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
-    # Build HTML wrappers so widgets slot into precise grid regions
-    # Header row with FAQ above, language beneath (both right-aligned on mobile)
-    st.markdown('<div class="mobile-header-wrapper"><div class="mobile-header-grid">', unsafe_allow_html=True)
-    # Row 1: FAQ aligned right
-    st.markdown('<div class="mobile-faq-wrapper" style="text-align:right;">', unsafe_allow_html=True)
-    if st.button("?", key="mobile_faq_btn", help="Support & FAQ"):
-        st.session_state.show_faq_popup = True
-        st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-    # Row 2: Centered language select
-    st.markdown('<div class="mobile-lang-wrapper">', unsafe_allow_html=True)
-    try:
-        languages = sorted(chatbot.LANGUAGE_NAME_TO_CODE.keys())
-    except Exception:
-        languages = [st.session_state.get("selected_language", "english")]
-    default_idx = 0
-    current_lang = st.session_state.get("selected_language", "english")
-    if current_lang in languages:
-        default_idx = languages.index(current_lang)
-    st.selectbox(
-        "Language",
-        options=languages,
-        index=default_idx,
-        key="mobile_language_select",
-        label_visibility="collapsed",
-        on_change=_update_language_from_mobile_select,
-    )
-    st.markdown('</div></div>', unsafe_allow_html=True)
-    # Blurb under the language on mobile
-    st.markdown(
-        """
-        <div style="text-align:center; font-size:12px; color:#666; font-style:italic; margin-top:4px;">
-          Please select your language to ensure the best translation.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
 
 # Determine desired sidebar open/closed from query param if present (sb=1/0)
 _desired_open_default = True
@@ -595,17 +663,7 @@ else:
             st.session_state._sb_open = new_open
             st.session_state._sb_rerun = True
 
-if st.session_state.get("_sb_rerun", False):
-    st.set_page_config(
-        layout="wide", 
-        page_title="Multilingual Climate Chatbot",
-        page_icon=calculated_favicon,
-        initial_sidebar_state=SIDEBAR_STATE[not st.session_state._sb_open],
-    )
-    st.session_state._sb_rerun = False
-    st.rerun()
-
-# Final page config with the desired sidebar state
+# Single page config, no reruns around it (prevents fragment errors)
 st.set_page_config(
     layout="wide",
     page_title="Multilingual Climate Chatbot",
@@ -615,80 +673,9 @@ st.set_page_config(
 
         # On load: if a previous action requested closing the sidebar via sessionStorage,
 # perform a best-effort close using the native collapse control or CSS transform.
-st_html(
-    """
-<script>
-try {
-  if (sessionStorage.getItem('closeSidebarOnLoad') === '1') {
-    sessionStorage.removeItem('closeSidebarOnLoad');
-    const tryClose = () => {
-      const collapseBtn = document.querySelector('[data-testid="collapsedControl"]') ||
-                          document.querySelector('[aria-label*="Collapse"]') ||
-                          document.querySelector('button[kind="header"]');
-      if (collapseBtn && collapseBtn.getAttribute('aria-expanded') === 'true') {
-        collapseBtn.click();
-      }
-      const sidebar = document.querySelector('section[data-testid="stSidebar"]');
-      if (sidebar) {
-        sidebar.style.transition = 'transform 0.2s ease';
-        sidebar.style.transform = 'translateX(-100%)';
-      }
-    };
-    setTimeout(tryClose, 50);
-    setTimeout(tryClose, 200);
-  }
-} catch (e) {}
-</script>
-""",
-    height=0,
-)
+## Removed JS-driven sidebar auto-close to avoid reload-induced fragment errors
 
-# Optional: allow URL param reset_ui=1 to clear any persisted UI prefs in the browser
-# and force a fresh load with sidebar open. This is helpful when a user's stored
-# preference keeps the sidebar collapsed despite our initial state.
-try:
-    _params2 = st.query_params
-except Exception:
-    try:
-        _params2 = st.experimental_get_query_params()
-    except Exception:
-        _params2 = {}
-
-_reset_ui = None
-if isinstance(_params2, dict):
-    _reset_ui = _params2.get("reset_ui") or _params2.get("sb_reset")
-    if isinstance(_reset_ui, list):
-        _reset_ui = _reset_ui[0] if _reset_ui else None
-
-if _reset_ui in ("1", 1, True) and not st.session_state.get("_did_reset_ui"):
-    # Clear local/session storage keys related to Streamlit UI and reload
-    st_html(
-        """
-<script>
-try {
-  // Clear Streamlit/UI-related items from localStorage
-  const keys = Object.keys(localStorage);
-  for (const k of keys) {
-    const kl = k.toLowerCase();
-    if (kl.includes('streamlit') || kl.includes('sidebar') || kl.startsWith('st-') || kl.includes('siderbar')) {
-      localStorage.removeItem(k);
-    }
-  }
-  // Also clear sessionStorage to be safe
-  try { sessionStorage.clear(); } catch(e) {}
-  // Reload without reset_ui param and with sb=1 to ensure open
-  const url = new URL(window.location.href);
-  url.searchParams.delete('reset_ui');
-  url.searchParams.delete('sb_reset');
-  url.searchParams.set('sb','1');
-  window.location.replace(url.toString());
-} catch (e) { console.error('UI reset error', e); }
-</script>
-        """,
-        height=0,
-    )
-    st.session_state._did_reset_ui = True
-    st.stop()
+## Removed reset_ui reload logic to prevent fragment errors and unexpected reruns
 
 # === NOW OTHER IMPORTS AND SETUP ===
 import time
@@ -2497,8 +2484,8 @@ def main():
             if len(st.session_state.chat_history) == 0:
                 st.markdown(
                     """
-                    <div style=\"text-align:center; margin:12px 0 16px 0;\"> 
-                      <h3 style=\"margin:0; color:#009376;\">Climate Chatbot</h3>
+                    <div style=\"text-align:center; margin:12px 0 16px 0;\">
+                      <h3 style=\"margin:0; color:#009376;\">Multilingual Climate Chatbot</h3>
                       <div style=\"color:#6b6b6b; font-size:14px;\">Ask me anything about climate change!</div>
                     </div>
                     """,
@@ -2507,11 +2494,11 @@ def main():
         elif CCC_ICON_B64:
             st.markdown(
                 f"""
-                <div class="mlcc-header">
+                <div class="mlcc-header desktop">
                     <img class="mlcc-logo" src="data:image/png;base64,{CCC_ICON_B64}" alt="Logo" />
                     <h1 style="margin:0;">Multilingual Climate Chatbot</h1>
                 </div>
-                <div class="mlcc-subtitle">Ask me anything about climate change!</div>
+                <div class="mlcc-subtitle desktop">Ask me anything about climate change!</div>
                 """,
                 unsafe_allow_html=True,
             )
@@ -2645,14 +2632,13 @@ def main():
                     pass
                 st.session_state.chat_history.append({'role': 'user', 'content': query})
         else:
-            # Only show guidance banner on desktop; mobile starts immediately
-            if not mobile:
-                st.markdown(
-                    """
-                    <div style=\"margin-top: 10px; margin-bottom: 30px; background-color: #009376; padding: 10px; border-radius: 5px; color: white; text-align: center;\">Please select your language and click Confirm to start chatting.</div>
-                    """,
-                    unsafe_allow_html=True
-                )
+            # Show guidance banner on both mobile and desktop
+            st.markdown(
+                """
+                <div style=\"margin-top: 10px; margin-bottom: 30px; background-color: #009376; padding: 10px; border-radius: 5px; color: white; text-align: center;\">Please select your language and click Confirm to start chatting.</div>
+                """,
+                unsafe_allow_html=True
+            )
             query = None
 
         # Respect the needs_rerun flag; otherwise process query/retry
@@ -2983,11 +2969,11 @@ def main():
             if CCC_ICON_B64:
                 st.markdown(
                     f"""
-                    <div class="mlcc-header">
+                    <div class="mlcc-header desktop">
                         <img class="mlcc-logo" src="data:image/png;base64,{CCC_ICON_B64}" alt="Logo" />
                         <h1 style="margin:0;">Multilingual Climate Chatbot</h1>
                     </div>
-                    <div class="mlcc-subtitle">Ask me anything about climate change!</div>
+                    <div class="mlcc-subtitle desktop">Ask me anything about climate change!</div>
                     """,
                     unsafe_allow_html=True,
                 )
