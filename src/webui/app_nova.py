@@ -499,85 +499,57 @@ def _update_language_from_mobile_select() -> None:
         st.session_state.language_confirmed = True
 
 def render_mobile_header(chatbot) -> None:
-    """Render a compact centered language bar and a right-aligned FAQ button."""
-    # Enhanced mobile CSS with compact centered dropdown
+    """Render a compact mobile header with the language centered and a right-aligned FAQ button (single row)."""
     st.markdown(
         """
         <style>
-        /* Hide sidebar and any toggle buttons on small screens */
         @media (max-width: 768px) {
-          section[data-testid="stSidebar"],
-          [data-testid="collapsedControl"],
-          #sb-toggle-anchor + div.stButton,
-          button[kind="header"] {
-            display: none !important;
-          }
-          /* Reduce top padding for mobile */
-          .main .block-container { 
-            padding-top: 60px !important; 
-            padding-left: 8px !important;
-            padding-right: 8px !important;
-          }
+          section[data-testid=stSidebar], [data-testid=collapsedControl], #sb-toggle-anchor + div.stButton, button[kind=header] { display: none !important; }
+          .main .block-container { padding-top: 60px !important; padding-left: 8px !important; padding-right: 8px !important; }
         }
-
-        /* Mobile header container */
-        .mobile-header-container { display: none; }
+        .mobile-header-wrapper { display: none; }
         @media (max-width: 768px) {
-          .mobile-header-container {
-            display: flex !important;
-            position: fixed; top: 0; left: 0; right: 0;
-            background: white; border-bottom: 1px solid #e0e0e0;
-            padding: 8px 12px; align-items: center; justify-content: space-between;
-            z-index: 1000; height: 50px;
-          }
-          /* Language dropdown container - centered and compact */
-          .mobile-lang-container { flex: 0 1 auto; position: absolute; left: 50%; transform: translateX(-50%); max-width: 160px; }
-          .mobile-lang-container .stSelectbox { margin: 0 !important; }
-          .mobile-lang-container [data-baseweb="select"] { min-height: 36px !important; font-size: 16px !important; }
-          .mobile-lang-container [data-baseweb="select"] > div { min-height: 36px !important; padding: 6px 12px !important; }
-          /* FAQ button positioned on the right */
-          .mobile-faq-container { position: absolute; right: 12px; }
-          .mobile-faq-container button { width: 36px !important; height: 36px !important; border-radius: 50% !important; padding: 0 !important; background: white !important; border: 1px solid #d0d0d0 !important; color: #333 !important; font-size: 18px !important; }
-          .mobile-faq-container button:hover { background: #f5f5f5 !important; }
-          /* Chat input immediately available on mobile */
-          [data-testid="stChatInput"] { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 12px; background: white; border-top: 1px solid #e6e6e6; z-index: 999; }
+          .mobile-header-wrapper { display: block !important; position: fixed; top: 0; left: 0; right: 0; height: 50px; background: #fff; border-bottom: 1px solid #e0e0e0; z-index: 1000; padding: 0 8px; }
+          .mobile-header-grid { display: grid !important; grid-template-columns: 1fr auto !important; align-items: center !important; height: 50px !important; gap: 8px !important; }
+          .mobile-lang-wrapper { display: flex !important; justify-content: center !important; align-items: center !important; max-width: 180px !important; margin: 0 auto !important; }
+          .mobile-lang-wrapper .stSelectbox { margin: 0 !important; width: 100% !important; }
+          .mobile-lang-wrapper [data-testid=stSelectbox] > div:first-child { display: none !important; }
+          .mobile-lang-wrapper [data-baseweb=select] { min-height: 36px !important; max-height: 36px !important; font-size: 14px !important; }
+          .mobile-lang-wrapper [data-baseweb=select] > div { min-height: 36px !important; padding: 6px 10px !important; }
+          .mobile-faq-wrapper { display: flex !important; align-items: center !important; justify-content: flex-end !important; }
+          .mobile-faq-wrapper button { width: 36px !important; height: 36px !important; min-width: 36px !important; border-radius: 50% !important; padding: 0 !important; background: #fff !important; border: 1px solid #d0d0d0 !important; color: #333 !important; font-size: 18px !important; display: flex !important; align-items: center !important; justify-content: center !important; }
+          .mobile-faq-wrapper button:hover { background: #f5f5f5 !important; }
+          [data-testid=stChatInput] { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 12px; background: #fff; border-top: 1px solid #e6e6e6; z-index: 999; }
           .main { padding-bottom: 70px !important; }
-          /* Hide the green confirmation bar on mobile */
-          .mobile-hide-confirm { display: none !important; }
         }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
-    # Structured header
-    st.markdown('<div class="mobile-header-container">', unsafe_allow_html=True)
-    c1, c2, c3 = st.columns([1, 3, 1])
-    with c2:
-        st.markdown('<div class="mobile-lang-container">', unsafe_allow_html=True)
-        try:
-            languages = sorted(chatbot.LANGUAGE_NAME_TO_CODE.keys())
-        except Exception:
-            languages = [st.session_state.get("selected_language", "english")]
-        default_idx = 0
-        if st.session_state.get("selected_language") in languages:
-            default_idx = languages.index(st.session_state.get("selected_language"))
-        st.selectbox(
-            "Language",
-            options=languages,
-            index=default_idx,
-            key="mobile_language_select",
-            label_visibility="collapsed",
-            on_change=_update_language_from_mobile_select,
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c3:
-        st.markdown('<div class="mobile-faq-container">', unsafe_allow_html=True)
-        if st.button("?", key="mobile_faq_btn", help="Support & FAQ"):
-            st.session_state.show_faq_popup = True
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    # Build HTML wrappers so widgets slot into precise grid regions
+    st.markdown('<div class="mobile-header-wrapper"><div class="mobile-header-grid"><div class="mobile-lang-wrapper">', unsafe_allow_html=True)
+    try:
+        languages = sorted(chatbot.LANGUAGE_NAME_TO_CODE.keys())
+    except Exception:
+        languages = [st.session_state.get("selected_language", "english")]
+    default_idx = 0
+    current_lang = st.session_state.get("selected_language", "english")
+    if current_lang in languages:
+        default_idx = languages.index(current_lang)
+    st.selectbox(
+        "Language",
+        options=languages,
+        index=default_idx,
+        key="mobile_language_select",
+        label_visibility="collapsed",
+        on_change=_update_language_from_mobile_select,
+    )
+    st.markdown('</div><div class="mobile-faq-wrapper">', unsafe_allow_html=True)
+    if st.button("?", key="mobile_faq_btn", help="Support & FAQ"):
+        st.session_state.show_faq_popup = True
+        st.rerun()
+    st.markdown('</div></div></div>', unsafe_allow_html=True)
 
 # Determine desired sidebar open/closed from query param if present (sb=1/0)
 _desired_open_default = True
