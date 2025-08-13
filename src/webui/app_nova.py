@@ -435,14 +435,61 @@ def _pop_feedback_action_from_query_params():
 
 # --- Mobile simplification helpers ---
 def is_mobile_device() -> bool:
-    """Lightweight server-side mobile hint.
+    """Best-effort mobile detection for server-driven decisions.
 
-    Uses query params (?mobile=1 or ?m=1) which we can set during testing or via
-    client-side scripts if desired. UI CSS is still responsive even without this.
+    Priority order (cached result returned immediately):
+    1) streamlit-user-device (if available)
+    2) streamlit-screen-stats viewport width (if available)
+    3) JS userAgent via streamlit-javascript + user-agents (if available)
+    4) Query params (?mobile=1 / ?m=1) fallback
     """
+    cached = st.session_state.get("is_mobile_detected")
+    if isinstance(cached, bool):
+        return cached
+
+    # 1) streamlit-user-device
     try:
-        return bool(_is_mobile_from_query_params())
+        from streamlit_user_device import user_device  # type: ignore
+
+        device_type = user_device()
+        if isinstance(device_type, str) and device_type:
+            is_mobile_now = device_type.lower() in ("mobile", "phone", "tablet")
+            st.session_state.is_mobile_detected = bool(is_mobile_now)
+            return st.session_state.is_mobile_detected
     except Exception:
+        pass
+
+    # 2) streamlit-screen-stats viewport width
+    try:
+        from st_screen_stats import ScreenData  # type: ignore
+
+        screen_data = ScreenData(setTimeout=0)
+        info = screen_data.st_screen_data()
+        if isinstance(info, dict) and info.get("width") is not None:
+            st.session_state.is_mobile_detected = bool(info.get("width", 9999) <= 768)
+            return st.session_state.is_mobile_detected
+    except Exception:
+        pass
+
+    # 3) userAgent parsing via streamlit-javascript
+    try:
+        from streamlit_javascript import st_javascript  # type: ignore
+        from user_agents import parse as parse_user_agent  # type: ignore
+
+        ua_string = st_javascript("window.navigator.userAgent;")
+        if isinstance(ua_string, str) and ua_string:
+            ua = parse_user_agent(ua_string)
+            st.session_state.is_mobile_detected = bool(getattr(ua, "is_mobile", False) or getattr(ua, "is_tablet", False))
+            return st.session_state.is_mobile_detected
+    except Exception:
+        pass
+
+    # 4) Query param fallback
+    try:
+        st.session_state.is_mobile_detected = bool(_is_mobile_from_query_params())
+        return st.session_state.is_mobile_detected
+    except Exception:
+        st.session_state.is_mobile_detected = False
         return False
 
 def load_mobile_css() -> None:
@@ -2220,12 +2267,20 @@ def main():
 
     # Decide mobile vs desktop early
     mobile = is_mobile_device()
-    if mobile:
-        load_mobile_css()
-    else:
-        # Load desktop CSS
-        load_custom_css()
-        load_responsive_css()
+    # Always load CSS; mobile styles are guarded by media queries
+    load_mobile_css()
+    load_custom_css()
+    load_responsive_css()
+    # Expose a tiny banner for debugging in dev tools
+    try:
+        st.markdown(
+            f"""
+            <div style=\"display:none\" id=\"mlcc-mobile-debug\" data-mobile=\"{str(bool(mobile)).lower()}\"></div>
+            """,
+            unsafe_allow_html=True,
+        )
+    except Exception:
+        pass
     # Close button CSS: maximize specificity and exclude from global button rules
     st.markdown(
         """
