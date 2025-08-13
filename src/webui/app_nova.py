@@ -332,6 +332,22 @@ print("✓ PyTorch-Streamlit compatibility patches applied successfully")
 import streamlit as st
 from streamlit.components.v1 import html as st_html
 
+# Optional device-detection helpers (imported defensively so the app runs even if missing)
+try:
+    from streamlit_user_device import user_device as _user_device  # type: ignore
+except Exception:
+    _user_device = None
+try:
+    from st_screen_stats import ScreenData as _ScreenData  # type: ignore
+except Exception:
+    _ScreenData = None
+try:
+    from streamlit_javascript import st_javascript as _st_javascript  # type: ignore
+    from user_agents import parse as _parse_user_agent  # type: ignore
+except Exception:
+    _st_javascript = None
+    _parse_user_agent = None
+
 # Robustly force initial sidebar state by temporarily flipping the state,
 # triggering a rerun, then applying the desired state. This overrides any
 # browser-persisted user choice Streamlit keeps.
@@ -443,9 +459,7 @@ def _detect_device_info() -> tuple[bool, dict]:
 
     # 1) streamlit-user-device
     try:
-        from streamlit_user_device import user_device  # type: ignore
-
-        device_type = user_device()
+        device_type = _user_device() if _user_device else None
         if isinstance(device_type, str) and device_type:
             info.update({"method": "user_device", "device_type": device_type})
             is_mobile_like = device_type.lower() in ("mobile", "phone", "tablet")
@@ -455,10 +469,8 @@ def _detect_device_info() -> tuple[bool, dict]:
 
     # 2) streamlit-screen-stats viewport width
     try:
-        from st_screen_stats import ScreenData  # type: ignore
-
-        screen_data = ScreenData(setTimeout=0)
-        data = screen_data.st_screen_data()
+        screen_data = _ScreenData(setTimeout=0) if _ScreenData else None
+        data = screen_data.st_screen_data() if screen_data else None
         if isinstance(data, dict) and data.get("width") is not None:
             info.update({"method": "screen_stats", "width": data.get("width")})
             return bool(int(data.get("width", 9999)) <= 768), info
@@ -467,18 +479,16 @@ def _detect_device_info() -> tuple[bool, dict]:
 
     # 3) userAgent parsing via streamlit-javascript
     try:
-        from streamlit_javascript import st_javascript  # type: ignore
-        from user_agents import parse as parse_user_agent  # type: ignore
-
-        ua_string = st_javascript("window.navigator.userAgent;")
+        ua_string = _st_javascript("window.navigator.userAgent;") if _st_javascript else None
         info["ua"] = ua_string if isinstance(ua_string, str) else None
         if isinstance(ua_string, str) and ua_string:
-            ua = parse_user_agent(ua_string)
+            ua = _parse_user_agent(ua_string) if _parse_user_agent else None
             info["method"] = "user_agent"
-            info["device_type"] = (
-                "mobile" if getattr(ua, "is_mobile", False) else ("tablet" if getattr(ua, "is_tablet", False) else "desktop")
-            )
-            return bool(getattr(ua, "is_mobile", False) or getattr(ua, "is_tablet", False)), info
+            if ua is not None:
+                info["device_type"] = (
+                    "mobile" if getattr(ua, "is_mobile", False) else ("tablet" if getattr(ua, "is_tablet", False) else "desktop")
+                )
+                return bool(getattr(ua, "is_mobile", False) or getattr(ua, "is_tablet", False)), info
     except Exception:
         pass
 
