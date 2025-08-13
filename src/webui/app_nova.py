@@ -499,14 +499,62 @@ def _update_language_from_mobile_select() -> None:
         st.session_state.language_confirmed = True
 
 def render_mobile_header(chatbot) -> None:
-    """Render a simple mobile header with immediate language selection and FAQ."""
-    # Ensure CSS present
-    load_mobile_css()
-    # Wrapper
-    st.markdown('<div class="mobile-header">', unsafe_allow_html=True)
-    # Use Streamlit columns (they'll be fixed by the wrapper styles above)
-    left, right = st.columns([6, 1])
-    with left:
+    """Render a compact centered language bar and a right-aligned FAQ button."""
+    # Enhanced mobile CSS with compact centered dropdown
+    st.markdown(
+        """
+        <style>
+        /* Hide sidebar and any toggle buttons on small screens */
+        @media (max-width: 768px) {
+          section[data-testid="stSidebar"],
+          [data-testid="collapsedControl"],
+          #sb-toggle-anchor + div.stButton,
+          button[kind="header"] {
+            display: none !important;
+          }
+          /* Reduce top padding for mobile */
+          .main .block-container { 
+            padding-top: 60px !important; 
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+          }
+        }
+
+        /* Mobile header container */
+        .mobile-header-container { display: none; }
+        @media (max-width: 768px) {
+          .mobile-header-container {
+            display: flex !important;
+            position: fixed; top: 0; left: 0; right: 0;
+            background: white; border-bottom: 1px solid #e0e0e0;
+            padding: 8px 12px; align-items: center; justify-content: space-between;
+            z-index: 1000; height: 50px;
+          }
+          /* Language dropdown container - centered and compact */
+          .mobile-lang-container { flex: 0 1 auto; position: absolute; left: 50%; transform: translateX(-50%); max-width: 160px; }
+          .mobile-lang-container .stSelectbox { margin: 0 !important; }
+          .mobile-lang-container [data-baseweb="select"] { min-height: 36px !important; font-size: 16px !important; }
+          .mobile-lang-container [data-baseweb="select"] > div { min-height: 36px !important; padding: 6px 12px !important; }
+          /* FAQ button positioned on the right */
+          .mobile-faq-container { position: absolute; right: 12px; }
+          .mobile-faq-container button { width: 36px !important; height: 36px !important; border-radius: 50% !important; padding: 0 !important; background: white !important; border: 1px solid #d0d0d0 !important; color: #333 !important; font-size: 18px !important; }
+          .mobile-faq-container button:hover { background: #f5f5f5 !important; }
+          /* Chat input immediately available on mobile */
+          [data-testid="stChatInput"] { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 12px; background: white; border-top: 1px solid #e6e6e6; z-index: 999; }
+          .main { padding-bottom: 70px !important; }
+          /* Hide the green confirmation bar on mobile */
+          .mobile-hide-confirm { display: none !important; }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Structured header
+    st.markdown('<div class="mobile-header-container">', unsafe_allow_html=True)
+    c1, c2, c3 = st.columns([1, 3, 1])
+    with c2:
+        st.markdown('<div class="mobile-lang-container">', unsafe_allow_html=True)
         try:
             languages = sorted(chatbot.LANGUAGE_NAME_TO_CODE.keys())
         except Exception:
@@ -515,17 +563,20 @@ def render_mobile_header(chatbot) -> None:
         if st.session_state.get("selected_language") in languages:
             default_idx = languages.index(st.session_state.get("selected_language"))
         st.selectbox(
-            "languages",
+            "Language",
             options=languages,
             index=default_idx,
             key="mobile_language_select",
             label_visibility="collapsed",
             on_change=_update_language_from_mobile_select,
         )
-    with right:
+        st.markdown('</div>', unsafe_allow_html=True)
+    with c3:
+        st.markdown('<div class="mobile-faq-container">', unsafe_allow_html=True)
         if st.button("?", key="mobile_faq_btn", help="Support & FAQ"):
             st.session_state.show_faq_popup = True
             st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 # Determine desired sidebar open/closed from query param if present (sb=1/0)
@@ -2438,17 +2489,22 @@ def main():
 
         # Header
         if mobile:
+            # Auto-confirm language on first load for instant chat availability
+            if not st.session_state.language_confirmed:
+                st.session_state.language_confirmed = True
+                st.session_state.selected_language = st.session_state.get('selected_language', 'english') or 'english'
             # Render simplified mobile header (language + FAQ) and a compact title/subtitle
             render_mobile_header(chatbot)
-            st.markdown(
-                """
-                <div style="text-align:center;margin:8px 0 4px 0;">
-                  <h3 style="margin:0;">Multilingual Climate Chatbot</h3>
-                  <div style="color:#6b6b6b; font-size:14px;">Ask me anything about climate change!</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+            if len(st.session_state.chat_history) == 0:
+                st.markdown(
+                    """
+                    <div style=\"text-align:center; margin:12px 0 16px 0;\"> 
+                      <h3 style=\"margin:0; color:#009376;\">Climate Chatbot</h3>
+                      <div style=\"color:#6b6b6b; font-size:14px;\">Ask me anything about climate change!</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
         elif CCC_ICON_B64:
             st.markdown(
                 f"""
@@ -2590,14 +2646,14 @@ def main():
                     pass
                 st.session_state.chat_history.append({'role': 'user', 'content': query})
         else:
-            st.markdown(
-                """
-                <div style="margin-top: 10px; margin-bottom: 30px; background-color: #009376; padding: 10px; border-radius: 5px; color: white; text-align: center;">
-                Please select your language and click Confirm to start chatting.
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+            # Only show guidance banner on desktop; mobile starts immediately
+            if not mobile:
+                st.markdown(
+                    """
+                    <div style=\"margin-top: 10px; margin-bottom: 30px; background-color: #009376; padding: 10px; border-radius: 5px; color: white; text-align: center;\">Please select your language and click Confirm to start chatting.</div>
+                    """,
+                    unsafe_allow_html=True
+                )
             query = None
 
         # Respect the needs_rerun flag; otherwise process query/retry
