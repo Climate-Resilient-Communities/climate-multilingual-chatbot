@@ -572,6 +572,12 @@ def render_mobile_header(chatbot) -> None:
           
           /* Style the FAQ button itself */
           button[key="mobile_faq_btn"] {
+            /* Fallback: pin the button itself for small devices where column selector may fail */
+            position: fixed !important;
+            top: calc(env(safe-area-inset-top, 0px) + 6px) !important;
+            right: max(6px, env(safe-area-inset-right, 0px)) !important;
+            left: auto !important;
+            z-index: 1002 !important;
             width: 36px !important;
             height: 36px !important;
             min-width: 36px !important;
@@ -586,6 +592,19 @@ def render_mobile_header(chatbot) -> None:
             align-items: center !important;
             justify-content: center !important;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+            touch-action: manipulation !important;
+          }
+
+          /* Extra-tight tuning for very small screens */
+          @media (max-width: 480px) {
+            button[key="mobile_faq_btn"] {
+              top: calc(env(safe-area-inset-top, 0px) + 4px) !important;
+              right: max(4px, env(safe-area-inset-right, 0px)) !important;
+              width: 28px !important;
+              height: 28px !important;
+              min-width: 28px !important;
+              font-size: 14px !important;
+            }
           }
 
           /* Make the language container sticky */
@@ -2521,6 +2540,38 @@ def main():
             }
             a.feedback-button { display: inline-block; padding: 6px 10px; border-radius: 6px; border: 1px solid #d0d7de; background: #f6f8fa; color: #24292f !important; text-decoration: none; font-size: 14px; }
             a.feedback-button:hover { background: #eef2f6; }
+            
+            /* Mobile font size normalization for FAQ popup */
+            @media (max-width: 768px) {
+                div[data-testid="column"]:has(.faq-popup-marker) {
+                    padding: 12px !important;
+                    max-height: 85vh !important;
+                }
+                div[data-testid="column"]:has(.faq-popup-marker) h1 { 
+                    font-size: 1.2rem !important; 
+                    margin-bottom: 8px !important;
+                }
+                div[data-testid="column"]:has(.faq-popup-marker) h2 { 
+                    font-size: 1.05rem !important; 
+                    margin: 12px 0 6px 0 !important;
+                }
+                div[data-testid="column"]:has(.faq-popup-marker) h3 { 
+                    font-size: 0.95rem !important; 
+                    margin: 8px 0 4px 0 !important;
+                }
+                div[data-testid="column"]:has(.faq-popup-marker) p,
+                div[data-testid="column"]:has(.faq-popup-marker) div,
+                div[data-testid="column"]:has(.faq-popup-marker) li { 
+                    font-size: 0.9rem !important; 
+                    line-height: 1.4 !important;
+                }
+                div[data-testid="column"]:has(.faq-popup-marker) .stExpander > div > div > div { 
+                    font-size: 0.9rem !important; 
+                }
+                div[data-testid="column"]:has(.faq-popup-marker) [data-testid="stMarkdownContainer"] { 
+                    font-size: 0.9rem !important; 
+                }
+            }
             </style>
             """,
                 unsafe_allow_html=True,
@@ -3015,6 +3066,38 @@ def main():
                 }
                 a.feedback-button:hover {
                     background: #eef2f6;
+                }
+                
+                /* Mobile font size normalization for FAQ popup */
+                @media (max-width: 768px) {
+                    div[data-testid="column"]:has(.faq-popup-marker) {
+                        padding: 12px !important;
+                        max-height: 85vh !important;
+                    }
+                    div[data-testid="column"]:has(.faq-popup-marker) h1 { 
+                        font-size: 1.2rem !important; 
+                        margin-bottom: 8px !important;
+                    }
+                    div[data-testid="column"]:has(.faq-popup-marker) h2 { 
+                        font-size: 1.05rem !important; 
+                        margin: 12px 0 6px 0 !important;
+                    }
+                    div[data-testid="column"]:has(.faq-popup-marker) h3 { 
+                        font-size: 0.95rem !important; 
+                        margin: 8px 0 4px 0 !important;
+                    }
+                    div[data-testid="column"]:has(.faq-popup-marker) p,
+                    div[data-testid="column"]:has(.faq-popup-marker) div,
+                    div[data-testid="column"]:has(.faq-popup-marker) li { 
+                        font-size: 0.9rem !important; 
+                        line-height: 1.4 !important;
+                    }
+                    div[data-testid="column"]:has(.faq-popup-marker) .stExpander > div > div > div { 
+                        font-size: 0.9rem !important; 
+                    }
+                    div[data-testid="column"]:has(.faq-popup-marker) [data-testid="stMarkdownContainer"] { 
+                        font-size: 0.9rem !important; 
+                    }
                 }
                 </style>
                 """,
