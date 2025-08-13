@@ -498,151 +498,65 @@ def _update_language_from_mobile_select() -> None:
         st.session_state.selected_language = sel
         st.session_state.language_confirmed = True
 
-def render_mobile_header_html(chatbot) -> None:
-    """Render mobile header using pure HTML for maximum control."""
-    try:
-        languages = sorted(chatbot.LANGUAGE_NAME_TO_CODE.keys())
-    except Exception:
-        languages = ["english"]
-    current_lang = st.session_state.get("selected_language", "english")
-
-    # Build options markup
-    options_html = "".join([
-        f'<option value="{lang}" {"selected" if lang == current_lang else ""}>{lang}</option>'
-        for lang in languages
-    ])
-
-    header_html = f"""
-    <div id=\"mobile-header-container\" style=\"
-        display: none; position: fixed; top: 0; left: 0; right: 0; height: 50px;
-        background: #fff; border-bottom: 1px solid #e0e0e0; z-index: 1000; padding: 0 12px;\">
-      <div style=\"display:flex; align-items:center; justify-content:space-between; height:100%; max-width:100%;\">
-        <div style=\"flex:1; display:flex; justify-content:center; align-items:center;\">
-          <select id=\"mobile-lang-select\" style=\"
-              width: 160px; height: 36px; padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px;
-              background: #fff; font-size: 14px; cursor: pointer;\">{options_html}</select>
-        </div>
-        <button id=\"mobile-faq-btn\" style=\"
-            width:36px; height:36px; border-radius:50%; background:#fff; border:1px solid #d0d0d0;
-            color:#333; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;\">?</button>
-      </div>
-    </div>
-    <style>
-      @media (max-width: 768px) {{
-        #mobile-header-container {{ display:block !important; }}
-        .main .block-container {{ padding-top:60px !important; }}
-        section[data-testid=\"stSidebar\"] {{ display:none !important; }}
-      }}
-      #mobile-faq-btn:hover {{ background:#f5f5f5 !important; }}
-    </style>
-    <script>
-    (function() {{
-      const langSelect = document.getElementById('mobile-lang-select');
-      if (langSelect) {{
-        langSelect.addEventListener('change', function() {{
-          try {{
-            const url = new URL(window.location);
-            url.searchParams.set('lang', this.value);
-            window.location.href = url.toString();
-          }} catch(e) {{}}
-        }});
-      }}
-      const faqBtn = document.getElementById('mobile-faq-btn');
-      if (faqBtn) {{
-        faqBtn.addEventListener('click', function() {{
-          try {{
-            const url = new URL(window.location);
-            url.searchParams.set('show_faq', '1');
-            window.location.href = url.toString();
-          }} catch(e) {{}}
-        }});
-      }}
-    }})();
-    </script>
-    """
-    # Use components.html to ensure the <script> runs
-    st_html(header_html, height=0)
-
-    # Process URL params to update state and then clean them up
-    lang = _get_query_param_single_value("lang")
-    if isinstance(lang, str) and lang:
-        st.session_state.selected_language = lang
-        st.session_state.language_confirmed = True
-        # Remove the param
-        current = _get_all_query_params_single_values()
-        current.pop("lang", None)
-        try:
-            st.query_params = current
-        except Exception:
-            try:
-                st.experimental_set_query_params(**current)
-            except Exception:
-                pass
-
-    if (_get_query_param_single_value("show_faq") or "") in ("1", "true"):
-        st.session_state.show_faq_popup = True
-        current = _get_all_query_params_single_values()
-        current.pop("show_faq", None)
-        try:
-            st.query_params = current
-        except Exception:
-            try:
-                st.experimental_set_query_params(**current)
-            except Exception:
-                pass
-
 def render_mobile_header(chatbot) -> None:
-    """Render a compact mobile header with the language centered and a right-aligned FAQ button (single row)."""
+    """Render a compact mobile header using a single Streamlit row: centered language, FAQ on right."""
     st.markdown(
         """
         <style>
         @media (max-width: 768px) {
-          section[data-testid=stSidebar], [data-testid=collapsedControl], #sb-toggle-anchor + div.stButton, button[kind=header] { display: none !important; }
-          .main .block-container { padding-top: 60px !important; padding-left: 8px !important; padding-right: 8px !important; }
-        }
-        .mobile-header-wrapper { display: none; }
-        @media (max-width: 768px) {
-          .mobile-header-wrapper { display: block !important; position: fixed; top: 0; left: 0; right: 0; height: 50px; background: #fff; border-bottom: 1px solid #e0e0e0; z-index: 1000; padding: 0 8px; }
-          .mobile-header-grid { display: grid !important; grid-template-columns: 1fr auto !important; align-items: center !important; height: 50px !important; gap: 8px !important; }
-          .mobile-lang-wrapper { display: flex !important; justify-content: center !important; align-items: center !important; max-width: 180px !important; margin: 0 auto !important; }
-          .mobile-lang-wrapper .stSelectbox { margin: 0 !important; width: 100% !important; }
-          .mobile-lang-wrapper [data-testid=stSelectbox] > div:first-child { display: none !important; }
-          .mobile-lang-wrapper [data-baseweb=select] { min-height: 36px !important; max-height: 36px !important; font-size: 14px !important; }
-          .mobile-lang-wrapper [data-baseweb=select] > div { min-height: 36px !important; padding: 6px 10px !important; }
-          .mobile-faq-wrapper { display: flex !important; align-items: center !important; justify-content: flex-end !important; }
-          .mobile-faq-wrapper button { width: 36px !important; height: 36px !important; min-width: 36px !important; border-radius: 50% !important; padding: 0 !important; background: #fff !important; border: 1px solid #d0d0d0 !important; color: #333 !important; font-size: 18px !important; display: flex !important; align-items: center !important; justify-content: center !important; }
-          .mobile-faq-wrapper button:hover { background: #f5f5f5 !important; }
-          [data-testid=stChatInput] { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 12px; background: #fff; border-top: 1px solid #e6e6e6; z-index: 999; }
-          .main { padding-bottom: 70px !important; }
+          .main .block-container { padding-top: 60px !important; }
+          .mlcc-header, .mlcc-subtitle { display: none !important; }
+          /* Compact select */
+          div[data-baseweb="select"] { min-height: 36px !important; max-height: 36px !important; }
+          div[data-baseweb="select"] > div { min-height: 36px !important; padding: 6px 10px !important; }
+          /* Round FAQ */
+          button[key="mobile_faq_btn"] { width:36px!important; height:36px!important; min-width:36px!important; border-radius:50%!important; padding:0!important; background:#fff!important; border:1px solid #d0d0d0!important; color:#333!important; }
+          button[key="mobile_faq_btn"]:hover { background:#f5f5f5!important; }
         }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
-    # Build HTML wrappers so widgets slot into precise grid regions
-    st.markdown('<div class="mobile-header-wrapper"><div class="mobile-header-grid"><div class="mobile-lang-wrapper">', unsafe_allow_html=True)
-    try:
-        languages = sorted(chatbot.LANGUAGE_NAME_TO_CODE.keys())
-    except Exception:
-        languages = [st.session_state.get("selected_language", "english")]
-    default_idx = 0
-    current_lang = st.session_state.get("selected_language", "english")
-    if current_lang in languages:
-        default_idx = languages.index(current_lang)
-    st.selectbox(
-        "Language",
-        options=languages,
-        index=default_idx,
-        key="mobile_language_select",
-        label_visibility="collapsed",
-        on_change=_update_language_from_mobile_select,
-    )
-    st.markdown('</div><div class="mobile-faq-wrapper">', unsafe_allow_html=True)
-    if st.button("?", key="mobile_faq_btn", help="Support & FAQ"):
-        st.session_state.show_faq_popup = True
-        st.rerun()
-    st.markdown('</div></div></div>', unsafe_allow_html=True)
+    c_left, c_center, c_right = st.columns([1, 2, 1])
+    with c_center:
+        try:
+            languages = sorted(chatbot.LANGUAGE_NAME_TO_CODE.keys())
+        except Exception:
+            languages = [st.session_state.get("selected_language", "english")]
+        curr = st.session_state.get("selected_language", "english")
+        idx = languages.index(curr) if curr in languages else 0
+        inner = st.container()
+        with inner:
+            st.selectbox(
+                "Language",
+                options=languages,
+                index=idx,
+                key="mobile_language_select",
+                label_visibility="collapsed",
+                on_change=_update_language_from_mobile_select,
+            )
+        st.markdown(
+            """
+            <style>
+            @media (max-width: 768px) {
+              /* last select inside this column */
+              div[data-testid="column"] div[data-testid="stVerticalBlock"] > div:last-child [data-testid="stSelectbox"] {
+                max-width: 180px !important; margin: 0 auto !important;
+              }
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+    with c_right:
+        wrapper = st.container()
+        with wrapper:
+            st.markdown('<div style="text-align:right;">', unsafe_allow_html=True)
+            if st.button("?", key="mobile_faq_btn", help="Support & FAQ"):
+                st.session_state.show_faq_popup = True
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
 # Determine desired sidebar open/closed from query param if present (sb=1/0)
 _desired_open_default = True
@@ -2570,8 +2484,8 @@ def main():
             if not st.session_state.language_confirmed:
                 st.session_state.language_confirmed = True
                 st.session_state.selected_language = st.session_state.get('selected_language', 'english') or 'english'
-            # Render pure HTML mobile header for strict single-row layout
-            render_mobile_header_html(chatbot)
+            # Render simplified mobile header (language + FAQ) and a compact title/subtitle
+            render_mobile_header(chatbot)
             if len(st.session_state.chat_history) == 0:
                 st.markdown(
                     """
