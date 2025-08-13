@@ -1259,17 +1259,29 @@ def display_chat_messages(retry_request=None):
     injected immediately after the associated user message and returned so the
     caller can render a loading UI and final response in-place.
     """
-    # Add CSS to control heading sizes inside chat messages
+    # Add CSS to normalize message typography and hide avatars/wrappers on mobile
     st.markdown(
         """
         <style>
-        /* Shrink headings that appear *inside* any chat message */
-        [data-testid="stChatMessage"] h1     {font-size: 1.50rem !important;} /* ≈24 px */
-        [data-testid="stChatMessage"] h2     {font-size: 1.25rem !important;} /* ≈20 px */
-        [data-testid="stChatMessage"] h3     {font-size: 1.10rem !important;} /* ≈18 px */
+        /* Shrink headings that appear inside chat messages */
+        [data-testid="stChatMessage"] h1     {font-size: 1.50rem !important;}
+        [data-testid="stChatMessage"] h2     {font-size: 1.25rem !important;}
+        [data-testid="stChatMessage"] h3     {font-size: 1.10rem !important;}
         [data-testid="stChatMessage"] h4,
         [data-testid="stChatMessage"] h5,
-        [data-testid="stChatMessage"] h6     {font-size: 1rem   !important;} /* ≈16 px */
+        [data-testid="stChatMessage"] h6     {font-size: 1rem   !important;}
+
+        /* Mobile cleanup: remove avatars, grey boxes, and reduce padding */
+        @media (max-width: 768px) {
+          /* Hide any avatar imagery/icons next to messages */
+          div[data-testid="stChatMessage"] img,
+          div[data-testid="stChatMessage"] svg { display: none !important; }
+          /* Strip background wrappers and shadows */
+          div[data-testid="stChatMessage"],
+          div[data-testid="stChatMessage"] > div { background: transparent !important; box-shadow: none !important; border: none !important; }
+          /* Tighten spacing */
+          div[data-testid="stChatMessage"] { padding: 6px 8px !important; }
+        }
         </style>
         """,
         unsafe_allow_html=True,
