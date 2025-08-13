@@ -36,6 +36,10 @@ opencensus = "^0.11.4"
 opencensus-ext-azure = "^1.1.15"
 opencensus-ext-logging = "^0.1.1"
 azure-storage-blob = "^12.26.0"
+streamlit-user-device = "^0.1.2"
+streamlit-screen-stats = "^0.0.82"
+streamlit-javascript = "^0.1.5"
+user-agents = "^2.2.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0"
