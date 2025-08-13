@@ -433,6 +433,226 @@ def _pop_feedback_action_from_query_params():
     except Exception:
         return None, None
 
+# --- Mobile simplification helpers ---
+def is_mobile_device() -> bool:
+    """Lightweight server-side mobile hint.
+
+    Uses query params (?mobile=1 or ?m=1) which we can set during testing or via
+    client-side scripts if desired. UI CSS is still responsive even without this.
+    """
+    try:
+        return bool(_is_mobile_from_query_params())
+    except Exception:
+        return False
+
+def load_mobile_css() -> None:
+    """Inject mobile-first CSS that hides the sidebar and presents a simple header.
+
+    This does not affect desktop thanks to media queries.
+    """
+    st.markdown(
+        """
+        <style>
+        /* Hide sidebar and any toggle buttons on small screens */
+        @media (max-width: 768px) {
+          section[data-testid="stSidebar"],
+          [data-testid="collapsedControl"],
+          #sb-toggle-anchor + div.stButton,
+          button[kind="header"] {
+            display: none !important;
+          }
+          /* Reduce top padding to make room for fixed mobile header */
+          .main .block-container { padding-top: 64px !important; }
+        }
+
+        /* Fixed mobile header shell */
+        .mobile-header { display: none; }
+        @media (max-width: 768px) {
+          .mobile-header { 
+            position: fixed; top: 0; left: 0; right: 0; 
+            z-index: 1000; padding: 12px 14px; 
+            background: var(--background-color, #fff);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+          }
+          /* Hide existing desktop header to avoid duplication on mobile */
+          .mlcc-header.desktop, .mlcc-subtitle.desktop { display: none !important; }
+          /* Keep the mobile one visible */
+          .mlcc-header.mobile { display: block !important; }
+        }
+
+        /* Chat input pinned at bottom with subtle border on mobile */
+        @media (max-width: 768px) {
+          [data-testid="stChatInput"] { 
+            position: fixed; left: 0; right: 0; bottom: 0; 
+            padding: 10px 12px; background: white; 
+            border-top: 1px solid #e6e6e6; 
+          }
+          .main { padding-bottom: 84px !important; }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+def _update_language_from_mobile_select() -> None:
+    sel = st.session_state.get("mobile_language_select")
+    if isinstance(sel, str) and sel:
+        st.session_state.selected_language = sel
+        st.session_state.language_confirmed = True
+
+def render_mobile_header(chatbot) -> None:
+    """Compact mobile header: sticky language bar centered, '?' fixed at top-right."""
+
+    # Create a container for the FAQ button with explicit positioning
+    faq_container = st.container()
+    with faq_container:
+        col1, col2, col3 = st.columns([8, 1, 1])  # Adjust column ratios to push button right
+        with col3:  # Place button in rightmost column
+            if st.button("?", key="mobile_faq_btn", help="Support & FAQ"):
+                st.session_state.show_faq_popup = True
+                st.rerun()
+
+    # 2) Sticky bar: Made by + language select
+    with st.container():
+        # "Made by" line (tiny, centered)
+        if CCC_ICON_B64:
+            st.markdown(
+                f"""
+                <div style="text-align:center; margin: 0 0 4px 0;">
+                  <img src="data:image/png;base64,{CCC_ICON_B64}" alt="Logo"
+                       style="width:20px;height:20px;vertical-align:middle;margin-right:6px;">
+                  <span style="color:#009376;font-size:13px;">Made by
+                    <a href="https://crc.place/" target="_blank" style="color:#009376;text-decoration:none;">
+                      Climate Resilient Communities
+                    </a>
+                  </span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        # Language select (centered)
+        try:
+            languages = sorted(chatbot.LANGUAGE_NAME_TO_CODE.keys())
+        except Exception:
+            languages = [st.session_state.get("selected_language", "english")]
+
+        current = st.session_state.get("selected_language", "english")
+        idx = languages.index(current) if current in languages else 0
+
+        st.selectbox(
+            "Language",
+            options=languages,
+            index=idx,
+            key="mobile_language_select",
+            label_visibility="collapsed",
+            on_change=_update_language_from_mobile_select,
+        )
+
+    # 3) Updated Mobile CSS for proper positioning
+    st.markdown(
+        """
+        <style>
+        @media (max-width: 768px) {
+          /* Ensure proper spacing at top */
+          .main .block-container {
+            padding-top: max(2px, env(safe-area-inset-top)) !important;
+          }
+
+          /* Target the FAQ button's container and position it properly */
+          /* Use the column structure to position the button */
+          [data-testid="column"]:has(button[key="mobile_faq_btn"]) {
+            position: fixed !important;
+            top: calc(env(safe-area-inset-top, 0px) + 8px) !important;
+            right: max(8px, env(safe-area-inset-right, 0px)) !important;
+            width: auto !important;
+            z-index: 1001 !important;
+            background: transparent !important;
+          }
+          
+          /* Style the FAQ button itself */
+          button[key="mobile_faq_btn"] {
+            /* Fallback: pin the button itself for small devices where column selector may fail */
+            position: fixed !important;
+            top: calc(env(safe-area-inset-top, 0px) + 6px) !important;
+            right: max(6px, env(safe-area-inset-right, 0px)) !important;
+            left: auto !important;
+            z-index: 1002 !important;
+            width: 36px !important;
+            height: 36px !important;
+            min-width: 36px !important;
+            border-radius: 50% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: 1px solid #d0d0d0 !important;
+            background: #ffffff !important;
+            color: #333333 !important;
+            font-size: 16px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+            touch-action: manipulation !important;
+          }
+
+          /* Extra-tight tuning for very small screens */
+          @media (max-width: 480px) {
+            button[key="mobile_faq_btn"] {
+              top: calc(env(safe-area-inset-top, 0px) + 4px) !important;
+              right: max(4px, env(safe-area-inset-right, 0px)) !important;
+              width: 28px !important;
+              height: 28px !important;
+              min-width: 28px !important;
+              font-size: 14px !important;
+            }
+          }
+
+          /* Make the language container sticky */
+          .main > div > div > div:has(select[key="mobile_language_select"]) {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: #fff;
+            padding: 8px 12px 6px 12px;
+            border-bottom: 1px solid #e0e0e0;
+          }
+
+          /* Ensure language select is properly styled */
+          [data-testid=stSelectbox]:has(select[key="mobile_language_select"]) { 
+            margin: 0 !important; 
+          }
+          
+          select[key="mobile_language_select"] + div [data-baseweb=select] { 
+            min-height: 36px !important; 
+          }
+          
+          select[key="mobile_language_select"] + div [data-baseweb=select] > div {
+            min-height: 36px !important;
+            padding: 6px 10px 0 10px !important;
+          }
+
+          /* Chat input positioning */
+          [data-testid="stChatInput"] {
+            position: fixed; 
+            left: 0; 
+            right: 0; 
+            bottom: 0;
+            padding: 10px 12px; 
+            background: #fff; 
+            border-top: 1px solid #e6e6e6; 
+            z-index: 999;
+          }
+          
+          .main { 
+            padding-bottom: 70px !important; 
+          }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 # Determine desired sidebar open/closed from query param if present (sb=1/0)
 _desired_open_default = True
 try:
@@ -462,17 +682,7 @@ else:
             st.session_state._sb_open = new_open
             st.session_state._sb_rerun = True
 
-if st.session_state.get("_sb_rerun", False):
-    st.set_page_config(
-        layout="wide", 
-        page_title="Multilingual Climate Chatbot",
-        page_icon=calculated_favicon,
-        initial_sidebar_state=SIDEBAR_STATE[not st.session_state._sb_open],
-    )
-    st.session_state._sb_rerun = False
-    st.rerun()
-
-# Final page config with the desired sidebar state
+# Single page config, no reruns around it (prevents fragment errors)
 st.set_page_config(
     layout="wide",
     page_title="Multilingual Climate Chatbot",
@@ -482,80 +692,9 @@ st.set_page_config(
 
         # On load: if a previous action requested closing the sidebar via sessionStorage,
 # perform a best-effort close using the native collapse control or CSS transform.
-st_html(
-    """
-<script>
-try {
-  if (sessionStorage.getItem('closeSidebarOnLoad') === '1') {
-    sessionStorage.removeItem('closeSidebarOnLoad');
-    const tryClose = () => {
-      const collapseBtn = document.querySelector('[data-testid="collapsedControl"]') ||
-                          document.querySelector('[aria-label*="Collapse"]') ||
-                          document.querySelector('button[kind="header"]');
-      if (collapseBtn && collapseBtn.getAttribute('aria-expanded') === 'true') {
-        collapseBtn.click();
-      }
-      const sidebar = document.querySelector('section[data-testid="stSidebar"]');
-      if (sidebar) {
-        sidebar.style.transition = 'transform 0.2s ease';
-        sidebar.style.transform = 'translateX(-100%)';
-      }
-    };
-    setTimeout(tryClose, 50);
-    setTimeout(tryClose, 200);
-  }
-} catch (e) {}
-</script>
-""",
-    height=0,
-)
+## Removed JS-driven sidebar auto-close to avoid reload-induced fragment errors
 
-# Optional: allow URL param reset_ui=1 to clear any persisted UI prefs in the browser
-# and force a fresh load with sidebar open. This is helpful when a user's stored
-# preference keeps the sidebar collapsed despite our initial state.
-try:
-    _params2 = st.query_params
-except Exception:
-    try:
-        _params2 = st.experimental_get_query_params()
-    except Exception:
-        _params2 = {}
-
-_reset_ui = None
-if isinstance(_params2, dict):
-    _reset_ui = _params2.get("reset_ui") or _params2.get("sb_reset")
-    if isinstance(_reset_ui, list):
-        _reset_ui = _reset_ui[0] if _reset_ui else None
-
-if _reset_ui in ("1", 1, True) and not st.session_state.get("_did_reset_ui"):
-    # Clear local/session storage keys related to Streamlit UI and reload
-    st_html(
-        """
-<script>
-try {
-  // Clear Streamlit/UI-related items from localStorage
-  const keys = Object.keys(localStorage);
-  for (const k of keys) {
-    const kl = k.toLowerCase();
-    if (kl.includes('streamlit') || kl.includes('sidebar') || kl.startsWith('st-') || kl.includes('siderbar')) {
-      localStorage.removeItem(k);
-    }
-  }
-  // Also clear sessionStorage to be safe
-  try { sessionStorage.clear(); } catch(e) {}
-  // Reload without reset_ui param and with sb=1 to ensure open
-  const url = new URL(window.location.href);
-  url.searchParams.delete('reset_ui');
-  url.searchParams.delete('sb_reset');
-  url.searchParams.set('sb','1');
-  window.location.replace(url.toString());
-} catch (e) { console.error('UI reset error', e); }
-</script>
-        """,
-        height=0,
-    )
-    st.session_state._did_reset_ui = True
-    st.stop()
+## Removed reset_ui reload logic to prevent fragment errors and unexpected reruns
 
 # === NOW OTHER IMPORTS AND SETUP ===
 import time
@@ -1113,17 +1252,29 @@ def display_chat_messages(retry_request=None):
     injected immediately after the associated user message and returned so the
     caller can render a loading UI and final response in-place.
     """
-    # Add CSS to control heading sizes inside chat messages
+    # Add CSS to normalize message typography and hide avatars/wrappers on mobile
     st.markdown(
         """
         <style>
-        /* Shrink headings that appear *inside* any chat message */
-        [data-testid="stChatMessage"] h1     {font-size: 1.50rem !important;} /* ≈24 px */
-        [data-testid="stChatMessage"] h2     {font-size: 1.25rem !important;} /* ≈20 px */
-        [data-testid="stChatMessage"] h3     {font-size: 1.10rem !important;} /* ≈18 px */
+        /* Shrink headings that appear inside chat messages */
+        [data-testid="stChatMessage"] h1     {font-size: 1.50rem !important;}
+        [data-testid="stChatMessage"] h2     {font-size: 1.25rem !important;}
+        [data-testid="stChatMessage"] h3     {font-size: 1.10rem !important;}
         [data-testid="stChatMessage"] h4,
         [data-testid="stChatMessage"] h5,
-        [data-testid="stChatMessage"] h6     {font-size: 1rem   !important;} /* ≈16 px */
+        [data-testid="stChatMessage"] h6     {font-size: 1rem   !important;}
+
+        /* Mobile cleanup: remove avatars, grey boxes, and reduce padding */
+        @media (max-width: 768px) {
+          /* Hide any avatar imagery/icons next to messages */
+          div[data-testid="stChatMessage"] img,
+          div[data-testid="stChatMessage"] svg { display: none !important; }
+          /* Strip background wrappers and shadows */
+          div[data-testid="stChatMessage"],
+          div[data-testid="stChatMessage"] > div { background: transparent !important; box-shadow: none !important; border: none !important; }
+          /* Tighten spacing */
+          div[data-testid="stChatMessage"] { padding: 6px 8px !important; }
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -2067,10 +2218,14 @@ def main():
         except Exception:
             pass
 
-    # Load CSS
-    load_custom_css()
-    # Removed client-side transform sync to avoid overriding server-driven sidebar state
-    load_responsive_css()
+    # Decide mobile vs desktop early
+    mobile = is_mobile_device()
+    if mobile:
+        load_mobile_css()
+    else:
+        # Load desktop CSS
+        load_custom_css()
+        load_responsive_css()
     # Close button CSS: maximize specificity and exclude from global button rules
     st.markdown(
         """
@@ -2159,7 +2314,7 @@ def main():
 
         # Do not force sidebar visibility via CSS; rely on page_config + toggle button
 
-        if st.session_state.get('_sb_open', True):
+        if (not mobile) and st.session_state.get('_sb_open', True):
             with st.sidebar:
                 # Add a close button at the top of the sidebar, wrapped in a unique div
                 st.markdown('<div class="sb-close-button-container">', unsafe_allow_html=True)
@@ -2298,7 +2453,7 @@ def main():
                 st.markdown('</div>', unsafe_allow_html=True)
 
         # Sidebar toggle control in main content area (only shows when sidebar is closed)
-        if not st.session_state.get('_sb_open', True):
+        if (not mobile) and not st.session_state.get('_sb_open', True):
             arrow_icon = "➡️"
             # Anchor element to uniquely target the very next st.button with CSS
             st.markdown('<div id="sb-toggle-anchor"></div>', unsafe_allow_html=True)
@@ -2338,14 +2493,31 @@ def main():
             st.button(arrow_icon, key="sb_toggle_btn", help="Toggle sidebar", on_click=toggle_sidebar)
 
         # Header
-        if CCC_ICON_B64:
+        if mobile:
+            # Auto-confirm language on first load for instant chat availability
+            if not st.session_state.language_confirmed:
+                st.session_state.language_confirmed = True
+                st.session_state.selected_language = st.session_state.get('selected_language', 'english') or 'english'
+            # Render simplified mobile header (language + FAQ) and a compact title/subtitle
+            render_mobile_header(chatbot)
+            if len(st.session_state.chat_history) == 0:
+                st.markdown(
+                    """
+                    <div style=\"text-align:center; margin:12px 0 16px 0;\">
+                      <h3 style=\"margin:0; color:#009376;\">Multilingual Climate Chatbot</h3>
+                      <div style=\"color:#6b6b6b; font-size:14px;\">Ask me anything about climate change!</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+        elif CCC_ICON_B64:
             st.markdown(
                 f"""
-                <div class="mlcc-header">
+                <div class="mlcc-header desktop">
                     <img class="mlcc-logo" src="data:image/png;base64,{CCC_ICON_B64}" alt="Logo" />
                     <h1 style="margin:0;">Multilingual Climate Chatbot</h1>
                 </div>
-                <div class="mlcc-subtitle">Ask me anything about climate change!</div>
+                <div class="mlcc-subtitle desktop">Ask me anything about climate change!</div>
                 """,
                 unsafe_allow_html=True,
             )
@@ -2368,6 +2540,38 @@ def main():
             }
             a.feedback-button { display: inline-block; padding: 6px 10px; border-radius: 6px; border: 1px solid #d0d7de; background: #f6f8fa; color: #24292f !important; text-decoration: none; font-size: 14px; }
             a.feedback-button:hover { background: #eef2f6; }
+            
+            /* Mobile font size normalization for FAQ popup */
+            @media (max-width: 768px) {
+                div[data-testid="column"]:has(.faq-popup-marker) {
+                    padding: 12px !important;
+                    max-height: 85vh !important;
+                }
+                div[data-testid="column"]:has(.faq-popup-marker) h1 { 
+                    font-size: 1.2rem !important; 
+                    margin-bottom: 8px !important;
+                }
+                div[data-testid="column"]:has(.faq-popup-marker) h2 { 
+                    font-size: 1.05rem !important; 
+                    margin: 12px 0 6px 0 !important;
+                }
+                div[data-testid="column"]:has(.faq-popup-marker) h3 { 
+                    font-size: 0.95rem !important; 
+                    margin: 8px 0 4px 0 !important;
+                }
+                div[data-testid="column"]:has(.faq-popup-marker) p,
+                div[data-testid="column"]:has(.faq-popup-marker) div,
+                div[data-testid="column"]:has(.faq-popup-marker) li { 
+                    font-size: 0.9rem !important; 
+                    line-height: 1.4 !important;
+                }
+                div[data-testid="column"]:has(.faq-popup-marker) .stExpander > div > div > div { 
+                    font-size: 0.9rem !important; 
+                }
+                div[data-testid="column"]:has(.faq-popup-marker) [data-testid="stMarkdownContainer"] { 
+                    font-size: 0.9rem !important; 
+                }
+            }
             </style>
             """,
                 unsafe_allow_html=True,
@@ -2479,11 +2683,10 @@ def main():
                     pass
                 st.session_state.chat_history.append({'role': 'user', 'content': query})
         else:
+            # Show guidance banner on both mobile and desktop
             st.markdown(
                 """
-                <div style="margin-top: 10px; margin-bottom: 30px; background-color: #009376; padding: 10px; border-radius: 5px; color: white; text-align: center;">
-                Please select your language and click Confirm to start chatting.
-                </div>
+                <div style=\"margin-top: 10px; margin-bottom: 30px; background-color: #009376; padding: 10px; border-radius: 5px; color: white; text-align: center;\">Please select your language and click Confirm to start chatting.</div>
                 """,
                 unsafe_allow_html=True
             )
@@ -2817,11 +3020,11 @@ def main():
             if CCC_ICON_B64:
                 st.markdown(
                     f"""
-                    <div class="mlcc-header">
+                    <div class="mlcc-header desktop">
                         <img class="mlcc-logo" src="data:image/png;base64,{CCC_ICON_B64}" alt="Logo" />
                         <h1 style="margin:0;">Multilingual Climate Chatbot</h1>
                     </div>
-                    <div class="mlcc-subtitle">Ask me anything about climate change!</div>
+                    <div class="mlcc-subtitle desktop">Ask me anything about climate change!</div>
                     """,
                     unsafe_allow_html=True,
                 )
@@ -2863,6 +3066,38 @@ def main():
                 }
                 a.feedback-button:hover {
                     background: #eef2f6;
+                }
+                
+                /* Mobile font size normalization for FAQ popup */
+                @media (max-width: 768px) {
+                    div[data-testid="column"]:has(.faq-popup-marker) {
+                        padding: 12px !important;
+                        max-height: 85vh !important;
+                    }
+                    div[data-testid="column"]:has(.faq-popup-marker) h1 { 
+                        font-size: 1.2rem !important; 
+                        margin-bottom: 8px !important;
+                    }
+                    div[data-testid="column"]:has(.faq-popup-marker) h2 { 
+                        font-size: 1.05rem !important; 
+                        margin: 12px 0 6px 0 !important;
+                    }
+                    div[data-testid="column"]:has(.faq-popup-marker) h3 { 
+                        font-size: 0.95rem !important; 
+                        margin: 8px 0 4px 0 !important;
+                    }
+                    div[data-testid="column"]:has(.faq-popup-marker) p,
+                    div[data-testid="column"]:has(.faq-popup-marker) div,
+                    div[data-testid="column"]:has(.faq-popup-marker) li { 
+                        font-size: 0.9rem !important; 
+                        line-height: 1.4 !important;
+                    }
+                    div[data-testid="column"]:has(.faq-popup-marker) .stExpander > div > div > div { 
+                        font-size: 0.9rem !important; 
+                    }
+                    div[data-testid="column"]:has(.faq-popup-marker) [data-testid="stMarkdownContainer"] { 
+                        font-size: 0.9rem !important; 
+                    }
                 }
                 </style>
                 """,
