@@ -434,18 +434,12 @@ def _pop_feedback_action_from_query_params():
         return None, None
 
 # --- Mobile simplification helpers ---
-def is_mobile_device() -> bool:
-    """Best-effort mobile detection for server-driven decisions.
+def _detect_device_info() -> tuple[bool, dict]:
+    """Return (is_mobile_like, info_dict) using multiple strategies.
 
-    Priority order (cached result returned immediately):
-    1) streamlit-user-device (if available)
-    2) streamlit-screen-stats viewport width (if available)
-    3) JS userAgent via streamlit-javascript + user-agents (if available)
-    4) Query params (?mobile=1 / ?m=1) fallback
+    info_dict keys: method, device_type, width, ua
     """
-    cached = st.session_state.get("is_mobile_detected")
-    if isinstance(cached, bool):
-        return cached
+    info: dict = {"method": "unknown", "device_type": None, "width": None, "ua": None}
 
     # 1) streamlit-user-device
     try:
@@ -453,9 +447,9 @@ def is_mobile_device() -> bool:
 
         device_type = user_device()
         if isinstance(device_type, str) and device_type:
-            is_mobile_now = device_type.lower() in ("mobile", "phone", "tablet")
-            st.session_state.is_mobile_detected = bool(is_mobile_now)
-            return st.session_state.is_mobile_detected
+            info.update({"method": "user_device", "device_type": device_type})
+            is_mobile_like = device_type.lower() in ("mobile", "phone", "tablet")
+            return bool(is_mobile_like), info
     except Exception:
         pass
 
@@ -464,10 +458,10 @@ def is_mobile_device() -> bool:
         from st_screen_stats import ScreenData  # type: ignore
 
         screen_data = ScreenData(setTimeout=0)
-        info = screen_data.st_screen_data()
-        if isinstance(info, dict) and info.get("width") is not None:
-            st.session_state.is_mobile_detected = bool(info.get("width", 9999) <= 768)
-            return st.session_state.is_mobile_detected
+        data = screen_data.st_screen_data()
+        if isinstance(data, dict) and data.get("width") is not None:
+            info.update({"method": "screen_stats", "width": data.get("width")})
+            return bool(int(data.get("width", 9999)) <= 768), info
     except Exception:
         pass
 
@@ -477,20 +471,60 @@ def is_mobile_device() -> bool:
         from user_agents import parse as parse_user_agent  # type: ignore
 
         ua_string = st_javascript("window.navigator.userAgent;")
+        info["ua"] = ua_string if isinstance(ua_string, str) else None
         if isinstance(ua_string, str) and ua_string:
             ua = parse_user_agent(ua_string)
-            st.session_state.is_mobile_detected = bool(getattr(ua, "is_mobile", False) or getattr(ua, "is_tablet", False))
-            return st.session_state.is_mobile_detected
+            info["method"] = "user_agent"
+            info["device_type"] = (
+                "mobile" if getattr(ua, "is_mobile", False) else ("tablet" if getattr(ua, "is_tablet", False) else "desktop")
+            )
+            return bool(getattr(ua, "is_mobile", False) or getattr(ua, "is_tablet", False)), info
     except Exception:
         pass
 
     # 4) Query param fallback
     try:
-        st.session_state.is_mobile_detected = bool(_is_mobile_from_query_params())
-        return st.session_state.is_mobile_detected
+        is_m = bool(_is_mobile_from_query_params())
+        info.update({"method": "query_param", "device_type": "mobile" if is_m else "desktop"})
+        return is_m, info
     except Exception:
-        st.session_state.is_mobile_detected = False
-        return False
+        return False, info
+
+
+def is_mobile_device() -> bool:
+    """Best-effort mobile detection for server-driven decisions with caching and debug info."""
+    force_probe = False
+    try:
+        raw = _get_query_param_single_value("mobiledebug") or _get_query_param_single_value("dev")
+        if isinstance(raw, str) and raw.lower() in ("1", "true", "yes", "y"):
+            force_probe = True
+    except Exception:
+        pass
+
+    if not force_probe and isinstance(st.session_state.get("is_mobile_detected"), bool):
+        return bool(st.session_state.get("is_mobile_detected"))
+
+    is_m, info = _detect_device_info()
+    st.session_state.is_mobile_detected = bool(is_m)
+    st.session_state.device_detection_info = info
+    return st.session_state.is_mobile_detected
+
+
+def render_device_debug_banner() -> None:
+    """Render a small, dismissible banner with device-detection info when ?mobiledebug=1."""
+    try:
+        raw = _get_query_param_single_value("mobiledebug") or _get_query_param_single_value("dev")
+        if not (isinstance(raw, str) and raw.lower() in ("1", "true", "yes", "y")):
+            return
+    except Exception:
+        return
+    info = st.session_state.get("device_detection_info", {}) or {}
+    detected = st.session_state.get("is_mobile_detected")
+    msg = f"device='{info.get('device_type')}' width={info.get('width')} method={info.get('method')} mobile={detected}"
+    try:
+        st.info(f"Device debug: {msg}")
+    except Exception:
+        st.write(f"Device debug: {msg}")
 
 def load_mobile_css() -> None:
     """Inject mobile-first CSS that hides the sidebar and presents a simple header.
@@ -2281,6 +2315,8 @@ def main():
         )
     except Exception:
         pass
+    # Optional visible debug banner when ?mobiledebug=1
+    render_device_debug_banner()
     # Close button CSS: maximize specificity and exclude from global button rules
     st.markdown(
         """
@@ -2459,7 +2495,7 @@ def main():
                         st.session_state.selected_language = selected_language
                         st.session_state.language_confirmed = True
                         # AUTO-CLOSE SIDEBAR ON MOBILE ONLY (server-driven only)
-                        if _is_mobile_from_query_params():
+                        if mobile:
                             st.session_state._sb_open = False
                             st.session_state._sb_rerun = True
                             _set_query_params_robust({"sb": "0"}, merge=True)
@@ -2491,7 +2527,7 @@ def main():
                 if st.button("📚 Support & FAQs"):
                     st.session_state.show_faq_popup = True
                     # Auto-close sidebar on mobile if FAQ opened (server-driven only)
-                    if _is_mobile_from_query_params():
+                    if mobile:
                         st.session_state._sb_open = False
                         st.session_state._sb_rerun = True
                         _set_query_params_robust({"sb": "0"}, merge=True)
