@@ -2306,8 +2306,7 @@ def main():
         )
     except Exception:
         pass
-    # Optional visible debug banner when ?mobiledebug=1
-    render_device_debug_banner()
+    # Removed visible debug banner in production
     # Close button CSS: maximize specificity and exclude from global button rules
     st.markdown(
         """
@@ -2576,6 +2575,19 @@ def main():
 
         # Drive UI path from detector and single switch
         st.session_state.MOBILE_MODE = bool(mobile)
+
+        # Ensure desktop always opens sidebar and syncs URL param once
+        if not st.session_state.MOBILE_MODE:
+            try:
+                st.session_state._sb_open = True
+                st.session_state._sb_rerun = False
+                params_now = _get_all_query_params_single_values()
+                if (params_now.get("sb") != "1") and (not st.session_state.get("_desktop_sb_synced", False)):
+                    _set_query_params_robust({"sb": "1"}, merge=True)
+                    st.session_state._desktop_sb_synced = True
+                    st.rerun()
+            except Exception:
+                pass
 
         def activate_mobile_mode(chatbot) -> None:
             """Flip on every mobile-only behavior in one place."""
