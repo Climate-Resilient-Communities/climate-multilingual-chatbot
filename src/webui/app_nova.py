@@ -599,6 +599,7 @@ def render_mobile_header(chatbot) -> None:
     with faq_container:
         col1, col2, col3 = st.columns([8, 1, 1])  # Adjust column ratios to push button right
         with col3:  # Place button in rightmost column
+            st.markdown('<div id="mobile-faq-wrap"></div>', unsafe_allow_html=True)
             if st.button("?", key="mobile_faq_btn", help="Support & FAQ"):
                 st.session_state.show_faq_popup = True
                 st.rerun()
@@ -661,41 +662,21 @@ def render_mobile_header(chatbot) -> None:
             background: transparent !important;
           }
           
-          /* Style the FAQ button itself */
-          button[key="mobile_faq_btn"] {
-            /* Fallback: pin the button itself for small devices where column selector may fail */
+          /* Wrap-based fixed positioning for FAQ button */
+          #mobile-faq-wrap {
             position: fixed !important;
             top: calc(env(safe-area-inset-top, 0px) + 6px) !important;
             right: max(6px, env(safe-area-inset-right, 0px)) !important;
-            left: auto !important;
             z-index: 1002 !important;
-            width: 36px !important;
-            height: 36px !important;
-            min-width: 36px !important;
-            border-radius: 50% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            border: 1px solid #d0d0d0 !important;
-            background: #ffffff !important;
-            color: #333333 !important;
-            font-size: 16px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-            touch-action: manipulation !important;
           }
-
-          /* Extra-tight tuning for very small screens */
+          #mobile-faq-wrap + div button {
+            width: 36px !important; height: 36px !important; min-width: 36px !important;
+            border-radius: 50% !important; margin: 0 !important; padding: 0 !important;
+            border: 1px solid #d0d0d0 !important; background: #fff !important; color: #333 !important;
+            font-size: 16px !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+          }
           @media (max-width: 480px) {
-            button[key="mobile_faq_btn"] {
-              top: calc(env(safe-area-inset-top, 0px) + 4px) !important;
-              right: max(4px, env(safe-area-inset-right, 0px)) !important;
-              width: 28px !important;
-              height: 28px !important;
-              min-width: 28px !important;
-              font-size: 14px !important;
-            }
+            #mobile-faq-wrap + div button { width: 28px !important; height: 28px !important; font-size: 14px !important; }
           }
 
           /* Make the language container sticky */
@@ -2415,7 +2396,7 @@ def main():
 
         # Do not force sidebar visibility via CSS; rely on page_config + toggle button
 
-        if (not mobile) and st.session_state.get('_sb_open', True):
+        if (not st.session_state.get("MOBILE_MODE")) and st.session_state.get('_sb_open', True):
             with st.sidebar:
                 # Add a close button at the top of the sidebar, wrapped in a unique div
                 st.markdown('<div class="sb-close-button-container">', unsafe_allow_html=True)
@@ -2553,8 +2534,8 @@ def main():
                 st.markdown('</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-        # Sidebar toggle control in main content area (only shows when sidebar is closed)
-        if (not mobile) and not st.session_state.get('_sb_open', True):
+        # Sidebar toggle control in main content area (only shows when sidebar is closed and not mobile)
+        if (not st.session_state.get("MOBILE_MODE", False)) and not st.session_state.get('_sb_open', True):
             arrow_icon = "➡️"
             # Anchor element to uniquely target the very next st.button with CSS
             st.markdown('<div id="sb-toggle-anchor"></div>', unsafe_allow_html=True)
@@ -2593,39 +2574,50 @@ def main():
             )
             st.button(arrow_icon, key="sb_toggle_btn", help="Toggle sidebar", on_click=toggle_sidebar)
 
-        # Header
-        if mobile:
-            # Auto-confirm language on first load for instant chat availability
-            if not st.session_state.language_confirmed:
+        # Drive UI path from detector and single switch
+        st.session_state.MOBILE_MODE = bool(mobile)
+
+        def activate_mobile_mode(chatbot) -> None:
+            """Flip on every mobile-only behavior in one place."""
+            st.session_state.MOBILE_MODE = True
+            if not st.session_state.get("language_confirmed"):
+                st.session_state.selected_language = st.session_state.get("selected_language", "english") or "english"
                 st.session_state.language_confirmed = True
-                st.session_state.selected_language = st.session_state.get('selected_language', 'english') or 'english'
-            # Render simplified mobile header (language + FAQ) and a compact title/subtitle
+            try:
+                st.session_state._sb_open = False
+                st.session_state._sb_rerun = True
+                _set_query_params_robust({"sb": "0"}, merge=True)
+            except Exception:
+                pass
             render_mobile_header(chatbot)
+
+        if st.session_state.MOBILE_MODE:
+            activate_mobile_mode(chatbot)
             if len(st.session_state.chat_history) == 0:
                 st.markdown(
                     """
-                    <div style=\"text-align:center; margin:12px 0 16px 0;\">
+                    <div style=\"text-align:center; margin:12px 0 16px 0;\"> 
                       <h3 style=\"margin:0; color:#009376;\">Multilingual Climate Chatbot</h3>
                       <div style=\"color:#6b6b6b; font-size:14px;\">Ask me anything about climate change!</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
                 )
-        elif CCC_ICON_B64:
-            st.markdown(
-                f"""
-                <div class="mlcc-header desktop">
-                    <img class="mlcc-logo" src="data:image/png;base64,{CCC_ICON_B64}" alt="Logo" />
-                    <h1 style="margin:0;">Multilingual Climate Chatbot</h1>
-                </div>
-                <div class="mlcc-subtitle desktop">Ask me anything about climate change!</div>
-                """,
-                unsafe_allow_html=True,
-            )
-
         else:
-            st.title("Multilingual Climate Chatbot")
-            st.write("Ask me anything about climate change!")
+            if CCC_ICON_B64:
+                st.markdown(
+                    f"""
+                    <div class="mlcc-header desktop">
+                        <img class="mlcc-logo" src="data:image/png;base64,{CCC_ICON_B64}" alt="Logo" />
+                        <h1 style="margin:0;">Multilingual Climate Chatbot</h1>
+                    </div>
+                    <div class="mlcc-subtitle desktop">Ask me anything about climate change!</div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.title("Multilingual Climate Chatbot")
+                st.write("Ask me anything about climate change!")
 
         # Remove floating toggle; sidebar collapse is disabled and sidebar always visible via CSS
 
