@@ -141,10 +141,64 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
           </AccordionItem>
           <AccordionItem value="terms">
             <AccordionTrigger className="text-xs">Terms of Use</AccordionTrigger>
-            <AccordionContent>
-              <p className="text-xs text-muted-foreground">
-                This service is provided under the MIT License. You are free to use it for any purpose, but the authors and copyright holders are not liable for any claims, damages, or other liability. Use the information provided at your own risk.
-              </p>
+            <AccordionContent className="max-h-48 overflow-y-auto pr-4">
+              <div className="text-xs text-muted-foreground space-y-3">
+                <p><strong>Terms of Use</strong><br />Last Updated: January 28, 2025</p>
+
+                <div className="space-y-1">
+                  <h4 className="font-semibold text-foreground">Acceptance of Terms</h4>
+                  <p>By accessing and using the Climate Resilience Communities chatbot, you accept and agree to be bound by these Terms of Use and all applicable laws and regulations.</p>
+                </div>
+
+                <div className="space-y-1">
+                  <h4 className="font-semibold text-foreground">Acceptable Use</h4>
+                  <p>Users agree to use the chatbot in accordance with these terms and all applicable laws. Prohibited activities include but are not limited to:</p>
+                  <ul className="list-disc list-outside space-y-1 pl-5">
+                    <li>Spreading misinformation or deliberately providing false information</li>
+                    <li>Engaging in hate speech or discriminatory behavior</li>
+                    <li>Attempting to override or manipulate the chatbot's safety features</li>
+                    <li>Using the service for harassment or harmful purposes</li>
+                    <li>Attempting to extract personal information or private data</li>
+                  </ul>
+                </div>
+
+                <div className="space-y-1">
+                  <h4 className="font-semibold text-foreground">Open-Source License</h4>
+                  <p>Our chatbot's codebase is available under the MIT License. This means you can:</p>
+                  <ul className="list-disc list-outside space-y-1 pl-5">
+                    <li>Use the code for any purpose</li>
+                    <li>Modify and distribute the code</li>
+                    <li>Use it commercially</li>
+                    <li>Sublicense it</li>
+                  </ul>
+                  <p>Under the condition that:</p>
+                   <ul className="list-disc list-outside space-y-1 pl-5">
+                    <li>The original copyright notice and permission notice must be included</li>
+                    <li>The software is provided "as is" without warranty</li>
+                  </ul>
+                </div>
+
+                <div className="space-y-1">
+                  <h4 className="font-semibold text-foreground">Intellectual Property</h4>
+                  <p>While our code is open-source, the following remains the property of Climate Resilience Communities:</p>
+                  <ul className="list-disc list-outside space-y-1 pl-5">
+                    <li>Trademarks and branding</li>
+                    <li>Content created specifically for the chatbot</li>
+                    <li>Documentation and supporting materials</li>
+                  </ul>
+                </div>
+                
+                <div className="space-y-1">
+                  <h4 className="font-semibold text-foreground">Liability Limitation</h4>
+                  <p>The chatbot and its services are provided "as is" and "as available" without any warranties, expressed or implied. Climate Resilience Communities is not liable for any damages arising from:</p>
+                  <ul className="list-disc list-outside space-y-1 pl-5">
+                    <li>Use or inability to use the service</li>
+                    <li>Reliance on information provided</li>
+                    <li>Decisions made based on chatbot interactions</li>
+                    <li>Technical issues or service interruptions</li>
+                  </ul>
+                </div>
+              </div>
             </AccordionContent>
           </AccordionItem>
           <AccordionItem value="disclaimer">
@@ -166,4 +220,3 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
     </Dialog>
   );
 }
-
