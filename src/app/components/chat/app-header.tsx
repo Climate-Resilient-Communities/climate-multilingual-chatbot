@@ -43,16 +43,16 @@ export function AppHeader({ onNewChat }: AppHeaderProps) {
 
   return (
     <>
-      <header className="flex items-center justify-between p-4 border-b">
+      <header className="flex items-center justify-between p-4 border-b bg-[#1F1F1F] text-white">
         <a href="https://crc.place/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
             <Image src={Logo} alt="Climate Resilient Communities Logo" width={28} height={28} />
-            <span className="hidden sm:inline text-sm font-semibold text-muted-foreground">
+            <span className="hidden sm:inline text-sm font-semibold text-gray-300">
                 Made by: Climate Resilient Communities™
             </span>
         </a>
         <div className="flex items-center gap-2">
           <Select defaultValue="en">
-            <SelectTrigger className="w-auto gap-2 text-sm h-9">
+            <SelectTrigger className="w-auto gap-2 text-sm h-9 bg-[#1F1F1F] text-white border-gray-600">
               <Languages className="h-4 w-4" />
               <SelectValue placeholder="Language" />
             </SelectTrigger>
@@ -64,11 +64,11 @@ export function AppHeader({ onNewChat }: AppHeaderProps) {
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" onClick={onNewChat} className="h-9">
+          <Button variant="outline" size="sm" onClick={onNewChat} className="h-9 text-white border-gray-600 hover:bg-gray-700 hover:text-white">
             <MessageSquarePlus className="mr-2 h-4 w-4" />
             New Chat
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)} className="h-9 w-9">
+          <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)} className="h-9 w-9 text-white hover:bg-gray-700 hover:text-white">
             <HelpCircle className="h-5 w-5" />
             <span className="sr-only">FAQ</span>
           </Button>
