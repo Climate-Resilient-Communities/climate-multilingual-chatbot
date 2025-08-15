@@ -25,12 +25,12 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
 
   return (
     <Dialog open={open}>
-      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="sm:max-w-sm" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
             <div className="flex justify-center mb-4">
                 <Bot className="w-12 h-12 text-primary" />
             </div>
-          <DialogTitle className="text-center text-2xl font-bold text-primary">MLCC Climate Chatbot</DialogTitle>
+          <DialogTitle className="text-center text-xl font-bold text-primary">MLCC Climate Chatbot</DialogTitle>
           <DialogDescription className="text-center text-muted-foreground">
             Connecting Toronto Communities to Climate Knowledge
           </DialogDescription>
