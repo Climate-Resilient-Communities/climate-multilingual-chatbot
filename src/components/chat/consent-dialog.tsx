@@ -26,8 +26,8 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
   return (
     <Dialog open={open}>
       <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
-        <DialogHeader className="space-y-0">
-            <div className="flex justify-center mb-2">
+        <DialogHeader>
+            <div className="flex justify-center mb-4">
                 <Bot className="w-12 h-12 text-primary" />
             </div>
           <DialogTitle className="text-center text-xl font-bold text-primary">MLCC Climate Chatbot</DialogTitle>
@@ -36,14 +36,14 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 my-2">
+        <div className="my-4 space-y-4">
             <p className="text-sm text-center text-muted-foreground">
               Welcome! This app shares clear info on climate impacts and local action. Please confirm you're good with the basics below.
             </p>
 
             <div className="flex items-start space-x-3">
               <Checkbox id="terms" checked={agreed} onCheckedChange={(checked) => setAgreed(checked as boolean)} className="mt-1" />
-              <Label htmlFor="terms" className="text-sm font-medium text-foreground leading-none">
+              <Label htmlFor="terms" className="text-sm font-medium leading-none text-foreground">
                   By checking this box, you agree to the following:
               </Label>
             </div>
@@ -57,7 +57,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
         </div>
 
 
-        <Accordion type="single" collapsible className="w-full my-2">
+        <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="privacy">
             <AccordionTrigger>Privacy Policy</AccordionTrigger>
             <AccordionContent>
@@ -84,7 +84,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
           </AccordionItem>
         </Accordion>
 
-        <DialogFooter className="mt-2 sm:justify-center">
+        <DialogFooter className="sm:justify-center mt-4">
           <Button type="button" className="w-full" disabled={!agreed} onClick={onConsent}>
             Start Chatting Now
           </Button>
