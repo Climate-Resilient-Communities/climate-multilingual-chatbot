@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -18,6 +19,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import languagesData from "@/app/languages.json";
 
 type AppHeaderProps = {
   onNewChat: () => void;
@@ -25,6 +27,14 @@ type AppHeaderProps = {
 
 export function AppHeader({ onNewChat }: AppHeaderProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const languages = languagesData.speculative_supported_languages_nova_proxy.languages;
+  
+  const sortedLanguages = Object.entries(languages)
+    .sort(([, nameA], [, nameB]) => nameA.localeCompare(nameB));
+
+  const englishIndex = sortedLanguages.findIndex(([code]) => code === 'en');
+  const english = sortedLanguages.splice(englishIndex, 1)[0];
+  sortedLanguages.unshift(english);
 
   return (
     <>
@@ -42,9 +52,11 @@ export function AppHeader({ onNewChat }: AppHeaderProps) {
               <SelectValue placeholder="Language" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="en">English</SelectItem>
-              <SelectItem value="es">Español</SelectItem>
-              <SelectItem value="fr">Français</SelectItem>
+              {sortedLanguages.map(([code, name]) => (
+                <SelectItem key={code} value={code}>
+                  {name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Button variant="outline" size="sm" onClick={onNewChat} className="h-9">
