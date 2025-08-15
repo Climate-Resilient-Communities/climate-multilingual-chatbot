@@ -1,7 +1,7 @@
+
 "use client";
 
-import { useState, useRef, FormEvent } from "react";
-import { climateInfoRetrieval } from "@/ai/flows/climate-info-retrieval";
+import { useState, FormEvent } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { SendHorizonal } from "lucide-react";
 import { AppHeader } from "@/app/components/chat/app-header";
 import { ChatWindow } from "@/components/chat/chat-window";
 import { ConsentDialog } from "@/components/chat/consent-dialog";
+import { SampleQuestions } from "@/app/components/chat/sample-questions";
 import { type Message } from "@/components/chat/chat-message";
 
 export default function Home() {
@@ -26,27 +27,34 @@ export default function Home() {
     });
   };
 
-  const handleSendMessage = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const query = inputValue.trim().toLowerCase();
+  const handleSendMessage = async (e: FormEvent<HTMLFormElement> | string) => {
+    const isString = typeof e === 'string';
+    if (!isString) {
+      e.preventDefault();
+    }
+    
+    const query = isString ? e : inputValue.trim();
     if (!query) return;
 
     setInputValue("");
-    setMessages((prev) => [...prev, { role: "user", content: inputValue.trim() }]);
+    setMessages((prev) => [...prev, { role: "user", content: query }]);
     setIsLoading(true);
 
     // Mock response logic
     setTimeout(() => {
-      let response = "";
-      if (query === "hello") {
-        response = "hello im your climate chatbot how can i help you";
-      } else if (query === "what is climage change?") {
-        response = "climate change is..... ";
-      } else {
-        setMessages((prev) => [...prev, { role: "assistant", content: "I'm sorry, I can only respond to 'hello' and 'what is climage change?' right now." }]);
-        setIsLoading(false);
-        return;
+      let response = "I'm sorry, I can only respond to pre-set questions right now.";
+      const lowerQuery = query.toLowerCase();
+
+      if (lowerQuery.includes("local impacts")) {
+        response = "In Toronto, local impacts of climate change include more frequent and intense heatwaves, increased risk of flooding from severe storms, and changes to ecosystems in local ravines and the Lake Ontario shoreline.";
+      } else if (lowerQuery.includes("summer so hot")) {
+        response = "Summers in Toronto are getting hotter due to the urban heat island effect, where buildings and pavement trap heat, combined with the broader effects of global warming, which raises baseline temperatures.";
+      } else if (lowerQuery.includes("flooding")) {
+        response = "To address flooding in Toronto, you can ensure your property has proper drainage, install a sump pump or backwater valve, use rain barrels to capture runoff, and support city-wide initiatives for green infrastructure like permeable pavements and green roofs.";
+      } else if (lowerQuery.includes("carbon footprint")) {
+        response = "You can reduce your carbon footprint by using public transit, cycling, or walking instead of driving; reducing home energy use with better insulation and energy-efficient appliances; and shifting to a more plant-based diet.";
       }
+      
       setMessages((prev) => [...prev, { role: "assistant", content: response }]);
       setIsLoading(false);
     }, 1000);
@@ -62,9 +70,15 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen">
-      <AppHeader />
+      <AppHeader onNewChat={handleNewChat} />
       <ChatWindow messages={messages} isLoading={isLoading} />
-      <div className="p-4 border-t">
+      
+      <div className="p-4 border-t bg-background">
+        {messages.length === 0 && !isLoading && (
+            <SampleQuestions 
+                onQuestionClick={(question) => handleSendMessage(question)} 
+            />
+        )}
         <form
           onSubmit={handleSendMessage}
           className="flex items-center gap-2 max-w-2xl mx-auto"
@@ -76,7 +90,7 @@ export default function Home() {
             className="flex-1"
             disabled={isLoading}
           />
-          <Button type="submit" size="icon" disabled={isLoading || !inputValue}>
+          <Button type="submit" size="icon" disabled={isLoading || !inputValue.trim()}>
             <SendHorizonal className="h-5 w-5" />
             <span className="sr-only">Send</span>
           </Button>
