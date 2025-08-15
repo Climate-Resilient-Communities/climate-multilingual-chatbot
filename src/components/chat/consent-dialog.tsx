@@ -25,7 +25,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
 
   return (
     <Dialog open={open}>
-      <DialogContent className="sm:max-w-lg" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
             <div className="flex justify-center mb-4">
                 <Bot className="w-12 h-12 text-primary" />
@@ -47,7 +47,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
                 <Label htmlFor="terms" className="text-sm font-medium text-foreground">
                   By checking this box, you agree to the following:
                 </Label>
-                <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+                <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 pl-1">
                     <li>I meet the age requirements (13+ or with guardian consent if under 18)</li>
                     <li>I read and agree to the <span className="font-bold">Privacy Policy</span></li>
                     <li>I read and agree to the <span className="font-bold">Terms of Use</span></li>
