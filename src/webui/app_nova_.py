@@ -332,22 +332,6 @@ print("✓ PyTorch-Streamlit compatibility patches applied successfully")
 import streamlit as st
 from streamlit.components.v1 import html as st_html
 
-# Optional device-detection helpers (imported defensively so the app runs even if missing)
-try:
-    from streamlit_user_device import user_device as _user_device  # type: ignore
-except Exception:
-    _user_device = None
-try:
-    from st_screen_stats import ScreenData as _ScreenData  # type: ignore
-except Exception:
-    _ScreenData = None
-try:
-    from streamlit_javascript import st_javascript as _st_javascript  # type: ignore
-    from user_agents import parse as _parse_user_agent  # type: ignore
-except Exception:
-    _st_javascript = None
-    _parse_user_agent = None
-
 # Robustly force initial sidebar state by temporarily flipping the state,
 # triggering a rerun, then applying the desired state. This overrides any
 # browser-persisted user choice Streamlit keeps.
@@ -449,282 +433,6 @@ def _pop_feedback_action_from_query_params():
     except Exception:
         return None, None
 
-# --- Mobile simplification helpers ---
-def _detect_device_info() -> tuple[bool, dict]:
-    """Return (is_mobile_like, info_dict) using multiple strategies.
-
-    info_dict keys: method, device_type, width, ua
-    """
-    info: dict = {"method": "unknown", "device_type": None, "width": None, "ua": None}
-
-    # 1) streamlit-user-device
-    try:
-        device_type = _user_device() if _user_device else None
-        if isinstance(device_type, str) and device_type:
-            info.update({"method": "user_device", "device_type": device_type})
-            is_mobile_like = device_type.lower() in ("mobile", "phone", "tablet")
-            return bool(is_mobile_like), info
-    except Exception:
-        pass
-
-    # 2) streamlit-screen-stats viewport width
-    try:
-        screen_data = _ScreenData(setTimeout=0) if _ScreenData else None
-        data = screen_data.st_screen_data() if screen_data else None
-        if isinstance(data, dict) and data.get("width") is not None:
-            info.update({"method": "screen_stats", "width": data.get("width")})
-            return bool(int(data.get("width", 9999)) <= 768), info
-    except Exception:
-        pass
-
-    # 3) userAgent parsing via streamlit-javascript
-    try:
-        ua_string = _st_javascript("window.navigator.userAgent;") if _st_javascript else None
-        info["ua"] = ua_string if isinstance(ua_string, str) else None
-        if isinstance(ua_string, str) and ua_string:
-            ua = _parse_user_agent(ua_string) if _parse_user_agent else None
-            info["method"] = "user_agent"
-            if ua is not None:
-                info["device_type"] = (
-                    "mobile" if getattr(ua, "is_mobile", False) else ("tablet" if getattr(ua, "is_tablet", False) else "desktop")
-                )
-                return bool(getattr(ua, "is_mobile", False) or getattr(ua, "is_tablet", False)), info
-    except Exception:
-        pass
-
-    # 4) Query param fallback
-    try:
-        is_m = bool(_is_mobile_from_query_params())
-        info.update({"method": "query_param", "device_type": "mobile" if is_m else "desktop"})
-        return is_m, info
-    except Exception:
-        return False, info
-
-
-def is_mobile_device() -> bool:
-    """Best-effort mobile detection for server-driven decisions with caching and debug info."""
-    force_probe = False
-    try:
-        raw = _get_query_param_single_value("mobiledebug") or _get_query_param_single_value("dev")
-        if isinstance(raw, str) and raw.lower() in ("1", "true", "yes", "y"):
-            force_probe = True
-    except Exception:
-        pass
-
-    if not force_probe and isinstance(st.session_state.get("is_mobile_detected"), bool):
-        return bool(st.session_state.get("is_mobile_detected"))
-
-    is_m, info = _detect_device_info()
-    st.session_state.is_mobile_detected = bool(is_m)
-    st.session_state.device_detection_info = info
-    return st.session_state.is_mobile_detected
-
-
-def render_device_debug_banner() -> None:
-    """Render a small, dismissible banner with device-detection info when ?mobiledebug=1."""
-    try:
-        raw = _get_query_param_single_value("mobiledebug") or _get_query_param_single_value("dev")
-        if not (isinstance(raw, str) and raw.lower() in ("1", "true", "yes", "y")):
-            return
-    except Exception:
-        return
-    info = st.session_state.get("device_detection_info", {}) or {}
-    detected = st.session_state.get("is_mobile_detected")
-    msg = f"device='{info.get('device_type')}' width={info.get('width')} method={info.get('method')} mobile={detected}"
-    try:
-        st.info(f"Device debug: {msg}")
-    except Exception:
-        st.write(f"Device debug: {msg}")
-
-def load_mobile_css() -> None:
-    """Inject mobile-first CSS that hides the sidebar and presents a simple header.
-
-    This does not affect desktop thanks to media queries.
-    """
-    st.markdown(
-        """
-        <style>
-        /* Hide sidebar and any toggle buttons on small screens */
-        @media (max-width: 768px) {
-          section[data-testid="stSidebar"],
-          [data-testid="collapsedControl"],
-          #sb-toggle-anchor + div.stButton,
-          button[kind="header"] {
-            display: none !important;
-          }
-          /* Reduce top padding to make room for fixed mobile header */
-          .main .block-container { padding-top: 64px !important; }
-        }
-
-        /* Fixed mobile header shell */
-        .mobile-header { display: none; }
-        @media (max-width: 768px) {
-          .mobile-header { 
-            position: fixed; top: 0; left: 0; right: 0; 
-            z-index: 1000; padding: 12px 14px; 
-            background: var(--background-color, #fff);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.06);
-          }
-          /* Hide existing desktop header to avoid duplication on mobile */
-          .mlcc-header.desktop, .mlcc-subtitle.desktop { display: none !important; }
-          /* Keep the mobile one visible */
-          .mlcc-header.mobile { display: block !important; }
-        }
-
-        /* Chat input pinned at bottom with subtle border on mobile */
-        @media (max-width: 768px) {
-          [data-testid="stChatInput"] { 
-            position: fixed; left: 0; right: 0; bottom: 0; 
-            padding: 10px 12px; background: white; 
-            border-top: 1px solid #e6e6e6; 
-          }
-          .main { padding-bottom: 84px !important; }
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-def _update_language_from_mobile_select() -> None:
-    sel = st.session_state.get("mobile_language_select")
-    if isinstance(sel, str) and sel:
-        st.session_state.selected_language = sel
-        st.session_state.language_confirmed = True
-
-def render_mobile_header(chatbot) -> None:
-    """Compact mobile header: sticky language bar centered, '?' fixed at top-right."""
-
-    # Create a container for the FAQ button with explicit positioning
-    faq_container = st.container()
-    with faq_container:
-        col1, col2, col3 = st.columns([8, 1, 1])  # Adjust column ratios to push button right
-        with col3:  # Place button in rightmost column
-            st.markdown('<div id="mobile-faq-wrap"></div>', unsafe_allow_html=True)
-            if st.button("?", key="mobile_faq_btn", help="Support & FAQ"):
-                st.session_state.show_faq_popup = True
-                st.rerun()
-
-    # 2) Sticky bar: Made by + language select
-    with st.container():
-        # "Made by" line (tiny, centered)
-        if CCC_ICON_B64:
-            st.markdown(
-                f"""
-                <div style="text-align:center; margin: 0 0 4px 0;">
-                  <img src="data:image/png;base64,{CCC_ICON_B64}" alt="Logo"
-                       style="width:20px;height:20px;vertical-align:middle;margin-right:6px;">
-                  <span style="color:#009376;font-size:13px;">Made by
-                    <a href="https://crc.place/" target="_blank" style="color:#009376;text-decoration:none;">
-                      Climate Resilient Communities
-                    </a>
-                  </span>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-        # Language select (centered)
-        try:
-            languages = sorted(chatbot.LANGUAGE_NAME_TO_CODE.keys())
-        except Exception:
-            languages = [st.session_state.get("selected_language", "english")]
-
-        current = st.session_state.get("selected_language", "english")
-        idx = languages.index(current) if current in languages else 0
-
-        st.selectbox(
-            "Language",
-            options=languages,
-            index=idx,
-            key="mobile_language_select",
-            label_visibility="collapsed",
-            on_change=_update_language_from_mobile_select,
-        )
-
-    # 3) Updated Mobile CSS for proper positioning
-    st.markdown(
-        """
-        <style>
-        @media (max-width: 768px) {
-          /* Ensure proper spacing at top */
-          .main .block-container {
-            padding-top: max(2px, env(safe-area-inset-top)) !important;
-          }
-
-          /* Target the FAQ button's container and position it properly */
-          /* Use the column structure to position the button */
-          [data-testid="column"]:has(button[key="mobile_faq_btn"]) {
-            position: fixed !important;
-            top: calc(env(safe-area-inset-top, 0px) + 8px) !important;
-            right: max(8px, env(safe-area-inset-right, 0px)) !important;
-            width: auto !important;
-            z-index: 1001 !important;
-            background: transparent !important;
-          }
-          
-          /* Wrap-based fixed positioning for FAQ button */
-          #mobile-faq-wrap {
-            position: fixed !important;
-            top: calc(env(safe-area-inset-top, 0px) + 6px) !important;
-            right: max(6px, env(safe-area-inset-right, 0px)) !important;
-            z-index: 1002 !important;
-          }
-          #mobile-faq-wrap + div button {
-            width: 36px !important; height: 36px !important; min-width: 36px !important;
-            border-radius: 50% !important; margin: 0 !important; padding: 0 !important;
-            border: 1px solid #d0d0d0 !important; background: #fff !important; color: #333 !important;
-            font-size: 16px !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-          }
-          @media (max-width: 480px) {
-            #mobile-faq-wrap + div button { width: 28px !important; height: 28px !important; font-size: 14px !important; }
-          }
-
-          /* Make the language container sticky */
-          .main > div > div > div:has(select[key="mobile_language_select"]) {
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            background: #fff;
-            padding: 8px 12px 6px 12px;
-            border-bottom: 1px solid #e0e0e0;
-          }
-
-          /* Ensure language select is properly styled */
-          [data-testid=stSelectbox]:has(select[key="mobile_language_select"]) { 
-            margin: 0 !important; 
-          }
-          
-          select[key="mobile_language_select"] + div [data-baseweb=select] { 
-            min-height: 36px !important; 
-          }
-          
-          select[key="mobile_language_select"] + div [data-baseweb=select] > div {
-            min-height: 36px !important;
-            padding: 6px 10px 0 10px !important;
-          }
-
-          /* Chat input positioning */
-          [data-testid="stChatInput"] {
-            position: fixed; 
-            left: 0; 
-            right: 0; 
-            bottom: 0;
-            padding: 10px 12px; 
-            background: #fff; 
-            border-top: 1px solid #e6e6e6; 
-            z-index: 999;
-          }
-          
-          .main { 
-            padding-bottom: 70px !important; 
-          }
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
 # Determine desired sidebar open/closed from query param if present (sb=1/0)
 _desired_open_default = True
 try:
@@ -754,7 +462,17 @@ else:
             st.session_state._sb_open = new_open
             st.session_state._sb_rerun = True
 
-# Single page config, no reruns around it (prevents fragment errors)
+if st.session_state.get("_sb_rerun", False):
+    st.set_page_config(
+        layout="wide", 
+        page_title="Multilingual Climate Chatbot",
+        page_icon=calculated_favicon,
+        initial_sidebar_state=SIDEBAR_STATE[not st.session_state._sb_open],
+    )
+    st.session_state._sb_rerun = False
+    st.rerun()
+
+# Final page config with the desired sidebar state
 st.set_page_config(
     layout="wide",
     page_title="Multilingual Climate Chatbot",
@@ -762,11 +480,82 @@ st.set_page_config(
     initial_sidebar_state=SIDEBAR_STATE[st.session_state._sb_open],
 )
 
-        # On load: if a previous action requested closing the sidebar via sessionStorage,
+# On load: if a previous action requested closing the sidebar via sessionStorage,
 # perform a best-effort close using the native collapse control or CSS transform.
-## Removed JS-driven sidebar auto-close to avoid reload-induced fragment errors
+st_html(
+    """
+<script>
+try {
+  if (sessionStorage.getItem('closeSidebarOnLoad') === '1') {
+    sessionStorage.removeItem('closeSidebarOnLoad');
+    const tryClose = () => {
+      const collapseBtn = document.querySelector('[data-testid="collapsedControl"]') ||
+                          document.querySelector('[aria-label*="Collapse"]') ||
+                          document.querySelector('button[kind="header"]');
+      if (collapseBtn && collapseBtn.getAttribute('aria-expanded') === 'true') {
+        collapseBtn.click();
+      }
+      const sidebar = document.querySelector('section[data-testid="stSidebar"]');
+      if (sidebar) {
+        sidebar.style.transition = 'transform 0.2s ease';
+        sidebar.style.transform = 'translateX(-100%)';
+      }
+    };
+    setTimeout(tryClose, 50);
+    setTimeout(tryClose, 200);
+  }
+} catch (e) {}
+</script>
+""",
+    height=0,
+)
 
-## Removed reset_ui reload logic to prevent fragment errors and unexpected reruns
+# Optional: allow URL param reset_ui=1 to clear any persisted UI prefs in the browser
+# and force a fresh load with sidebar open. This is helpful when a user's stored
+# preference keeps the sidebar collapsed despite our initial state.
+try:
+    _params2 = st.query_params
+except Exception:
+    try:
+        _params2 = st.experimental_get_query_params()
+    except Exception:
+        _params2 = {}
+
+_reset_ui = None
+if isinstance(_params2, dict):
+    _reset_ui = _params2.get("reset_ui") or _params2.get("sb_reset")
+    if isinstance(_reset_ui, list):
+        _reset_ui = _reset_ui[0] if _reset_ui else None
+
+if _reset_ui in ("1", 1, True) and not st.session_state.get("_did_reset_ui"):
+    # Clear local/session storage keys related to Streamlit UI and reload
+    st_html(
+        """
+<script>
+try {
+  // Clear Streamlit/UI-related items from localStorage
+  const keys = Object.keys(localStorage);
+  for (const k of keys) {
+    const kl = k.toLowerCase();
+    if (kl.includes('streamlit') || kl.includes('sidebar') || kl.startsWith('st-') || kl.includes('siderbar')) {
+      localStorage.removeItem(k);
+    }
+  }
+  // Also clear sessionStorage to be safe
+  try { sessionStorage.clear(); } catch(e) {}
+  // Reload without reset_ui param and with sb=1 to ensure open
+  const url = new URL(window.location.href);
+  url.searchParams.delete('reset_ui');
+  url.searchParams.delete('sb_reset');
+  url.searchParams.set('sb','1');
+  window.location.replace(url.toString());
+} catch (e) { console.error('UI reset error', e); }
+</script>
+        """,
+        height=0,
+    )
+    st.session_state._did_reset_ui = True
+    st.stop()
 
 # === NOW OTHER IMPORTS AND SETUP ===
 import time
@@ -1277,45 +1066,65 @@ def render_message_actions_ui(message_index: int, message: dict) -> None:
     # Only show actions for assistant messages
     if not is_assistant:
         return
-    # Use columns to force horizontal layout; keep first three columns tight
-    col1, col2, col3, col4 = st.columns([0.5, 0.5, 0.5, 10])
-    with col1:
-        if st.button('👍', key=f'msg_up_{message_index}', help='Thumbs up', use_container_width=True):
-            st.session_state.message_feedback[message_index] = 'up'
-            log_feedback_event(message_index, 'up')
-    with col2:
-        if st.button('👎', key=f'msg_down_{message_index}', help='Thumbs down', use_container_width=True):
-            st.session_state.message_feedback[message_index] = 'down'
-            log_feedback_event(message_index, 'down')
-    with col3:
-        if st.button('↻', key=f'msg_retry_{message_index}', help='Retry this answer', use_container_width=True):
-            prior_query = ''
-            user_index = -1
-            j = message_index - 1
-            hist = st.session_state.chat_history
-            while j >= 0:
-                if hist[j].get('role') == 'user':
-                    prior_query = hist[j].get('content', '')
-                    user_index = j
-                    break
-                j -= 1
-            # Remove the current assistant message immediately so the loader can occupy its spot
-            try:
-                if 0 <= message_index < len(st.session_state.chat_history):
-                    st.session_state.chat_history.pop(message_index)
-            except Exception as _e:
-                logger.warning(f"Retry removal failed: {_e}")
-            # Mark retry request with exact user index and query; pipeline will run inline at that spot
-            st.session_state.retry_request = {
-                'assistant_index': message_index,
-                'user_index': user_index,
-                'query': prior_query,
-            }
-            st.rerun()
+    # Alternative simpler approach: render custom HTML buttons that encode action in URL
+    up_clicked = False
+    down_clicked = False
+    retry_clicked = False
+    st.markdown(
+        f"""
+        <div class=\"msg-actions-custom\" style=\"display:flex; gap:8px; margin:8px 0;\">
+          <button onclick=\"(function(){{try{{var u=new URL(window.location.href);u.searchParams.set('fb','up');u.searchParams.set('i','{message_index}');window.history.replaceState({{}},'',u);window.location.reload();}}catch(e){{}}}})()\" 
+                  style=\"width:44px;height:44px;border-radius:10px;border:1px solid #e0e0e0;background:white;font-size:20px;cursor:pointer;\">👍</button>
+          <button onclick=\"(function(){{try{{var u=new URL(window.location.href);u.searchParams.set('fb','down');u.searchParams.set('i','{message_index}');window.history.replaceState({{}},'',u);window.location.reload();}}catch(e){{}}}})()\" 
+                  style=\"width:44px;height:44px;border-radius:10px;border:1px solid #e0e0e0;background:white;font-size:20px;cursor:pointer;\">👎</button>
+          <button onclick=\"(function(){{try{{var u=new URL(window.location.href);u.searchParams.set('fb','retry');u.searchParams.set('i','{message_index}');window.history.replaceState({{}},'',u);window.location.reload();}}catch(e){{}}}})()\" 
+                  style=\"width:44px;height:44px;border-radius:10px;border:1px solid #e0e0e0;background:white;font-size:20px;cursor:pointer;\">↻</button>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    # No extra paths needed; actions handled inline above
+    if retry_clicked:
+        prior_query = ''
+        user_index = -1
+        j = message_index - 1
+        hist = st.session_state.chat_history
+        while j >= 0:
+            if hist[j].get('role') == 'user':
+                prior_query = hist[j].get('content', '')
+                user_index = j
+                break
+            j -= 1
+        # Remove the current assistant message immediately so the loader can occupy its spot
+        try:
+            if 0 <= message_index < len(st.session_state.chat_history):
+                st.session_state.chat_history.pop(message_index)
+        except Exception as _e:
+            logger.warning(f"Retry removal failed: {_e}")
+        # Mark retry request with exact user index and query; pipeline will run inline at that spot
+        st.session_state.retry_request = {
+            'assistant_index': message_index,
+            'user_index': user_index,
+            'query': prior_query,
+        }
+        st.rerun()
+    # Handle thumbs feedback after rendering to avoid double-rerun conflicts
+    if up_clicked:
+        st.session_state.message_feedback[message_index] = 'up'
+        log_feedback_event(message_index, 'up')
+    if down_clicked:
+        st.session_state.message_feedback[message_index] = 'down'
+        log_feedback_event(message_index, 'down')
 
-    # No extra UI
+    # Minimal CSS for custom buttons
+    st.markdown(
+        """
+        <style>
+        .msg-actions-custom button:hover { background: rgba(10,143,121,0.08) !important; border-color:#0a8f79 !important; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 def display_chat_messages(retry_request=None):
     """Display chat messages in a custom format.
@@ -1324,29 +1133,17 @@ def display_chat_messages(retry_request=None):
     injected immediately after the associated user message and returned so the
     caller can render a loading UI and final response in-place.
     """
-    # Add CSS to normalize message typography and hide avatars/wrappers on mobile
+    # Add CSS to control heading sizes inside chat messages
     st.markdown(
         """
         <style>
-        /* Shrink headings that appear inside chat messages */
-        [data-testid="stChatMessage"] h1     {font-size: 1.50rem !important;}
-        [data-testid="stChatMessage"] h2     {font-size: 1.25rem !important;}
-        [data-testid="stChatMessage"] h3     {font-size: 1.10rem !important;}
+        /* Shrink headings that appear *inside* any chat message */
+        [data-testid="stChatMessage"] h1     {font-size: 1.50rem !important;} /* ≈24 px */
+        [data-testid="stChatMessage"] h2     {font-size: 1.25rem !important;} /* ≈20 px */
+        [data-testid="stChatMessage"] h3     {font-size: 1.10rem !important;} /* ≈18 px */
         [data-testid="stChatMessage"] h4,
         [data-testid="stChatMessage"] h5,
-        [data-testid="stChatMessage"] h6     {font-size: 1rem   !important;}
-
-        /* Mobile cleanup: remove avatars, grey boxes, and reduce padding */
-        @media (max-width: 768px) {
-          /* Hide any avatar imagery/icons next to messages */
-          div[data-testid="stChatMessage"] img,
-          div[data-testid="stChatMessage"] svg { display: none !important; }
-          /* Strip background wrappers and shadows */
-          div[data-testid="stChatMessage"],
-          div[data-testid="stChatMessage"] > div { background: transparent !important; box-shadow: none !important; border: none !important; }
-          /* Tighten spacing */
-          div[data-testid="stChatMessage"] { padding: 6px 8px !important; }
-        }
+        [data-testid="stChatMessage"] h6     {font-size: 1rem   !important;} /* ≈16 px */
         </style>
         """,
         unsafe_allow_html=True,
@@ -1357,7 +1154,41 @@ def display_chat_messages(retry_request=None):
 
     injected_retry_placeholder = None
     
-    # Note: custom URL-param based feedback handling removed; using native Streamlit buttons
+    # Process any feedback action encoded in query params (from custom buttons)
+    try:
+        fb_action, fb_index = _pop_feedback_action_from_query_params()
+        if fb_action and fb_index is not None:
+            if fb_action == 'up':
+                st.session_state.message_feedback[fb_index] = 'up'
+                log_feedback_event(fb_index, 'up')
+            elif fb_action == 'down':
+                st.session_state.message_feedback[fb_index] = 'down'
+                log_feedback_event(fb_index, 'down')
+            elif fb_action == 'retry':
+                # Emulate retry button behavior
+                prior_query = ''
+                user_index = -1
+                j = fb_index - 1
+                hist = st.session_state.chat_history
+                while j >= 0:
+                    if hist[j].get('role') == 'user':
+                        prior_query = hist[j].get('content', '')
+                        user_index = j
+                        break
+                    j -= 1
+                try:
+                    if 0 <= fb_index < len(st.session_state.chat_history):
+                        st.session_state.chat_history.pop(fb_index)
+                except Exception as _e:
+                    logger.warning(f"Retry removal failed: {_e}")
+                st.session_state.retry_request = {
+                    'assistant_index': fb_index,
+                    'user_index': user_index,
+                    'query': prior_query,
+                }
+                st.rerun()
+    except Exception:
+        pass
 
     for i, message in enumerate(st.session_state.chat_history):
         if message['role'] == 'user':
@@ -1636,39 +1467,6 @@ def load_responsive_css():
     st.markdown(
         """
         <style>
-        /* Force horizontal layout for action buttons on mobile */
-        [data-testid="stChatMessage"] [data-testid="stHorizontalBlock"] {
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            gap: 4px !important;
-            overflow-x: visible !important;
-        }
-
-        /* Force columns to stay horizontal on mobile */
-        [data-testid="stChatMessage"] [data-testid="column"] {
-            flex: 0 0 auto !important;
-            width: 48px !important;
-            min-width: 48px !important;
-            max-width: 48px !important;
-        }
-
-        /* Make buttons square and consistent */
-        [data-testid="stChatMessage"] button {
-            width: 44px !important;
-            height: 44px !important;
-            min-width: 44px !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            font-size: 20px !important;
-            border-radius: 8px !important;
-            background: white !important;
-            border: 1px solid #e0e0e0 !important;
-        }
-
         /* Base typography and container */
         html { font-size: 16px; }
         .main .block-container { padding-top: 0 !important; margin-top: 0 !important; max-width: 100% !important; }
@@ -2265,9 +2063,6 @@ def main():
         st.session_state.language_confirmed = False
     if 'selected_language' not in st.session_state:
         st.session_state.selected_language = 'english'
-    # Ensure FAQ popup flag always exists before any path references it
-    if 'show_faq_popup' not in st.session_state:
-        st.session_state.show_faq_popup = False
     if 'event_loop' not in st.session_state:
         st.session_state.event_loop = create_event_loop()
     if 'chatbot_init' not in st.session_state:
@@ -2289,24 +2084,31 @@ def main():
             _set_query_params_robust({"sb": "1" if new_open else "0"}, merge=True)
         except Exception:
             pass
+        # Immediately rerun to apply page_config flip logic
+        try:
+            st.rerun()
+        except Exception:
+            pass
 
-    # Decide mobile vs desktop early
-    mobile = is_mobile_device()
-    # Always load CSS; mobile styles are guarded by media queries
-    load_mobile_css()
+    # Load CSS
     load_custom_css()
-    load_responsive_css()
-    # Expose a tiny banner for debugging in dev tools
+    # Ensure client UI matches server-side sidebar state on each run
     try:
-        st.markdown(
+        st_html(
             f"""
-            <div style=\"display:none\" id=\"mlcc-mobile-debug\" data-mobile=\"{str(bool(mobile)).lower()}\"></div>
-            """,
-            unsafe_allow_html=True,
+<script>
+setTimeout(() => {{
+  const sidebar = document.querySelector('section[data-testid="stSidebar"]');
+  if (!sidebar) return;
+  {"sidebar.style.transform=''; sidebar.style.display='';" if st.session_state.get('_sb_open', True) else "sidebar.style.transform='translateX(-100%)';"}
+}}, 60);
+</script>
+""",
+            height=0,
         )
     except Exception:
         pass
-    # Removed visible debug banner in production
+    load_responsive_css()
     # Close button CSS: maximize specificity and exclude from global button rules
     st.markdown(
         """
@@ -2395,7 +2197,7 @@ def main():
 
         # Do not force sidebar visibility via CSS; rely on page_config + toggle button
 
-        if (not st.session_state.get("MOBILE_MODE")) and st.session_state.get('_sb_open', True):
+        if st.session_state.get('_sb_open', True):
             with st.sidebar:
                 # Add a close button at the top of the sidebar, wrapped in a unique div
                 st.markdown('<div class="sb-close-button-container">', unsafe_allow_html=True)
@@ -2484,11 +2286,13 @@ def main():
                     if st.button("Confirm", key="confirm_lang_btn"):
                         st.session_state.selected_language = selected_language
                         st.session_state.language_confirmed = True
-                        # AUTO-CLOSE SIDEBAR ON MOBILE ONLY (server-driven only)
-                        if mobile:
+                        # AUTO-CLOSE SIDEBAR ON MOBILE ONLY (robust param-based detection)
+                        if _is_mobile_from_query_params():
                             st.session_state._sb_open = False
                             st.session_state._sb_rerun = True
                             _set_query_params_robust({"sb": "0"}, merge=True)
+                            # Aid client-side collapse on next load
+                            st_html('<script>try{sessionStorage.setItem("closeSidebarOnLoad","1");}catch(e){}</script>', height=0)
                         st.rerun()
                 else:
                     st.session_state.selected_language = selected_language
@@ -2516,11 +2320,19 @@ def main():
                     st.session_state.show_faq_popup = False
                 if st.button("📚 Support & FAQs"):
                     st.session_state.show_faq_popup = True
-                    # Auto-close sidebar on mobile if FAQ opened (server-driven only)
-                    if mobile:
+                    # Auto-close sidebar on mobile if FAQ opened
+                    if _is_mobile_from_query_params():
                         st.session_state._sb_open = False
                         st.session_state._sb_rerun = True
                         _set_query_params_robust({"sb": "0"}, merge=True)
+                        st_html('<script>try{sessionStorage.setItem("closeSidebarOnLoad","1");}catch(e){}</script>', height=0)
+                        st.rerun()
+                    # Auto-close sidebar on mobile if FAQ opened
+                    if _is_mobile_from_query_params():
+                        st.session_state._sb_open = False
+                        st.session_state._sb_rerun = True
+                        _set_query_params_robust({"sb": "0"}, merge=True)
+                        st_html('<script>try{sessionStorage.setItem("closeSidebarOnLoad","1");}catch(e){}</script>', height=0)
                         st.rerun()
                 st.markdown('<div class="footer" style="margin-top: 20px; margin-bottom: 20px;">', unsafe_allow_html=True)
                 st.markdown('<div>Made by:</div>', unsafe_allow_html=True)
@@ -2533,8 +2345,8 @@ def main():
                 st.markdown('</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-        # Sidebar toggle control in main content area (only shows when sidebar is closed and not mobile)
-        if (not st.session_state.get("MOBILE_MODE", False)) and not st.session_state.get('_sb_open', True):
+        # Sidebar toggle control in main content area (only shows when sidebar is closed)
+        if not st.session_state.get('_sb_open', True):
             arrow_icon = "➡️"
             # Anchor element to uniquely target the very next st.button with CSS
             st.markdown('<div id="sb-toggle-anchor"></div>', unsafe_allow_html=True)
@@ -2573,63 +2385,22 @@ def main():
             )
             st.button(arrow_icon, key="sb_toggle_btn", help="Toggle sidebar", on_click=toggle_sidebar)
 
-        # Drive UI path from detector and single switch
-        st.session_state.MOBILE_MODE = bool(mobile)
+        # Header
+        if CCC_ICON_B64:
+            st.markdown(
+                f"""
+                <div class="mlcc-header">
+                    <img class="mlcc-logo" src="data:image/png;base64,{CCC_ICON_B64}" alt="Logo" />
+                    <h1 style="margin:0;">Multilingual Climate Chatbot</h1>
+                </div>
+                <div class="mlcc-subtitle">Ask me anything about climate change!</div>
+                """,
+                unsafe_allow_html=True,
+            )
 
-        # Ensure desktop always opens sidebar and syncs URL param once
-        if not st.session_state.MOBILE_MODE:
-            try:
-                st.session_state._sb_open = True
-                st.session_state._sb_rerun = False
-                params_now = _get_all_query_params_single_values()
-                if (params_now.get("sb") != "1") and (not st.session_state.get("_desktop_sb_synced", False)):
-                    _set_query_params_robust({"sb": "1"}, merge=True)
-                    st.session_state._desktop_sb_synced = True
-                    st.rerun()
-            except Exception:
-                pass
-
-        def activate_mobile_mode(chatbot) -> None:
-            """Flip on every mobile-only behavior in one place."""
-            st.session_state.MOBILE_MODE = True
-            if not st.session_state.get("language_confirmed"):
-                st.session_state.selected_language = st.session_state.get("selected_language", "english") or "english"
-                st.session_state.language_confirmed = True
-            try:
-                st.session_state._sb_open = False
-                st.session_state._sb_rerun = True
-                _set_query_params_robust({"sb": "0"}, merge=True)
-            except Exception:
-                pass
-            render_mobile_header(chatbot)
-
-        if st.session_state.MOBILE_MODE:
-            activate_mobile_mode(chatbot)
-            if len(st.session_state.chat_history) == 0:
-                st.markdown(
-                    """
-                    <div style=\"text-align:center; margin:12px 0 16px 0;\"> 
-                      <h3 style=\"margin:0; color:#009376;\">Multilingual Climate Chatbot</h3>
-                      <div style=\"color:#6b6b6b; font-size:14px;\">Ask me anything about climate change!</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
         else:
-            if CCC_ICON_B64:
-                st.markdown(
-                    f"""
-                    <div class="mlcc-header desktop">
-                        <img class="mlcc-logo" src="data:image/png;base64,{CCC_ICON_B64}" alt="Logo" />
-                        <h1 style="margin:0;">Multilingual Climate Chatbot</h1>
-                    </div>
-                    <div class="mlcc-subtitle desktop">Ask me anything about climate change!</div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-            else:
-                st.title("Multilingual Climate Chatbot")
-                st.write("Ask me anything about climate change!")
+            st.title("Multilingual Climate Chatbot")
+            st.write("Ask me anything about climate change!")
 
         # Remove floating toggle; sidebar collapse is disabled and sidebar always visible via CSS
 
@@ -2645,38 +2416,6 @@ def main():
             }
             a.feedback-button { display: inline-block; padding: 6px 10px; border-radius: 6px; border: 1px solid #d0d7de; background: #f6f8fa; color: #24292f !important; text-decoration: none; font-size: 14px; }
             a.feedback-button:hover { background: #eef2f6; }
-            
-            /* Mobile font size normalization for FAQ popup */
-            @media (max-width: 768px) {
-                div[data-testid="column"]:has(.faq-popup-marker) {
-                    padding: 12px !important;
-                    max-height: 85vh !important;
-                }
-                div[data-testid="column"]:has(.faq-popup-marker) h1 { 
-                    font-size: 1.2rem !important; 
-                    margin-bottom: 8px !important;
-                }
-                div[data-testid="column"]:has(.faq-popup-marker) h2 { 
-                    font-size: 1.05rem !important; 
-                    margin: 12px 0 6px 0 !important;
-                }
-                div[data-testid="column"]:has(.faq-popup-marker) h3 { 
-                    font-size: 0.95rem !important; 
-                    margin: 8px 0 4px 0 !important;
-                }
-                div[data-testid="column"]:has(.faq-popup-marker) p,
-                div[data-testid="column"]:has(.faq-popup-marker) div,
-                div[data-testid="column"]:has(.faq-popup-marker) li { 
-                    font-size: 0.9rem !important; 
-                    line-height: 1.4 !important;
-                }
-                div[data-testid="column"]:has(.faq-popup-marker) .stExpander > div > div > div { 
-                    font-size: 0.9rem !important; 
-                }
-                div[data-testid="column"]:has(.faq-popup-marker) [data-testid="stMarkdownContainer"] { 
-                    font-size: 0.9rem !important; 
-                }
-            }
             </style>
             """,
                 unsafe_allow_html=True,
@@ -2788,10 +2527,11 @@ def main():
                     pass
                 st.session_state.chat_history.append({'role': 'user', 'content': query})
         else:
-            # Show guidance banner on both mobile and desktop
             st.markdown(
                 """
-                <div style=\"margin-top: 10px; margin-bottom: 30px; background-color: #009376; padding: 10px; border-radius: 5px; color: white; text-align: center;\">Please select your language and click Confirm to start chatting.</div>
+                <div style="margin-top: 10px; margin-bottom: 30px; background-color: #009376; padding: 10px; border-radius: 5px; color: white; text-align: center;">
+                Please select your language and click Confirm to start chatting.
+                </div>
                 """,
                 unsafe_allow_html=True
             )
@@ -3068,11 +2808,13 @@ def main():
                     if st.button("Confirm", key="confirm_lang_btn_2"):
                         st.session_state.selected_language = selected_language
                         st.session_state.language_confirmed = True
-                        # AUTO-CLOSE SIDEBAR ON MOBILE ONLY (server-driven only)
+                        # AUTO-CLOSE SIDEBAR ON MOBILE ONLY (robust param-based detection)
                         if _is_mobile_from_query_params():
                             st.session_state._sb_open = False
                             st.session_state._sb_rerun = True
                             _set_query_params_robust({"sb": "0"}, merge=True)
+                            # Aid client-side collapse on next load
+                            st_html('<script>try{sessionStorage.setItem("closeSidebarOnLoad","1");}catch(e){}</script>', height=0)
                         st.rerun()
                 else:
                     st.session_state.selected_language = selected_language
@@ -3125,11 +2867,11 @@ def main():
             if CCC_ICON_B64:
                 st.markdown(
                     f"""
-                    <div class="mlcc-header desktop">
+                    <div class="mlcc-header">
                         <img class="mlcc-logo" src="data:image/png;base64,{CCC_ICON_B64}" alt="Logo" />
                         <h1 style="margin:0;">Multilingual Climate Chatbot</h1>
                     </div>
-                    <div class="mlcc-subtitle desktop">Ask me anything about climate change!</div>
+                    <div class="mlcc-subtitle">Ask me anything about climate change!</div>
                     """,
                     unsafe_allow_html=True,
                 )
@@ -3171,38 +2913,6 @@ def main():
                 }
                 a.feedback-button:hover {
                     background: #eef2f6;
-                }
-                
-                /* Mobile font size normalization for FAQ popup */
-                @media (max-width: 768px) {
-                    div[data-testid="column"]:has(.faq-popup-marker) {
-                        padding: 12px !important;
-                        max-height: 85vh !important;
-                    }
-                    div[data-testid="column"]:has(.faq-popup-marker) h1 { 
-                        font-size: 1.2rem !important; 
-                        margin-bottom: 8px !important;
-                    }
-                    div[data-testid="column"]:has(.faq-popup-marker) h2 { 
-                        font-size: 1.05rem !important; 
-                        margin: 12px 0 6px 0 !important;
-                    }
-                    div[data-testid="column"]:has(.faq-popup-marker) h3 { 
-                        font-size: 0.95rem !important; 
-                        margin: 8px 0 4px 0 !important;
-                    }
-                    div[data-testid="column"]:has(.faq-popup-marker) p,
-                    div[data-testid="column"]:has(.faq-popup-marker) div,
-                    div[data-testid="column"]:has(.faq-popup-marker) li { 
-                        font-size: 0.9rem !important; 
-                        line-height: 1.4 !important;
-                    }
-                    div[data-testid="column"]:has(.faq-popup-marker) .stExpander > div > div > div { 
-                        font-size: 0.9rem !important; 
-                    }
-                    div[data-testid="column"]:has(.faq-popup-marker) [data-testid="stMarkdownContainer"] { 
-                        font-size: 0.9rem !important; 
-                    }
                 }
                 </style>
                 """,
@@ -3563,8 +3273,7 @@ def main():
             # This would be handled by st.cache_resource's cleanup mechanism
             
         except Exception as e:
-            # Suppress noisy UI error; log instead to avoid breaking UX
-            logger.error(f"Error initializing chatbot: {str(e)}")
+            st.error(f"Error initializing chatbot: {str(e)}")
             st.info("Make sure the .env file exists in the project root directory")
 
 if __name__ == "__main__":
