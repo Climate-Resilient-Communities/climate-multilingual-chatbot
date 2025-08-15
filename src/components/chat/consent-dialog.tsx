@@ -36,25 +36,24 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <p className="text-sm text-center text-muted-foreground mt-2">
-          Welcome! This app shares clear info on climate impacts and local action. Please confirm you're good with the basics below.
-        </p>
+        <div className="space-y-4 my-2">
+            <p className="text-sm text-center text-muted-foreground">
+              Welcome! This app shares clear info on climate impacts and local action. Please confirm you're good with the basics below.
+            </p>
 
-        <div className="my-2">
             <div className="flex items-start space-x-3">
               <Checkbox id="terms" checked={agreed} onCheckedChange={(checked) => setAgreed(checked as boolean)} className="mt-1" />
-              <div className="grid gap-1.5 leading-none">
-                <Label htmlFor="terms" className="text-sm font-medium text-foreground">
+              <Label htmlFor="terms" className="text-sm font-medium text-foreground leading-none">
                   By checking this box, you agree to the following:
-                </Label>
-                <ul className="list-disc list-outside text-sm text-muted-foreground space-y-1 pl-4">
-                    <li>I meet the age requirements (13+ or with guardian consent if under 18)</li>
-                    <li>I read and agree to the <span className="font-bold">Privacy Policy</span></li>
-                    <li>I read and agree to the <span className="font-bold">Terms of Use</span></li>
-                    <li>I read and understand the <span className="font-bold">Disclaimer</span></li>
-                </ul>
-              </div>
+              </Label>
             </div>
+            
+            <ul className="list-disc list-outside text-sm text-muted-foreground space-y-1 pl-8">
+                <li>I meet the age requirements (13+ or with guardian consent if under 18)</li>
+                <li>I read and agree to the <span className="font-bold">Privacy Policy</span></li>
+                <li>I read and agree to the <span className="font-bold">Terms of Use</span></li>
+                <li>I read and understand the <span className="font-bold">Disclaimer</span></li>
+            </ul>
         </div>
 
 
