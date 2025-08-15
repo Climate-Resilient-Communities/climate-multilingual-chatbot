@@ -22,6 +22,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import languagesData from "@/app/languages.json";
 
 type AppHeaderProps = {
@@ -51,27 +57,45 @@ export function AppHeader({ onNewChat }: AppHeaderProps) {
             </span>
         </a>
         <div className="flex items-center gap-2">
-          <Select defaultValue="en">
-            <SelectTrigger className="w-auto gap-2 text-sm h-9 bg-[#1F1F1F] text-white border-gray-600">
-              <Languages className="h-4 w-4" />
-              <SelectValue placeholder="Language" />
-            </SelectTrigger>
-            <SelectContent>
-              {sortedLanguages.map(([code, name]) => (
-                <SelectItem key={code} value={code}>
-                  {name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Select defaultValue="en">
+                  <SelectTrigger className="w-auto gap-2 text-sm h-9 bg-[#1F1F1F] text-white border-gray-600">
+                    <Languages className="h-4 w-4" />
+                    <SelectValue placeholder="Language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sortedLanguages.map(([code, name]) => (
+                      <SelectItem key={code} value={code}>
+                        {name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Select Language</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <Button variant="outline" size="sm" onClick={onNewChat} className="h-9 text-white bg-transparent border-gray-600 hover:bg-gray-700 hover:text-white">
             <MessageSquarePlus className="mr-2 h-4 w-4" />
             New Chat
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)} className="h-9 w-9 text-white hover:bg-gray-700 hover:text-white">
-            <HelpCircle className="h-5 w-5" />
-            <span className="sr-only">FAQ</span>
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)} className="h-9 w-9 text-white hover:bg-gray-700 hover:text-white">
+                  <HelpCircle className="h-5 w-5" />
+                  <span className="sr-only">FAQ</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Support & FAQs</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </header>
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
