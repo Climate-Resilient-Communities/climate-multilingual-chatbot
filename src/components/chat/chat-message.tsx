@@ -51,44 +51,46 @@ export function ChatMessage({ message }: ChatMessageProps) {
   return (
     <div
       className={cn(
-        "flex items-end gap-2",
-        isUser ? "justify-end" : "justify-start flex-col items-start"
+        "flex items-start gap-3",
+        isUser ? "justify-end" : "justify-start"
       )}
     >
-      <div
-        className={cn(
-            "max-w-prose rounded-lg p-3 text-sm message-bubble",
-            isUser
-                ? "bg-primary text-primary-foreground rounded-br-none"
-                : "bg-card text-card-foreground rounded-bl-none border"
-        )}
-      >
-        <p className="whitespace-pre-wrap">{message.content.split('**').map((part, index) => 
-            index % 2 === 1 ? <strong key={index}>{part}</strong> : part
-        )}</p>
-      </div>
-      {!isUser && (
-        <div className="flex items-center gap-1 mt-1">
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={onCopy}>
-                <Copy className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => handleFeedback('up')}>
-                <ThumbsUp className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => handleFeedback('down')}>
-                <ThumbsDown className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" className="h-7 gap-1 px-2 text-muted-foreground hover:text-foreground">
-                <RefreshCw className="h-4 w-4" />
-                <span className="text-sm">Retry</span>
-            </Button>
+      <div className="flex flex-col items-start gap-2 max-w-prose">
+        <div
+            className={cn(
+                "rounded-lg p-3 text-sm message-bubble",
+                isUser
+                    ? "bg-primary text-primary-foreground rounded-br-none"
+                    : "bg-card text-card-foreground rounded-bl-none border"
+            )}
+        >
+            <p className="whitespace-pre-wrap">{message.content.split('**').map((part, index) => 
+                index % 2 === 1 ? <strong key={index}>{part}</strong> : part
+            )}</p>
         </div>
-      )}
+        {!isUser && (
+            <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={onCopy}>
+                    <Copy className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => handleFeedback('up')}>
+                    <ThumbsUp className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => handleFeedback('down')}>
+                    <ThumbsDown className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" className="h-7 gap-1 px-2 text-muted-foreground hover:text-foreground">
+                    <RefreshCw className="h-4 w-4" />
+                    <span className="text-sm">Retry</span>
+                </Button>
+            </div>
+        )}
+      </div>
 
       <Dialog open={feedbackDialogOpen} onOpenChange={setFeedbackDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-base">
                 {feedbackType === 'up' && <ThumbsUp className="h-5 w-5" />}
                 {feedbackType === 'down' && <ThumbsDown className="h-5 w-5" />}
                 Why did you choose this rating?
@@ -107,9 +109,6 @@ export function ChatMessage({ message }: ChatMessageProps) {
                 ))}
             </div>
             <Textarea placeholder="Provide additional feedback" />
-            <p className="text-xs text-muted-foreground">
-              Feedback submitted will also include the current chat history to help improve Gemini. <a href="#" className="underline">Learn more</a>
-            </p>
           </div>
           <DialogFooter>
             <Button onClick={() => setFeedbackDialogOpen(false)}>Submit</Button>
