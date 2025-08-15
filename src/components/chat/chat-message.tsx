@@ -23,7 +23,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
           "max-w-prose rounded-lg p-3 text-sm message-bubble",
           isUser
             ? "bg-primary text-primary-foreground rounded-br-none"
-            : "bg-muted rounded-bl-none border"
+            : "bg-card text-card-foreground rounded-bl-none border"
         )}
       >
         <p className="whitespace-pre-wrap">{message.content.split('**').map((part, index) => 
