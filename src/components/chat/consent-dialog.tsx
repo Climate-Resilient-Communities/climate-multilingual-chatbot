@@ -28,44 +28,46 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
   return (
     <Dialog open={open}>
       <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
-        <DialogHeader className="pb-2">
-            <div className="flex justify-center mb-2">
+        <DialogHeader className="space-y-2">
+            <div className="flex justify-center">
                 <Bot className="w-12 h-12 text-primary" />
             </div>
-          <DialogTitle className="text-center text-xl font-bold text-primary">MLCC Climate Chatbot</DialogTitle>
+          <DialogTitle className="text-center text-xl font-bold text-primary !mt-2">MLCC Climate Chatbot</DialogTitle>
           <DialogDescription className="text-center text-muted-foreground !mt-1">
             Connecting Toronto Communities to Climate Knowledge
           </DialogDescription>
         </DialogHeader>
         
-        <Separator className="w-1/2 mx-auto" />
+        <div className="flex justify-center py-2">
+            <Separator className="w-1/2" />
+        </div>
         
-        <div className="space-y-4 my-2 text-xs">
+        <div className="space-y-3 text-xs">
             <p className="text-center text-muted-foreground">
               Welcome! This app shares clear info on climate impacts and local action. Please confirm you're good with the basics below.
             </p>
 
-            <div className="flex items-start space-x-3">
+            <div className="flex items-start space-x-3 pt-2">
               <Checkbox id="terms" checked={agreed} onCheckedChange={(checked) => setAgreed(checked as boolean)} className="mt-0.5" />
               <div className="grid gap-1.5">
                 <Label htmlFor="terms" className="font-medium leading-none text-foreground">
                     By checking this box, you agree to the following:
                 </Label>
-                <ul className="list-disc list-outside text-muted-foreground space-y-1 pl-5">
-                    <li>I meet the age requirements <i className="text-muted-foreground">(13+ or with guardian consent if under 18)</i></li>
-                    <li>I read and agree to the <span className="font-bold">Privacy Policy</span></li>
-                    <li>I read and agree to the <span className="font-bold">Terms of Use</span></li>
-                    <li>I read and understand the <span className="font-bold">Disclaimer</span></li>
-                </ul>
               </div>
             </div>
+             <ul className="list-disc list-outside text-muted-foreground space-y-1 pl-8">
+                <li>I meet the age requirements <i className="text-muted-foreground">(13+ or with guardian consent if under 18)</i></li>
+                <li>I read and agree to the <span className="font-bold">Privacy Policy</span></li>
+                <li>I read and agree to the <span className="font-bold">Terms of Use</span></li>
+                <li>I read and understand the <span className="font-bold">Disclaimer</span></li>
+            </ul>
         </div>
 
 
         <Accordion type="single" collapsible className="w-full text-xs">
           <AccordionItem value="privacy">
             <AccordionTrigger className="text-xs">Privacy Policy</AccordionTrigger>
-            <AccordionContent>
+            <AccordionContent className="max-h-48 overflow-y-auto pr-4">
               <div className="text-xs text-muted-foreground space-y-3">
                 <p><strong>Privacy Policy</strong><br />Last Updated: January 28, 2025</p>
 
@@ -164,3 +166,4 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
     </Dialog>
   );
 }
+
