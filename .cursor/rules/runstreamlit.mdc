@@ -1,0 +1,4 @@
+---
+description: if you want to restart and start the app always run this code:/bin/zsh -lc 'pkill -f "streamlit run src/webui/app_nova.py" || true; sleep 2; if command -v poetry >/dev/null 2>&1; then poetry run streamlit run src/webui/app_nova.py --server.headless true; else python3 -m streamlit run src/webui/app_nova.py --server.headless true; fi'
+alwaysApply: false
+---

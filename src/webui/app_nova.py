@@ -451,54 +451,118 @@ def _pop_feedback_action_from_query_params():
 
 # --- Mobile simplification helpers ---
 def _detect_device_info() -> tuple[bool, dict]:
-    """Return (is_mobile_like, info_dict) using multiple strategies.
-
-    info_dict keys: method, device_type, width, ua
+    """Return (is_mobile_like, info_dict) using improved reliability strategies.
+    
+    Prioritizes viewport width as most reliable indicator, then combines signals
+    for higher confidence detection. Reduces dependency on multiple libraries.
+    
+    info_dict keys: method, device_type, width, ua, confidence
     """
-    info: dict = {"method": "unknown", "device_type": None, "width": None, "ua": None}
-
-    # 1) streamlit-user-device
+    info: dict = {"method": "unknown", "device_type": None, "width": None, "ua": None, "confidence": 0.0}
+    signals = []
+    
+    # Strategy 1: streamlit-user-device (PRIMARY - most reliable for mobile/desktop detection)
     try:
         device_type = _user_device() if _user_device else None
         if isinstance(device_type, str) and device_type:
             info.update({"method": "user_device", "device_type": device_type})
-            is_mobile_like = device_type.lower() in ("mobile", "phone", "tablet")
-            return bool(is_mobile_like), info
+            is_mobile_device = device_type.lower() in ("mobile", "phone", "tablet")
+            signals.append(("user_device", is_mobile_device, 1.0))  # Highest confidence - this is the main package
     except Exception:
         pass
-
-    # 2) streamlit-screen-stats viewport width
+    
+    # Strategy 2: Viewport width (BACKUP - reliable for responsive design)
+    viewport_width = None
     try:
         screen_data = _ScreenData(setTimeout=0) if _ScreenData else None
         data = screen_data.st_screen_data() if screen_data else None
         if isinstance(data, dict) and data.get("width") is not None:
-            info.update({"method": "screen_stats", "width": data.get("width")})
-            return bool(int(data.get("width", 9999)) <= 768), info
+            viewport_width = int(data.get("width", 9999))
+            info["width"] = viewport_width
+            is_mobile_viewport = viewport_width <= 768
+            signals.append(("viewport", is_mobile_viewport, 0.7))  # Good confidence
     except Exception:
         pass
-
-    # 3) userAgent parsing via streamlit-javascript
+    
+    # Strategy 2: Single consolidated JavaScript call (combines UA + viewport if available)
     try:
-        ua_string = _st_javascript("window.navigator.userAgent;") if _st_javascript else None
-        info["ua"] = ua_string if isinstance(ua_string, str) else None
-        if isinstance(ua_string, str) and ua_string:
-            ua = _parse_user_agent(ua_string) if _parse_user_agent else None
-            info["method"] = "user_agent"
-            if ua is not None:
-                info["device_type"] = (
-                    "mobile" if getattr(ua, "is_mobile", False) else ("tablet" if getattr(ua, "is_tablet", False) else "desktop")
-                )
-                return bool(getattr(ua, "is_mobile", False) or getattr(ua, "is_tablet", False)), info
+        if _st_javascript:
+            # Get both user agent and viewport width in one call for efficiency
+            js_result = _st_javascript("""
+                (function() {
+                    return {
+                        userAgent: window.navigator.userAgent,
+                        width: window.innerWidth,
+                        isMobile: /Mobile|Android|iPhone|iPad|iPod|BlackBerry|Windows Phone/i.test(window.navigator.userAgent)
+                    };
+                })();
+            """)
+            
+            if isinstance(js_result, dict):
+                # Use viewport width from JS if we didn't get it from screen_data
+                if viewport_width is None and js_result.get("width"):
+                    viewport_width = int(js_result.get("width", 9999))
+                    info["width"] = viewport_width
+                    is_mobile_viewport = viewport_width <= 768
+                    signals.append(("js_viewport", is_mobile_viewport, 0.7))
+                
+                # User agent analysis
+                ua_string = js_result.get("userAgent")
+                if isinstance(ua_string, str) and ua_string:
+                    info["ua"] = ua_string
+                    is_mobile_ua = bool(js_result.get("isMobile", False))
+                    signals.append(("user_agent", is_mobile_ua, 0.5))
+                    
+                    # Enhanced UA parsing for higher confidence
+                    if _parse_user_agent:
+                        try:
+                            ua = _parse_user_agent(ua_string)
+                            if ua is not None:
+                                is_mobile_parsed = bool(getattr(ua, "is_mobile", False) or getattr(ua, "is_tablet", False))
+                                signals.append(("ua_parsed", is_mobile_parsed, 0.6))
+                        except Exception:
+                            pass
     except Exception:
         pass
-
-    # 4) Query param fallback
+    
+    
+    # Strategy 4: Query parameter override (manual fallback)
     try:
-        is_m = bool(_is_mobile_from_query_params())
-        info.update({"method": "query_param", "device_type": "mobile" if is_m else "desktop"})
-        return is_m, info
+        query_mobile = _is_mobile_from_query_params()
+        if query_mobile is not None:
+            signals.append(("query_param", bool(query_mobile), 1.0))  # Highest confidence - manual override
     except Exception:
-        return False, info
+        pass
+    
+    # Combine signals using weighted confidence scoring
+    if signals:
+        total_weight = 0.0
+        weighted_mobile_score = 0.0
+        
+        for method, is_mobile, confidence in signals:
+            total_weight += confidence
+            if is_mobile:
+                weighted_mobile_score += confidence
+        
+        if total_weight > 0:
+            mobile_probability = weighted_mobile_score / total_weight
+            is_mobile_final = mobile_probability > 0.5
+            
+            # Determine primary detection method and device type
+            primary_method = max(signals, key=lambda x: x[2])[0]
+            info["method"] = primary_method
+            info["confidence"] = mobile_probability
+            
+            if viewport_width is not None:
+                info["device_type"] = "mobile" if viewport_width <= 480 else ("tablet" if viewport_width <= 768 else "desktop")
+            else:
+                info["device_type"] = "mobile" if is_mobile_final else "desktop"
+            
+            return is_mobile_final, info
+    
+    # Fallback: default to desktop with low confidence
+    info.update({"method": "fallback", "device_type": "desktop", "confidence": 0.1})
+    return False, info
 
 
 def is_mobile_device() -> bool:
@@ -517,6 +581,10 @@ def is_mobile_device() -> bool:
     is_m, info = _detect_device_info()
     st.session_state.is_mobile_detected = bool(is_m)
     st.session_state.device_detection_info = info
+    
+    # Production monitoring: Log mobile detection results
+    logger.info(f"MOBILE_DETECT result={is_m} method={info.get('method')} confidence={info.get('confidence', 0):.2f} width={info.get('width', 'unknown')}")
+    
     return st.session_state.is_mobile_detected
 
 
@@ -1190,7 +1258,27 @@ def run_query_with_interactive_progress(chatbot, query: str, language_name: str,
             return "Complete"
         return "Thinking…"
 
+    # Add timeout to prevent infinite hanging
+    timeout_seconds = 60  # 60 second timeout
+    
+    # Production monitoring: Log query start
+    logger.info(f"QUERY_START query_len={len(query)} lang={language_name} timeout={timeout_seconds}s")
+    
     while worker.is_alive():
+        # Check for timeout
+        elapsed_time = time.time() - start_time
+        if elapsed_time > timeout_seconds:
+            logger.error(f"QUERY_TIMEOUT elapsed={elapsed_time:.2f}s timeout={timeout_seconds}s query_len={len(query)}")
+            # Don't try to terminate the worker thread as it may be in a blocking state
+            progress_container.empty()
+            return {
+                "success": False,
+                "error": True,
+                "message": f"Request timed out after {timeout_seconds} seconds. Please try again with a shorter question or check your connection.",
+                "timeout": True,
+                "elapsed_time": elapsed_time
+            }
+        
         # Drain any progress events from pipeline and render
         try:
             while True:
@@ -1205,15 +1293,22 @@ def run_query_with_interactive_progress(chatbot, query: str, language_name: str,
         _render_loading_ui(progress_container, stage_text, progress_value)
         time.sleep(0.15)
 
-    worker.join()
+    worker.join(timeout=5)  # Give worker 5 seconds to clean up
     # Finish the bar
     _render_loading_ui(progress_container, "Finalizing…", 1.0)
     time.sleep(0.15)
     progress_container.empty()
 
+    # Production monitoring: Log query completion
+    elapsed_total = time.time() - start_time
     if result_holder.get("error") is not None:
+        logger.error(f"QUERY_ERROR elapsed={elapsed_total:.2f}s error={str(result_holder['error'])[:100]}")
         raise result_holder["error"]
-    return result_holder.get("result")
+    
+    result = result_holder.get("result")
+    success = result and result.get("success", False) if isinstance(result, dict) else False
+    logger.info(f"QUERY_COMPLETE elapsed={elapsed_total:.2f}s success={success}")
+    return result
 
 def is_rtl_language(language_code):
         return language_code in {'fa', 'ar', 'he'}
@@ -2276,8 +2371,6 @@ def main():
         st.session_state.consent_given = False
     if 'show_faq' not in st.session_state:
         st.session_state.show_faq = False
-    if 'needs_rerun' not in st.session_state:
-        st.session_state.needs_rerun = False
     
     # Define sidebar toggle callback at the top of main() so it can be shared
     def toggle_sidebar() -> None:
@@ -2797,12 +2890,8 @@ def main():
             )
             query = None
 
-        # Respect the needs_rerun flag; otherwise process query/retry
-        if st.session_state.get('needs_rerun', False):
-            st.session_state.needs_rerun = False
-            # Don't process any queries on this run, as we're just updating the UI
-            pass
-        elif (query or retry_req) and chatbot:
+        # Process query/retry if available
+        if (query or retry_req) and chatbot:
             # User message is already added to chat history above
             # Display the user message
             if query:
@@ -3005,567 +3094,11 @@ def main():
             if retry_req:
                 st.session_state.retry_request = None
                 st.session_state.last_retry_applied = None
-            # Normal UI refresh after answering
-            st.session_state.needs_rerun = True
-            st.rerun()
+            # No manual rerun needed - Streamlit will naturally rerun when state changes
     except Exception as e:
         st.error(f"Error initializing chatbot: {str(e)}")
         st.info("Make sure the .env file exists in the project root directory")
 
-    # Finally, show consent overlay if not yet given
-    if not st.session_state.get("consent_given", False):
-        show_consent_dialog()
-        try:
-            # Get the already-initialized chatbot
-            chatbot_init = st.session_state.chatbot_init
-
-            if not chatbot_init.get("success", False):
-                st.error(chatbot_init.get("error", "Failed to initialize chatbot. Please check your configuration."))
-                st.warning("Make sure all required API keys are properly configured in your environment")
-                return
-
-            chatbot = chatbot_init.get("chatbot")
-
-            # Sidebar
-            with st.sidebar:
-                # Style the close button to match the sidebar panel color
-                st.markdown('<div id="sb-close-anchor"></div>', unsafe_allow_html=True)
-                st.markdown(
-                    """
-                    <style>
-                    section[data-testid=\"stSidebar\"] #sb-close-anchor + div.stButton > button {
-                        background-color: #303030 !important; /* same as sidebar */
-                        color: #ffffff !important;
-                        border: 1px solid #303030 !important;
-                        border-radius: 8px !important;
-                        padding: 4px 8px !important;
-                        box-shadow: none !important;
-                    }
-                    section[data-testid=\"stSidebar\"] #sb-close-anchor + div.stButton > button:hover {
-                        background-color: #2f2f2f !important; /* subtle hover */
-                    }
-                    </style>
-                    """,
-                    unsafe_allow_html=True,
-                )
-                st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
-                st.markdown('<div class="content">', unsafe_allow_html=True)
-
-                st.title('Multilingual Climate Chatbot')
-
-                # Language selection and confirmation
-                st.write("**Please choose your preferred language to get started:**")
-                languages = sorted(chatbot.LANGUAGE_NAME_TO_CODE.keys())
-                default_index = languages.index(st.session_state.selected_language)
-                selected_language = st.selectbox(
-                    "Select your language",
-                    options=languages,
-                    index=default_index
-                )
-
-                # One-click confirm in second sidebar rendering path as well
-                if not st.session_state.language_confirmed:
-                    if st.button("Confirm", key="confirm_lang_btn_2"):
-                        st.session_state.selected_language = selected_language
-                        st.session_state.language_confirmed = True
-                        # AUTO-CLOSE SIDEBAR ON MOBILE ONLY (server-driven only)
-                        if _is_mobile_from_query_params():
-                            st.session_state._sb_open = False
-                            st.session_state._sb_rerun = True
-                            _set_query_params_robust({"sb": "0"}, merge=True)
-                        st.rerun()
-                else:
-                    st.session_state.selected_language = selected_language
-
-                # Add "How It Works" section in the sidebar (moved from main area)
-                # FIXED: Using chat_history length instead of has_asked_question
-                if len(st.session_state.chat_history) == 0:
-                    # Remove the green banner from sidebar - it will only be in main content area
-                    st.markdown(
-                        """
-                        <div style=\"margin-top: 10px;\"> 
-                        <h3 style=\"color: #009376; font-size: 20px; margin-bottom: 10px;\">How It Works</h3>
-
-                        <ul style=\"padding-left: 20px; margin-bottom: 20px; font-size: 14px;\">
-                            <li style=\"margin-bottom: 8px;\"><b>Choose Language</b>: Select from 200+ options.</li>
-                            <li style=\"margin-bottom: 8px;\"><b>Ask Questions</b>: <i>\"What are the local impacts of climate change in Toronto?\"</i> or <i>\"Why is summer so hot now in Toronto?\"</i></li>
-                            <li style=\"margin-bottom: 8px;\"><b>Act</b>: Ask about actionable steps such as <i>\"What can I do about flooding in Toronto?\"</i> or <i>\"How to reduce my carbon footprint?\"</i> and receive links to local resources (e.g., city programs, community groups).</li>
-                        </ul>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-
-                # FIXED: Show chat history if there are any messages
-                if len(st.session_state.chat_history) > 0:
-                    # This is the Chat History section that appears after asking questions
-                    st.markdown("---")
-                    display_chat_history_section()
-
-                # Support and FAQs section with popup behavior
-                if 'show_faq_popup' not in st.session_state:
-                    st.session_state.show_faq_popup = False
-
-                if st.button("📚 Support & FAQs"):
-                    st.session_state.show_faq_popup = True
-
-                # Move "Made by" section here
-                st.markdown('<div class="footer" style="margin-top: 20px; margin-bottom: 20px;">', unsafe_allow_html=True)
-                st.markdown('<div>Made by:</div>', unsafe_allow_html=True)
-                if TREE_ICON:
-                    st.image(TREE_ICON, width=40)
-                st.markdown('<div style="font-size: 18px; display:flex; align-items:center; gap:6px;">\
-                    <a href="https://crc.place/" target="_blank" title="Climate Resilient Communities">Climate Resilient Communities</a>\
-                    <span title="Trademark">™</span>\
-                    </div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-
-            # Main header content with proper alignment
-            if CCC_ICON_B64:
-                st.markdown(
-                    f"""
-                    <div class="mlcc-header desktop">
-                        <img class="mlcc-logo" src="data:image/png;base64,{CCC_ICON_B64}" alt="Logo" />
-                        <h1 style="margin:0;">Multilingual Climate Chatbot</h1>
-                    </div>
-                    <div class="mlcc-subtitle desktop">Ask me anything about climate change!</div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-            else:
-                st.title("Multilingual Climate Chatbot")
-                st.write("Ask me anything about climate change!")
-
-            # FAQ Popup Modal using Streamlit native components
-            if st.session_state.show_faq_popup:
-                # Create a full-screen overlay effect using CSS
-                st.markdown(
-                    """
-                <style>
-                /* Create overlay effect */
-                .stApp > div > div > div > div > div > section > div {
-                    background-color: rgba(0, 0, 0, 0.7) !important;
-                }
-                
-                /* Style the popup container */
-                div[data-testid="column"]:has(.faq-popup-marker) {
-                    background-color: white;
-                    border-radius: 10px;
-                    padding: 20px;
-                    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-                    max-height: 80vh;
-                    overflow-y: auto;
-                }
-
-                /* Subtle link-style button for feedback */
-                a.feedback-button {
-                    display: inline-block;
-                    padding: 6px 10px;
-                    border-radius: 6px;
-                    border: 1px solid #d0d7de;
-                    background: #f6f8fa;
-                    color: #24292f !important;
-                    text-decoration: none;
-                    font-size: 14px;
-                }
-                a.feedback-button:hover {
-                    background: #eef2f6;
-                }
-                
-                /* Mobile font size normalization for FAQ popup */
-                @media (max-width: 768px) {
-                    div[data-testid="column"]:has(.faq-popup-marker) {
-                        padding: 12px !important;
-                        max-height: 85vh !important;
-                    }
-                    div[data-testid="column"]:has(.faq-popup-marker) h1 { 
-                        font-size: 1.2rem !important; 
-                        margin-bottom: 8px !important;
-                    }
-                    div[data-testid="column"]:has(.faq-popup-marker) h2 { 
-                        font-size: 1.05rem !important; 
-                        margin: 12px 0 6px 0 !important;
-                    }
-                    div[data-testid="column"]:has(.faq-popup-marker) h3 { 
-                        font-size: 0.95rem !important; 
-                        margin: 8px 0 4px 0 !important;
-                    }
-                    div[data-testid="column"]:has(.faq-popup-marker) p,
-                    div[data-testid="column"]:has(.faq-popup-marker) div,
-                    div[data-testid="column"]:has(.faq-popup-marker) li { 
-                        font-size: 0.9rem !important; 
-                        line-height: 1.4 !important;
-                    }
-                    div[data-testid="column"]:has(.faq-popup-marker) .stExpander > div > div > div { 
-                        font-size: 0.9rem !important; 
-                    }
-                    div[data-testid="column"]:has(.faq-popup-marker) [data-testid="stMarkdownContainer"] { 
-                        font-size: 0.9rem !important; 
-                    }
-                }
-                </style>
-                """,
-                    unsafe_allow_html=True,
-                )
-                
-                # Create centered columns for the popup
-                col1, col2, col3 = st.columns([1, 6, 1])
-                
-                with col2:
-                    # Add a marker class for CSS targeting
-                    st.markdown('<div class="faq-popup-marker"></div>', unsafe_allow_html=True)
-                    
-                    # Header with close button
-                    header_col1, header_col2 = st.columns([11, 1])
-                    with header_col1:
-                        st.markdown("# Support & FAQs")
-                    with header_col2:
-                        if st.button("✕", key="close_faq", help="Close FAQ"):
-                            st.session_state.show_faq_popup = False
-                            st.rerun()
-                    
-                    st.markdown("---")
-                    
-                    # Information Accuracy Section
-                    with st.container():
-                        st.markdown("## 📊 Information Accuracy")
-                        
-                        with st.expander("How accurate is the information provided by the chatbot?", expanded=True):
-                            st.write(
-                                """
-                            Our chatbot uses Retrieval-Augmented Generation (RAG) technology to provide verified information exclusively 
-                            from government reports, academic research, and established non-profit organizations' publications. Every 
-                            response includes citations to original sources, allowing you to verify the information directly. The system 
-                            matches your questions with relevant, verified information rather than generating content independently.
-                            """
-                            )
-                        
-                        with st.expander("What sources does the chatbot use?", expanded=True):
-                            st.write(
-                                """
-                            All information comes from three verified source types: government climate reports, peer-reviewed academic 
-                            research, and established non-profit organization publications. Each response includes citations linking 
-                            directly to these sources.
-                            """
-                            )
-                    
-                    st.markdown("---")
-                    
-                    # Privacy Protection Section
-                    with st.container():
-                        st.markdown("## 🔒 Privacy Protection")
-                        
-                        with st.expander("What information does the chatbot collect?", expanded=True):
-                            st.write("We maintain a strict privacy-first approach:")
-                            st.markdown(
-                                """
-                            - No personal identifying information (PII) is collected
-                            - Questions are automatically screened to remove any personal details
-                            - Only anonymized questions are cached to improve service quality
-                            - No user accounts or profiles are created
-                            """
-                            )
-                        
-                        with st.expander("How is the cached data used?", expanded=True):
-                            st.write(
-                                """
-                            Cached questions, stripped of all identifying information, help us improve response accuracy and identify 
-                            common climate information needs. We regularly delete cached questions after analysis.
-                            """
-                            )
-                    
-                    st.markdown("---")
-                    
-                    # Trust & Transparency Section
-                    with st.container():
-                        st.markdown("## 🤝 Trust & Transparency")
-                        
-                        with st.expander("How can I trust this tool?", expanded=True):
-                            st.write("Our commitment to trustworthy information rests on:")
-                            st.markdown(
-                                """
-                            - Citations for every piece of information, linking to authoritative sources
-                            - Open-source code available for public review  
-                            - Community co-design ensuring real-world relevance
-                            - Regular updates based on user feedback and new research
-                            """
-                            )
-                        
-                        with st.expander("How can I provide feedback or report issues?", expanded=True):
-                            st.write("We welcome your input through:")
-                            st.markdown(
-                                """
-                            - The feedback button within the chat interface
-                            - [Our GitHub repository](https://github.com/Climate-Resilient-Communities/climate-multilingual-chatbot) for technical contributions
-                            - Community feedback sessions
-                            """
-                            )
-                            # Subtle feedback button linking to a Google Form
-                            st.markdown(
-                                '<a class="feedback-button" href="https://forms.gle/7mXRSc3JAF8ZSTmr9" target="_blank" title="Report bugs or share feedback (opens Google Form)">📝 Submit Feedback</a>',
-                                unsafe_allow_html=True,
-                            )
-                            st.markdown(
-                                'For technical support or to report issues, please visit our <a href="https://github.com/Climate-Resilient-Communities/climate-multilingual-chatbot" target="_blank">GitHub repository</a>.',
-                                unsafe_allow_html=True,
-                            )
-                    
-                    # Add some space at the bottom
-                    st.markdown("<br><br>", unsafe_allow_html=True)
-                
-                # Stop rendering anything else while popup is shown
-                st.stop()
-
-            # Display chat messages; if a retry is in progress, we get a placeholder to render loader/result inline
-            retry_req = st.session_state.get('retry_request') if isinstance(st.session_state.get('retry_request'), dict) else None
-            injected_retry_placeholder = display_chat_messages(retry_req)
-
-            if st.session_state.language_confirmed:
-                query = st.chat_input("Ask Climate Change Bot")
-                # Append user question immediately after input
-                if query:
-                    try:
-                        from src.utils.logging_setup import ensure_file_logger
-                        ensure_file_logger(os.getenv("PIPELINE_LOG_FILE", os.path.join(os.getcwd(), "logs", "pipeline_debug.log")))
-                        logger.info("UI IN → raw_query repr=%r codepoints(first20)=%s", query, [ord(c) for c in query[:20]])
-                    except Exception:
-                        pass
-                    st.session_state.chat_history.append({'role': 'user', 'content': query})
-                    # REMOVED: has_asked_question update - not needed anymore
-            else:
-                # Just show a language selection banner under the main title
-                # No extra welcome message, just the green banner
-                st.markdown(
-                    """
-                <div style="margin-top: 10px; margin-bottom: 30px; background-color: #009376; padding: 10px; border-radius: 5px; color: white; text-align: center;">
-                Please select your language and click Confirm to start chatting.
-                </div>
-                """,
-                    unsafe_allow_html=True
-                )
-                query = None
-
-            # Check for needs_rerun flag first and reset it to prevent loops
-            if st.session_state.get('needs_rerun', False):
-                st.session_state.needs_rerun = False
-                # Don't process any queries on this run, as we're just updating the UI
-                pass
-            elif (query or retry_req) and chatbot:
-                # User message is already added to chat history above
-                # Display the user message
-                if query:
-                    st.chat_message("user").markdown(render_user_bubble(query), unsafe_allow_html=True)
-                    render_message_actions_ui(len(st.session_state.chat_history) - 1, st.session_state.chat_history[-1])
-
-                # Choose where to render the assistant placeholder:
-                # - If this is a retry, use the injected placeholder under the same user message
-                # - Otherwise, create a new assistant container at the end
-                if retry_req and injected_retry_placeholder is not None:
-                    typing_message = injected_retry_placeholder
-                else:
-                    response_placeholder = st.chat_message("assistant")
-                    typing_message = response_placeholder.empty()
-                # Replace plain text with interactive progress UI below
-                
-                try:
-                    # Build conversation history for process_query
-                    conversation_history = []
-                    chat_hist = st.session_state.chat_history
-                    i = 0
-                    while i < len(chat_hist) - 1:
-                        if chat_hist[i]["role"] == "user" and chat_hist[i+1]["role"] == "assistant":
-                            conversation_history.append({
-                                "query": chat_hist[i]["content"],
-                                "response": chat_hist[i+1]["content"],
-                                "language_code": chat_hist[i+1].get("language_code", "en"),
-                                "language_name": st.session_state.selected_language,
-                                "timestamp": None
-                            })
-                            i += 2
-                        else:
-                            i += 1
-                    # If a retry was requested, use that captured query; else use current input
-                    retry_req = st.session_state.get('retry_request') if isinstance(st.session_state.get('retry_request'), dict) else None
-                    retry_query = retry_req.get('query') if retry_req else None
-                    effective_query = retry_query or query
-
-                    # Process query with interactive progress UI
-                    result = run_query_with_interactive_progress(
-                        chatbot=chatbot,
-                        query=effective_query,
-                        language_name=st.session_state.selected_language,
-                        conversation_history=conversation_history,
-                        response_placeholder=typing_message,
-                        skip_cache=bool(retry_req)
-                    )
-                    
-                    typing_message.empty()
-                    
-                    # FIXED: Enhanced handling of successful responses vs off-topic questions
-                    if result and result.get('success', False):
-                        # Clean and prepare the response content
-                        response_content = result['response']
-                        
-                        # Ensure proper markdown formatting for headings
-                        if response_content and isinstance(response_content, str):
-                            # Strip any leading/trailing whitespace
-                            response_content = response_content.strip()
-                            
-                            # If content starts with a heading, ensure it's properly formatted
-                            if response_content.startswith('#'):
-                                # Make sure there's a space after the # symbols
-                                response_content = re.sub(r'^(#{1,6})([^\s#])', r'\1 \2', response_content)
-                        
-                        # Update response without header formatting
-                        final_response = {
-                            'role': 'assistant',
-                            'language_code': result.get('language_code', 'en'),
-                            'content': response_content,  # Use the cleaned content
-                            'citations': result.get('citations', []),
-                            'retrieval_source': result.get('retrieval_source'),
-                            'fallback_reason': result.get('fallback_reason'),
-                        }
-                        # If retry, insert at the original assistant index; otherwise append
-                        if retry_req and isinstance(retry_req.get('assistant_index'), int):
-                            insert_at = min(retry_req['assistant_index'], len(st.session_state.chat_history))
-                            st.session_state.chat_history.insert(insert_at, final_response)
-                            # Log the retry interaction
-                            try:
-                                persist_interaction_record(insert_at, "none")
-                            except Exception as log_err:
-                                logger.warning(f"Failed to log retry interaction: {log_err}")
-                        else:
-                            st.session_state.chat_history.append(final_response)
-                            # Log the interaction to local and Azure blob storage
-                            try:
-                                persist_interaction_record(len(st.session_state.chat_history) - 1, "none")
-                            except Exception as log_err:
-                                logger.warning(f"Failed to log Q&A interaction: {log_err}")
-                        
-                        # Display final response without markdown header formatting
-                        language_code = final_response['language_code']
-                        text_align = 'right' if is_rtl_language(language_code) else 'left'
-                        direction = 'rtl' if is_rtl_language(language_code) else 'ltr'
-                        
-                        content = clean_html_content(final_response['content'])
-
-                        typing_message.markdown(
-                            f"""<div style="direction: {direction}; text-align: {text_align}">
-                            {content}
-                            </div>""",
-                            unsafe_allow_html=True
-                        )
-                        
-                        # Store exactly what was displayed for this assistant message for Copy
-                        try:
-                            if 'copy_texts' not in st.session_state or not isinstance(st.session_state.copy_texts, dict):
-                                st.session_state.copy_texts = {}
-                            st.session_state.copy_texts[len(st.session_state.chat_history) - 1] = content or final_response['content'] or ''
-                        except Exception:
-                            pass
-                        
-                        # Display citations if available
-                        if result.get('citations'):
-                            if retry_req and isinstance(retry_req.get('assistant_index'), int):
-                                message_idx = min(retry_req['assistant_index'], len(st.session_state.chat_history) - 1)
-                            else:
-                                message_idx = len(st.session_state.chat_history) - 1
-                            display_source_citations(result['citations'], base_idx=message_idx)
-                        # Render message actions for assistant message
-                        if retry_req and isinstance(retry_req.get('assistant_index'), int):
-                            render_message_actions_ui(message_idx, final_response)
-                        else:
-                            render_message_actions_ui(len(st.session_state.chat_history) - 1, final_response)
-                    else:
-                        # Handle off-topic questions and other errors more comprehensively
-                        # Prefer 'message' but fall back to 'response' when pipeline uses that field
-                        error_message = (
-                            result.get('message')
-                            or result.get('response')
-                            or 'An error occurred'
-                        )
-
-                        # Normalize for checks
-                        error_lower = error_message.lower() if isinstance(error_message, str) else ''
-
-                        # Detect off-topic climate rejections
-                        if (
-                            "not about climate" in error_lower
-                            or "climate change" in error_lower
-                            or result.get('error_type') == "off_topic"
-                            or (result.get('validation_result', {}).get('reason') == "not_climate_related")
-                        ):
-                            off_topic_response = (
-                                "I'm a climate change assistant and can only help with questions about climate, environment, and sustainability. "
-                                "Please ask me about topics like climate change causes, effects, or solutions."
-                            )
-
-                            st.session_state.chat_history.append({
-                                'role': 'assistant',
-                                'content': off_topic_response,
-                                'language_code': 'en'
-                            })
-
-                            # Log the off-topic interaction
-                            try:
-                                persist_interaction_record(len(st.session_state.chat_history) - 1, "none")
-                            except Exception as log_err:
-                                logger.warning(f"Failed to log off-topic interaction: {log_err}")
-
-                            typing_message.markdown(off_topic_response)
-                            try:
-                                if 'copy_texts' not in st.session_state or not isinstance(st.session_state.copy_texts, dict):
-                                    st.session_state.copy_texts = {}
-                                st.session_state.copy_texts[len(st.session_state.chat_history) - 1] = off_topic_response
-                            except Exception:
-                                pass
-                        else:
-                            # Generic error surfaced to user
-                            st.session_state.chat_history.append({
-                                'role': 'assistant',
-                                'content': str(error_message),
-                                'language_code': 'en'
-                            })
-                            typing_message.error(str(error_message))
-                            try:
-                                if 'copy_texts' not in st.session_state or not isinstance(st.session_state.copy_texts, dict):
-                                    st.session_state.copy_texts = {}
-                                st.session_state.copy_texts[len(st.session_state.chat_history) - 1] = str(error_message)
-                            except Exception:
-                                pass
-                except Exception as e:
-                    error_msg = f"Error processing query: {str(e)}"
-                    st.session_state.chat_history.append({
-                        'role': 'assistant', 
-                        'content': error_msg,
-                        'language_code': 'en'
-                    })
-                    typing_message.error(error_msg)
-                    # Render actions even for error messages
-                    render_message_actions_ui(len(st.session_state.chat_history) - 1, st.session_state.chat_history[-1])
-                    try:
-                        if 'copy_texts' not in st.session_state or not isinstance(st.session_state.copy_texts, dict):
-                            st.session_state.copy_texts = {}
-                        st.session_state.copy_texts[len(st.session_state.chat_history) - 1] = error_msg
-                    except Exception:
-                        pass
-
-                # After answering, clear retry flags
-                if retry_req:
-                    st.session_state.retry_request = None
-                    st.session_state.last_retry_applied = None
-                # Normal UI refresh after answering
-                st.session_state.needs_rerun = True
-                st.rerun()
-            
-            # Don't run cleanup after every message - only when the app is closing
-            # This would be handled by st.cache_resource's cleanup mechanism
-            
-        except Exception as e:
-            # Suppress noisy UI error; log instead to avoid breaking UX
-            logger.error(f"Error initializing chatbot: {str(e)}")
-            st.info("Make sure the .env file exists in the project root directory")
 
 if __name__ == "__main__":
     main()
