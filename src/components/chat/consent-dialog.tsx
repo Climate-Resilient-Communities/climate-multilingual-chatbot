@@ -30,11 +30,17 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
             <div className="flex justify-center mb-4">
                 <Bot className="w-12 h-12 text-primary" />
             </div>
-          <DialogTitle className="text-center text-2xl font-bold">MLCC Climate Chatbot</DialogTitle>
+          <DialogTitle className="text-center text-2xl font-bold text-primary">MLCC Climate Chatbot</DialogTitle>
           <DialogDescription className="text-center">
             Your AI assistant for climate change information.
+            <br />
+            Connecting Toronto Communities to Climate Knowledge
           </DialogDescription>
         </DialogHeader>
+
+        <p className="text-sm text-center text-muted-foreground mt-4">
+          Welcome! This app shares clear info on climate impacts and local action. Please confirm you're good with the basics below.
+        </p>
 
         <Accordion type="single" collapsible className="w-full my-4">
           <AccordionItem value="privacy">
