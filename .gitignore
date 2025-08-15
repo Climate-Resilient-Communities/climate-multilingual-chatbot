@@ -205,3 +205,34 @@ CONSENT_MODAL_PLAN.md
 # Ignore development files
 src/webui/app_nova2.py
 .history/
+
+# Streamlit specific files
+.streamlit/
+.streamlit/secrets.toml
+.streamlit/config.toml
+
+# MCP (Model Control Plane) files
+mcp/
+.mcp/
+mcp-config.json
+playwright-config.json
+
+# Browser automation artifacts
+screenshots/
+browser-logs/
+test-results/
+playwright-report/
+
+# MCP server logs
+mcp-*.log
+
+# Node.js
+node_modules/
+
+# Local MCP setup/docs and tools (do not commit)
+CURSOR_MCP_SETUP.md
+CURSOR_QUICK_SETUP.md
+MCP_INSTALLATION_COMPLETE.md
+MCP_SETUP_GUIDE.md
+gemini-cli-mcp.js
+SuperClaude_Framework/
