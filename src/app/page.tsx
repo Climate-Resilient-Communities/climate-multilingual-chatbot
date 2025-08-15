@@ -55,7 +55,7 @@ export default function Home() {
         if (stateIndex < loadingStates.length) {
             setLoadingMessage(loadingStates[stateIndex]);
         }
-    }, 1200);
+    }, 300);
 
     // Mock response logic
     setTimeout(() => {
@@ -75,7 +75,7 @@ export default function Home() {
       
       setMessages((prev) => [...prev, { role: "assistant", content: response }]);
       setLoadingMessage(null);
-    }, 1000 * loadingStates.length + 500);
+    }, 1200);
   };
   
   const handleConsent = () => {
