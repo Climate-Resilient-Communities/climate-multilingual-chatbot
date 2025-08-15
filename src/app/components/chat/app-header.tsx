@@ -25,7 +25,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import languagesData from "@/app/languages.json";
 
 type AppHeaderProps = {
-  onNewChat: () => void;
+  onNewChat?: () => void;
 };
 
 export function AppHeader({ onNewChat }: AppHeaderProps) {

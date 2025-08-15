@@ -61,10 +61,10 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background/80 backdrop-blur-sm">
-      <AppHeader onNewChat={handleNewChat} />
+    <div className="flex flex-col h-screen">
+      <AppHeader />
       <ChatWindow messages={messages} isLoading={isLoading} />
-      <div className="p-4 border-t bg-background/80 backdrop-blur-sm">
+      <div className="p-4 border-t">
         <form
           onSubmit={handleSendMessage}
           className="flex items-center gap-2 max-w-2xl mx-auto"
