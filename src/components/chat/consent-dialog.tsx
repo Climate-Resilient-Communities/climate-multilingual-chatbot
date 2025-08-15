@@ -66,9 +66,75 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
           <AccordionItem value="privacy">
             <AccordionTrigger className="text-xs">Privacy Policy</AccordionTrigger>
             <AccordionContent>
-              <p className="text-xs text-muted-foreground">
-                We value your privacy. We do not store your conversations. All data is processed in memory and is not used for training our models. We only collect anonymized usage statistics to improve our service.
-              </p>
+              <div className="text-xs text-muted-foreground space-y-3">
+                <p><strong>Privacy Policy</strong><br />Last Updated: January 28, 2025</p>
+
+                <div className="space-y-1">
+                  <h4 className="font-semibold text-foreground">Information Collection</h4>
+                  <p>We are committed to protecting user privacy and minimizing data collection. Our practices include:</p>
+                </div>
+
+                <div className="space-y-1 pl-4">
+                    <h5 className="font-semibold text-foreground">What We Do Not Collect</h5>
+                    <ul className="list-disc list-outside space-y-1 pl-5">
+                        <li>Personal identifying information (PII)</li>
+                        <li>User accounts or profiles</li>
+                        <li>Location data</li>
+                        <li>Device information</li>
+                        <li>Usage patterns</li>
+                    </ul>
+                </div>
+                
+                <div className="space-y-1 pl-4">
+                    <h5 className="font-semibold text-foreground">What We Do Collect</h5>
+                    <ul className="list-disc list-outside space-y-1 pl-5">
+                        <li>Anonymized questions (with all PII automatically redacted)</li>
+                        <li>Aggregate usage statistics</li>
+                        <li>Error reports and system performance data</li>
+                    </ul>
+                </div>
+
+                <div className="space-y-1">
+                    <h4 className="font-semibold text-foreground">Data Usage</h4>
+                    <p>Collected data is used exclusively for:</p>
+                    <ul className="list-disc list-outside space-y-1 pl-5">
+                        <li>Improving chatbot response accuracy</li>
+                        <li>Identifying common climate information needs</li>
+                        <li>Enhancing language processing capabilities</li>
+                        <li>System performance optimization</li>
+                    </ul>
+                </div>
+
+                <div className="space-y-1">
+                    <h4 className="font-semibold text-foreground">Data Protection</h4>
+                    <p>We protect user privacy through:</p>
+                    <ul className="list-disc list-outside space-y-1 pl-5">
+                        <li>Automatic PII redaction before caching</li>
+                        <li>Secure data storage practices</li>
+                        <li>Limited access controls</li>
+                    </ul>
+                </div>
+                
+                <div className="space-y-1">
+                    <h4 className="font-semibold text-foreground">Third-Party Services</h4>
+                    <p>Our chatbot utilizes Cohere's language models. Users should note:</p>
+                    <ul className="list-disc list-outside space-y-1 pl-5">
+                        <li>No personal data is shared with Cohere</li>
+                        <li>Questions are processed without identifying information</li>
+                        <li>Cohere's privacy policies apply to their services</li>
+                    </ul>
+                </div>
+
+                <div className="space-y-1">
+                    <h4 className="font-semibold text-foreground">Changes to Privacy Policy</h4>
+                    <p>We reserve the right to update this privacy policy as needed. Users will be notified of significant changes through our website.</p>
+                </div>
+
+                <div className="space-y-1">
+                    <h4 className="font-semibold text-foreground">Contact Information</h4>
+                    <p>For privacy-related questions or concerns, contact us at info@crcgreen.com</p>
+                </div>
+              </div>
             </AccordionContent>
           </AccordionItem>
           <AccordionItem value="terms">
