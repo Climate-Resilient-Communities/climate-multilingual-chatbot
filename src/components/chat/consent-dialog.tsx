@@ -203,10 +203,35 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
           </AccordionItem>
           <AccordionItem value="disclaimer">
             <AccordionTrigger className="text-xs">Disclaimer</AccordionTrigger>
-            <AccordionContent>
-              <p className="text-xs text-muted-foreground">
-                The information provided by this chatbot is for informational purposes only and does not constitute professional advice. While we strive for accuracy, we cannot guarantee it. Always consult with a qualified professional for specific advice.
-              </p>
+            <AccordionContent className="max-h-48 overflow-y-auto pr-4">
+                <div className="text-xs text-muted-foreground space-y-3">
+                    <p><strong>Disclaimer</strong><br />Last Updated: January 28, 2025</p>
+
+                    <div className="space-y-1">
+                        <h4 className="font-semibold text-foreground">General Information</h4>
+                        <p>Climate Resilience Communities ("we," "our," or "us") provides this climate information chatbot as a public service to Toronto's communities. While we strive for accuracy and reliability, please note the following important limitations and disclaimers.</p>
+                    </div>
+
+                    <div className="space-y-1">
+                        <h4 className="font-semibold text-foreground">Scope of Information</h4>
+                        <p>The information provided through our chatbot is for general informational and educational purposes only. It does not constitute professional, legal, or scientific advice. Users should consult qualified experts and official channels for decisions regarding climate adaptation, mitigation, or response strategies.</p>
+                    </div>
+
+                    <div className="space-y-1">
+                        <h4 className="font-semibold text-foreground">Information Accuracy</h4>
+                        <p>While our chatbot uses Retrieval-Augmented Generation technology and cites verified sources, the field of climate science and related policies continues to evolve. We encourage users to:</p>
+                        <ul className="list-disc list-outside space-y-1 pl-5">
+                            <li>Verify time-sensitive information through official government channels</li>
+                            <li>Cross-reference critical information with current scientific publications</li>
+                            <li>Consult local authorities for community-specific guidance</li>
+                        </ul>
+                    </div>
+                    
+                    <div className="space-y-1">
+                        <h4 className="font-semibold text-foreground">Third-Party Content</h4>
+                        <p>Citations and references to third-party content are provided for transparency and verification. Climate Resilience Communities does not endorse and is not responsible for the accuracy, completeness, or reliability of third-party information.</p>
+                    </div>
+                </div>
             </AccordionContent>
           </AccordionItem>
         </Accordion>
