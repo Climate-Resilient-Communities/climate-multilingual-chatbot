@@ -71,14 +71,16 @@ export default function Home() {
   return (
     <div className="flex flex-col h-screen">
       <AppHeader onNewChat={handleNewChat} />
-      <ChatWindow messages={messages} isLoading={isLoading} />
-      
-      <div className="p-4 border-t bg-background">
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <ChatWindow messages={messages} isLoading={isLoading} />
         {messages.length === 0 && !isLoading && (
             <SampleQuestions 
                 onQuestionClick={(question) => handleSendMessage(question)} 
             />
         )}
+      </div>
+      
+      <div className="p-4 border-t bg-background">
         <form
           onSubmit={handleSendMessage}
           className="flex items-center gap-2 max-w-2xl mx-auto"
