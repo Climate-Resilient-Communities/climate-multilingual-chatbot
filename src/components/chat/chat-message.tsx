@@ -41,12 +41,22 @@ export function ChatMessage({ message }: ChatMessageProps) {
     setFeedbackDialogOpen(true);
   }
 
-  const feedbackOptions = [
+  const thumbsUpOptions = [
     { id: "instructions", label: "Followed instructions well" },
     { id: "expected", label: "App works as expected" },
     { id: "design", label: "Good design quality" },
     { id: "solution", label: "Comprehensive solution" },
-  ]
+  ];
+
+  const thumbsDownOptions = [
+    { id: "instructions", label: "Didn't follow instructions" },
+    { id: "no-response", label: "No Response Generated" },
+    { id: "unrelated", label: "Response Unrelated" },
+    { id: "guard-filter", label: "Guard Filter Misclassified" },
+    { id: "other", label: "Other" },
+  ];
+
+  const feedbackOptions = feedbackType === 'up' ? thumbsUpOptions : thumbsDownOptions;
 
   return (
     <div
@@ -58,10 +68,10 @@ export function ChatMessage({ message }: ChatMessageProps) {
       <div className="flex flex-col items-start gap-2 max-w-prose">
         <div
             className={cn(
-                "rounded-lg p-3 text-sm message-bubble",
+                "rounded-lg p-3 text-sm message-bubble border",
                 isUser
-                    ? "bg-primary text-primary-foreground rounded-br-none"
-                    : "bg-card text-card-foreground rounded-bl-none border"
+                    ? "bg-primary text-primary-foreground rounded-br-none border-primary"
+                    : "bg-card text-card-foreground rounded-bl-none border-border"
             )}
         >
             <p className="whitespace-pre-wrap">{message.content.split('**').map((part, index) => 
