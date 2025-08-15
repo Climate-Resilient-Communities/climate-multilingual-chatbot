@@ -2,6 +2,8 @@
 "use client";
 
 import { useState, FormEvent } from "react";
+import Image from "next/image";
+import Logo from "@/app/Logo.png";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -85,6 +87,7 @@ export default function Home() {
           onSubmit={handleSendMessage}
           className="flex items-center gap-2 max-w-2xl mx-auto"
         >
+          <Image src={Logo} alt="Logo" width={24} height={24} className="h-6 w-6" />
           <Input
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
