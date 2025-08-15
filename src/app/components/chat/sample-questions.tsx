@@ -17,19 +17,17 @@ const questions = [
 export function SampleQuestions({ onQuestionClick }: SampleQuestionsProps) {
   return (
     <div className="max-w-2xl mx-auto mb-4 px-4">
-        <div className="border rounded-lg p-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {questions.map((q) => (
-                    <Button
-                        key={q}
-                        variant="outline"
-                        className="h-auto whitespace-normal text-left justify-start p-3 bg-card text-sm font-normal text-card-foreground border-border hover:bg-accent hover:shadow-sm"
-                        onClick={() => onQuestionClick(q)}
-                    >
-                        {q}
-                    </Button>
-                ))}
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {questions.map((q) => (
+                <Button
+                    key={q}
+                    variant="outline"
+                    className="h-auto whitespace-normal text-left justify-start p-3 bg-card text-sm font-normal text-card-foreground border-border hover:bg-accent hover:shadow-sm"
+                    onClick={() => onQuestionClick(q)}
+                >
+                    {q}
+                </Button>
+            ))}
         </div>
     </div>
   );
