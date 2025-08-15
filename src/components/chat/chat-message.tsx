@@ -42,16 +42,18 @@ export function ChatMessage({ message }: ChatMessageProps) {
   }
 
   const thumbsUpOptions = [
-    { id: "instructions", label: "Followed instructions well" },
-    { id: "expected", label: "App works as expected" },
-    { id: "design", label: "Good design quality" },
-    { id: "solution", label: "Comprehensive solution" },
+    { id: "instructions", label: "Followed Instructions" },
+    { id: "comprehensive", label: "Comprehensive Answer" },
+    { id: "translation", label: "Good Translation" },
+    { id: "expected", label: "Response works as expected" },
+    { id: "other", label: "Other" },
   ];
 
   const thumbsDownOptions = [
     { id: "instructions", label: "Didn't follow instructions" },
     { id: "no-response", label: "No Response Generated" },
     { id: "unrelated", label: "Response Unrelated" },
+    { id: "translation", label: "Bad Translation" },
     { id: "guard-filter", label: "Guard Filter Misclassified" },
     { id: "other", label: "Other" },
   ];
