@@ -1,0 +1,33 @@
+{
+  "mcpServers": {
+    "climate-chatbot-browser": {
+      "command": "python3",
+      "args": [
+        "/Users/luis_ticas/Documents/GitHub/climate-multilingual-chatbot/mcp/servers/playwright_server.py"
+      ],
+      "env": {
+        "PYTHONPATH": "/Users/luis_ticas/Documents/GitHub/climate-multilingual-chatbot"
+      }
+    },
+    "climate-chatbot-files": {
+      "command": "python3",
+      "args": [
+        "/Users/luis_ticas/Documents/GitHub/climate-multilingual-chatbot/mcp/servers/filesystem_server.py",
+        "/Users/luis_ticas/Documents/GitHub/climate-multilingual-chatbot"
+      ],
+      "env": {
+        "PYTHONPATH": "/Users/luis_ticas/Documents/GitHub/climate-multilingual-chatbot"
+      }
+    },
+    "climate-chatbot-shell": {
+      "command": "python3",
+      "args": [
+        "/Users/luis_ticas/Documents/GitHub/climate-multilingual-chatbot/mcp/servers/shell_server.py",
+        "/Users/luis_ticas/Documents/GitHub/climate-multilingual-chatbot"
+      ],
+      "env": {
+        "PYTHONPATH": "/Users/luis_ticas/Documents/GitHub/climate-multilingual-chatbot"
+      }
+    }
+  }
+}
