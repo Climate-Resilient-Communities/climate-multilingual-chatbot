@@ -1,12 +1,21 @@
+
+"use client";
+
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Copy, ThumbsDown, ThumbsUp, RefreshCw } from "lucide-react";
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-  } from "@/components/ui/dropdown-menu"
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 export type Message = {
   role: 'user' | 'assistant';
@@ -18,17 +27,32 @@ type ChatMessageProps = {
 };
 
 export function ChatMessage({ message }: ChatMessageProps) {
+  const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
+  const [feedbackType, setFeedbackType] = useState<'up' | 'down' | null>(null);
+
   const isUser = message.role === 'user';
 
   const onCopy = () => {
     navigator.clipboard.writeText(message.content);
   }
 
+  const handleFeedback = (type: 'up' | 'down') => {
+    setFeedbackType(type);
+    setFeedbackDialogOpen(true);
+  }
+
+  const feedbackOptions = [
+    { id: "instructions", label: "Followed instructions well" },
+    { id: "expected", label: "App works as expected" },
+    { id: "design", label: "Good design quality" },
+    { id: "solution", label: "Comprehensive solution" },
+  ]
+
   return (
     <div
       className={cn(
         "flex items-end gap-2",
-        isUser ? "justify-end" : "justify-start"
+        isUser ? "justify-end" : "justify-start flex-col items-start"
       )}
     >
       <div
@@ -42,32 +66,56 @@ export function ChatMessage({ message }: ChatMessageProps) {
         <p className="whitespace-pre-wrap">{message.content.split('**').map((part, index) => 
             index % 2 === 1 ? <strong key={index}>{part}</strong> : part
         )}</p>
-        {!isUser && (
-            <div className="flex items-center gap-2 mt-3 -mb-1">
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={onCopy}>
-                    <Copy className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground">
-                    <ThumbsUp className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground">
-                    <ThumbsDown className="h-4 w-4" />
-                </Button>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-7 gap-1 px-2 text-muted-foreground hover:text-foreground">
-                            <RefreshCw className="h-4 w-4" />
-                            <span className="text-sm">Retry</span>
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                        <DropdownMenuItem>Option 1</DropdownMenuItem>
-                        <DropdownMenuItem>Option 2</DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            </div>
-        )}
       </div>
+      {!isUser && (
+        <div className="flex items-center gap-1 mt-1">
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={onCopy}>
+                <Copy className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => handleFeedback('up')}>
+                <ThumbsUp className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => handleFeedback('down')}>
+                <ThumbsDown className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" className="h-7 gap-1 px-2 text-muted-foreground hover:text-foreground">
+                <RefreshCw className="h-4 w-4" />
+                <span className="text-sm">Retry</span>
+            </Button>
+        </div>
+      )}
+
+      <Dialog open={feedbackDialogOpen} onOpenChange={setFeedbackDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+                {feedbackType === 'up' && <ThumbsUp className="h-5 w-5" />}
+                {feedbackType === 'down' && <ThumbsDown className="h-5 w-5" />}
+                Why did you choose this rating?
+            </DialogTitle>
+            <DialogDescription>
+              (Optional)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-3">
+                {feedbackOptions.map(option => (
+                    <div key={option.id} className="flex items-center space-x-2">
+                        <Checkbox id={option.id} />
+                        <Label htmlFor={option.id} className="font-normal">{option.label}</Label>
+                    </div>
+                ))}
+            </div>
+            <Textarea placeholder="Provide additional feedback" />
+            <p className="text-xs text-muted-foreground">
+              Feedback submitted will also include the current chat history to help improve Gemini. <a href="#" className="underline">Learn more</a>
+            </p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setFeedbackDialogOpen(false)}>Submit</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
