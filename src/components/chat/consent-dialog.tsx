@@ -2,6 +2,8 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
+import Logo from "@/app/Logo.png";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Bot } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 type ConsentDialogProps = {
@@ -30,7 +31,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
       <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader className="space-y-2">
             <div className="flex justify-center">
-                <Bot className="w-12 h-12 text-primary" />
+                <Image src={Logo} alt="Logo" width={48} height={48} className="w-12 h-12" />
             </div>
           <DialogTitle className="text-center text-xl font-bold text-primary !mt-2">MLCC Climate Chatbot</DialogTitle>
           <DialogDescription className="text-center text-muted-foreground !mt-1">
