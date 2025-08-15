@@ -40,7 +40,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
         
         <Separator className="w-1/2 mx-auto my-2" />
 
-        <div className="space-y-4">
+        <div className="space-y-4 my-2">
             <p className="text-xs text-center text-muted-foreground">
               Welcome! This app shares clear info on climate impacts and local action. Please confirm you're good with the basics below.
             </p>
@@ -64,7 +64,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
 
         <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="privacy">
-            <AccordionTrigger>Privacy Policy</AccordionTrigger>
+            <AccordionTrigger className="text-xs">Privacy Policy</AccordionTrigger>
             <AccordionContent>
               <p className="text-xs text-muted-foreground">
                 We value your privacy. We do not store your conversations. All data is processed in memory and is not used for training our models. We only collect anonymized usage statistics to improve our service.
@@ -72,7 +72,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
             </AccordionContent>
           </AccordionItem>
           <AccordionItem value="terms">
-            <AccordionTrigger>Terms of Use</AccordionTrigger>
+            <AccordionTrigger className="text-xs">Terms of Use</AccordionTrigger>
             <AccordionContent>
               <p className="text-xs text-muted-foreground">
                 This service is provided under the MIT License. You are free to use it for any purpose, but the authors and copyright holders are not liable for any claims, damages, or other liability. Use the information provided at your own risk.
@@ -80,7 +80,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
             </AccordionContent>
           </AccordionItem>
           <AccordionItem value="disclaimer">
-            <AccordionTrigger>Disclaimer</AccordionTrigger>
+            <AccordionTrigger className="text-xs">Disclaimer</AccordionTrigger>
             <AccordionContent>
               <p className="text-xs text-muted-foreground">
                 The information provided by this chatbot is for informational purposes only and does not constitute professional advice. While we strive for accuracy, we cannot guarantee it. Always consult with a qualified professional for specific advice.
