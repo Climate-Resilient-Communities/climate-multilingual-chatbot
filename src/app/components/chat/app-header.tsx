@@ -47,11 +47,38 @@ export function AppHeader({ onNewChat }: AppHeaderProps) {
   const [langPopoverOpen, setLangPopoverOpen] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState("en");
 
-  const languages = languagesData.speculative_supported_languages_nova_proxy.languages;
-  
-  const sortedLanguages = Object.entries(languages)
+  const speculativeLanguages = languagesData.speculative_supported_languages_nova_proxy.languages;
+  const cohereLanguages = languagesData.cohere_command_a_languages.languages;
+
+  const mergedLanguages = new Map<string, string>();
+
+  // Add Cohere languages first to prioritize them
+  cohereLanguages.forEach(langName => {
+    for (const [code, name] of Object.entries(speculativeLanguages)) {
+      if (name === langName && !Array.from(mergedLanguages.values()).includes(name)) {
+        mergedLanguages.set(code, name);
+        break;
+      }
+    }
+  });
+
+  // Add remaining speculative languages
+  for (const [code, name] of Object.entries(speculativeLanguages)) {
+    if (!Array.from(mergedLanguages.values()).includes(name)) {
+      mergedLanguages.set(code, name);
+    }
+  }
+
+  const sortedLanguages = Array.from(mergedLanguages.entries())
     .map(([code, name]) => ({ value: code, label: name }))
-    .sort((a, b) => a.label.localeCompare(b.label));
+    .sort((a, b) => {
+      // Prioritize Cohere languages, then sort alphabetically
+      const aIsCohere = cohereLanguages.includes(a.label);
+      const bIsCohere = cohereLanguages.includes(b.label);
+      if (aIsCohere && !bIsCohere) return -1;
+      if (!aIsCohere && bIsCohere) return 1;
+      return a.label.localeCompare(b.label);
+    });
 
   const englishIndex = sortedLanguages.findIndex((lang) => lang.value === 'en');
   if (englishIndex > -1) {
@@ -243,3 +270,5 @@ export function AppHeader({ onNewChat }: AppHeaderProps) {
     </>
   );
 }
+
+    
