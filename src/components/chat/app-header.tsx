@@ -2,7 +2,9 @@
 "use client";
 
 import { useState } from 'react';
-import { Languages, Settings, MessageSquarePlus, Bot } from "lucide-react";
+import Image from "next/image";
+import Logo from "@/app/Logo.png";
+import { Languages, Settings, MessageSquarePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -33,18 +35,20 @@ export function AppHeader({ onNewChat }: AppHeaderProps) {
     .sort(([, nameA], [, nameB]) => nameA.localeCompare(nameB));
 
   const englishIndex = sortedLanguages.findIndex(([code]) => code === 'en');
-  const english = sortedLanguages.splice(englishIndex, 1)[0];
-  sortedLanguages.unshift(english);
+  if (englishIndex > -1) {
+    const english = sortedLanguages.splice(englishIndex, 1)[0];
+    sortedLanguages.unshift(english);
+  }
 
   return (
     <>
       <header className="flex items-center justify-between p-4 border-b">
-        <div className="flex items-center gap-2">
-            <Bot className="h-6 w-6 text-primary" />
-            <h1 className="text-sm font-semibold text-muted-foreground">
-                Multilingual Chatbot <span className="hidden sm:inline">• Made by Climate Resilient Communities</span>
-            </h1>
-        </div>
+        <a href="https://crc.place/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
+            <Image src={Logo} alt="Climate Resilient Communities Logo" width={28} height={28} />
+            <span className="hidden sm:inline text-sm font-semibold text-muted-foreground">
+                Made by: Climate Resilient Communities™
+            </span>
+        </a>
         <div className="flex items-center gap-2">
           <Select defaultValue="en">
             <SelectTrigger className="w-auto gap-2 text-sm h-9">
