@@ -1,9 +1,12 @@
+
 "use client";
 
 import { useEffect, useRef } from "react";
+import Image from "next/image";
+import Logo from "@/app/Logo.png";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage, type Message } from "@/components/chat/chat-message";
-import { Loader2, Bot } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 type ChatWindowProps = {
@@ -30,7 +33,7 @@ export function ChatWindow({ messages, isLoading }: ChatWindowProps) {
           {messages.length === 0 && !isLoading && (
             <Card className="max-w-lg mx-auto mt-20 border-0 shadow-none">
               <CardContent className="p-6 text-center flex flex-col items-center">
-                  <Bot className="w-16 h-16 mb-4 text-primary/80"/>
+                  <Image src={Logo} alt="Logo" width={64} height={64} className="w-16 h-16 mb-4" />
                   <h2 className="text-xl font-semibold">Welcome to ClimateTalk!</h2>
                   <p className="text-muted-foreground mt-2 max-w-sm">
                       Ask me anything about climate change, and I'll provide you with information and local resources.
