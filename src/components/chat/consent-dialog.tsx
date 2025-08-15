@@ -36,12 +36,12 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="my-4 space-y-4">
+        <div className="my-2 space-y-2">
             <p className="text-sm text-center text-muted-foreground">
               Welcome! This app shares clear info on climate impacts and local action. Please confirm you're good with the basics below.
             </p>
 
-            <div className="flex items-start space-x-3">
+            <div className="flex items-start space-x-3 pt-2">
               <Checkbox id="terms" checked={agreed} onCheckedChange={(checked) => setAgreed(checked as boolean)} className="mt-1" />
               <Label htmlFor="terms" className="text-sm font-medium leading-none text-foreground">
                   By checking this box, you agree to the following:
@@ -84,7 +84,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
           </AccordionItem>
         </Accordion>
 
-        <DialogFooter className="sm:justify-center mt-4">
+        <DialogFooter className="sm:justify-center mt-2">
           <Button type="button" className="w-full" disabled={!agreed} onClick={onConsent}>
             Start Chatting Now
           </Button>
