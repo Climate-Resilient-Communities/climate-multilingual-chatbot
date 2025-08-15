@@ -31,9 +31,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
                 <Bot className="w-12 h-12 text-primary" />
             </div>
           <DialogTitle className="text-center text-2xl font-bold text-primary">MLCC Climate Chatbot</DialogTitle>
-          <DialogDescription className="text-center">
-            Your AI assistant for climate change information.
-            <br />
+          <DialogDescription className="text-center text-muted-foreground">
             Connecting Toronto Communities to Climate Knowledge
           </DialogDescription>
         </DialogHeader>
@@ -41,6 +39,24 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
         <p className="text-sm text-center text-muted-foreground mt-4">
           Welcome! This app shares clear info on climate impacts and local action. Please confirm you're good with the basics below.
         </p>
+
+        <div className="space-y-4 mt-4">
+            <div className="flex items-start space-x-3">
+              <Checkbox id="terms" checked={agreed} onCheckedChange={(checked) => setAgreed(checked as boolean)} className="mt-1" />
+              <div className="grid gap-1.5 leading-none">
+                <Label htmlFor="terms" className="text-sm font-medium text-foreground">
+                  By checking this box, you agree to the following:
+                </Label>
+                <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+                    <li>I meet the age requirements (13+ or with guardian consent if under 18)</li>
+                    <li>I read and agree to the <span className="font-bold">Privacy Policy</span></li>
+                    <li>I read and agree to the <span className="font-bold">Terms of Use</span></li>
+                    <li>I read and understand the <span className="font-bold">Disclaimer</span></li>
+                </ul>
+              </div>
+            </div>
+        </div>
+
 
         <Accordion type="single" collapsible className="w-full my-4">
           <AccordionItem value="privacy">
@@ -68,13 +84,6 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
             </AccordionContent>
           </AccordionItem>
         </Accordion>
-
-        <div className="flex items-center space-x-2">
-          <Checkbox id="terms" checked={agreed} onCheckedChange={(checked) => setAgreed(checked as boolean)} />
-          <Label htmlFor="terms" className="text-sm font-normal text-muted-foreground leading-none">
-            By checking this box, you agree to our terms and policies.
-          </Label>
-        </div>
 
         <DialogFooter className="mt-4 sm:justify-center">
           <Button type="button" className="w-full" disabled={!agreed} onClick={onConsent}>
