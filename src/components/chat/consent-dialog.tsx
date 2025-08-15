@@ -49,7 +49,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
             </div>
             
             <ul className="list-disc list-outside text-sm text-muted-foreground space-y-1 pl-8">
-                <li>I meet the age requirements (13+ or with guardian consent if under 18)</li>
+                <li>I meet the age requirements <i className="text-muted-foreground">(13+ or with guardian consent if under 18)</i></li>
                 <li>I read and agree to the <span className="font-bold">Privacy Policy</span></li>
                 <li>I read and agree to the <span className="font-bold">Terms of Use</span></li>
                 <li>I read and understand the <span className="font-bold">Disclaimer</span></li>
