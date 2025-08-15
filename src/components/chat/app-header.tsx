@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import Image from "next/image";
 import Logo from "@/app/Logo.png";
-import { Languages, HelpCircle, MessageSquarePlus } from "lucide-react";
+import { Languages, HelpCircle, MessageSquarePlus, BarChart, Lock, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -85,7 +85,9 @@ export function AppHeader({ onNewChat }: AppHeaderProps) {
           <div className="py-4 flex-1 overflow-y-auto pr-4 text-sm">
             <Accordion type="single" collapsible className="w-full">
               <AccordionItem value="accuracy">
-                <AccordionTrigger>📊 Information Accuracy</AccordionTrigger>
+                <AccordionTrigger className="text-base">
+                  <BarChart className="mr-2 h-5 w-5" /> Information Accuracy
+                </AccordionTrigger>
                 <AccordionContent className="space-y-4">
                   <div>
                     <p className="font-semibold">How accurate is the information provided by the chatbot?</p>
@@ -102,7 +104,9 @@ export function AppHeader({ onNewChat }: AppHeaderProps) {
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="privacy">
-                <AccordionTrigger>🔒 Privacy Protection</AccordionTrigger>
+                <AccordionTrigger className="text-base">
+                  <Lock className="mr-2 h-5 w-5" /> Privacy Protection
+                </AccordionTrigger>
                 <AccordionContent className="space-y-4">
                   <div>
                     <p className="font-semibold">What information does the chatbot collect?</p>
@@ -125,7 +129,9 @@ export function AppHeader({ onNewChat }: AppHeaderProps) {
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="trust">
-                <AccordionTrigger>🤝 Trust & Transparency</AccordionTrigger>
+                <AccordionTrigger className="text-base">
+                  <ShieldCheck className="mr-2 h-5 w-5" /> Trust & Transparency
+                </AccordionTrigger>
                 <AccordionContent className="space-y-4">
                   <div>
                     <p className="font-semibold">How can I trust this tool?</p>
@@ -166,3 +172,5 @@ export function AppHeader({ onNewChat }: AppHeaderProps) {
     </>
   );
 }
+
+    
