@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -14,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Bot } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 
 type ConsentDialogProps = {
   open: boolean;
@@ -35,13 +37,15 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
             Connecting Toronto Communities to Climate Knowledge
           </DialogDescription>
         </DialogHeader>
+        
+        <Separator className="w-1/2 mx-auto my-2" />
 
-        <div className="my-2 space-y-2">
+        <div className="space-y-4">
             <p className="text-sm text-center text-muted-foreground">
               Welcome! This app shares clear info on climate impacts and local action. Please confirm you're good with the basics below.
             </p>
 
-            <div className="flex items-start space-x-3 pt-2">
+            <div className="flex items-start space-x-3">
               <Checkbox id="terms" checked={agreed} onCheckedChange={(checked) => setAgreed(checked as boolean)} className="mt-1" />
               <Label htmlFor="terms" className="text-sm font-medium leading-none text-foreground">
                   By checking this box, you agree to the following:
