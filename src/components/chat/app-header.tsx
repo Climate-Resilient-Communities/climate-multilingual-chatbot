@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import Image from "next/image";
 import Logo from "@/app/Logo.png";
-import { Languages, Settings, MessageSquarePlus } from "lucide-react";
+import { Languages, HelpCircle, MessageSquarePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -68,22 +68,22 @@ export function AppHeader({ onNewChat }: AppHeaderProps) {
             New Chat
           </Button>
           <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)} className="h-9 w-9">
-            <Settings className="h-5 w-5" />
-            <span className="sr-only">Settings</span>
+            <HelpCircle className="h-5 w-5" />
+            <span className="sr-only">FAQ</span>
           </Button>
         </div>
       </header>
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Settings</DialogTitle>
+            <DialogTitle>FAQ</DialogTitle>
             <DialogDescription>
-              Customize your experience.
+              Frequently Asked Questions
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <p className="text-sm text-muted-foreground">
-              User settings will be available in a future version.
+              FAQ content will be available in a future version.
             </p>
           </div>
           <DialogFooter>
