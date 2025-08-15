@@ -23,10 +23,6 @@ export default function Home() {
 
   const handleNewChat = () => {
     setMessages([]);
-    toast({
-        title: "New chat started",
-        description: "Your conversation history has been cleared.",
-    });
   };
 
   const handleSendMessage = async (e: FormEvent<HTMLFormElement> | string) => {
