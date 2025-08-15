@@ -22,7 +22,7 @@ export function SampleQuestions({ onQuestionClick }: SampleQuestionsProps) {
                 <Button
                     key={q}
                     variant="outline"
-                    className="h-auto whitespace-normal text-left justify-start p-3 bg-card text-sm font-normal text-card-foreground border-border hover:bg-accent hover:shadow-sm transition-transform duration-200 ease-in-out hover:-translate-y-1"
+                    className="h-auto whitespace-normal text-left justify-start p-3 text-xs font-normal bg-card/60 border-border/80 hover:bg-accent hover:border-accent-foreground/20"
                     onClick={() => onQuestionClick(q)}
                 >
                     {q}
