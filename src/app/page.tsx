@@ -11,7 +11,6 @@ import { SendHorizonal } from "lucide-react";
 import { AppHeader } from "@/app/components/chat/app-header";
 import { ChatWindow } from "@/components/chat/chat-window";
 import { ConsentDialog } from "@/components/chat/consent-dialog";
-import { SampleQuestions } from "@/app/components/chat/sample-questions";
 import { type Message } from "@/components/chat/chat-message";
 
 export default function Home() {
@@ -19,7 +18,6 @@ export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [showConsent, setShowConsent] = useState(true);
-  const { toast } = useToast();
 
   const handleNewChat = () => {
     setMessages([]);
@@ -88,12 +86,11 @@ export default function Home() {
     <div className="flex flex-col h-screen">
       <AppHeader onNewChat={handleNewChat} />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <ChatWindow messages={messages} loadingMessage={loadingMessage} />
-        {messages.length === 0 && !isLoading && (
-            <SampleQuestions 
-                onQuestionClick={(question) => handleSendMessage(question)} 
-            />
-        )}
+        <ChatWindow 
+          messages={messages} 
+          loadingMessage={loadingMessage}
+          onQuestionClick={(question) => handleSendMessage(question)}
+        />
       </div>
       
       <div className="p-4 border-t bg-background">
