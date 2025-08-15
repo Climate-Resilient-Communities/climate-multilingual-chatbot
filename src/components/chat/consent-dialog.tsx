@@ -25,9 +25,9 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
 
   return (
     <Dialog open={open}>
-      <DialogContent className="sm:max-w-sm" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
-            <div className="flex justify-center mb-4">
+            <div className="flex justify-center mb-2">
                 <Bot className="w-12 h-12 text-primary" />
             </div>
           <DialogTitle className="text-center text-xl font-bold text-primary">MLCC Climate Chatbot</DialogTitle>
@@ -36,11 +36,11 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <p className="text-sm text-center text-muted-foreground mt-4">
+        <p className="text-sm text-center text-muted-foreground mt-2">
           Welcome! This app shares clear info on climate impacts and local action. Please confirm you're good with the basics below.
         </p>
 
-        <div className="space-y-4 mt-4">
+        <div className="mt-2">
             <div className="flex items-start space-x-3">
               <Checkbox id="terms" checked={agreed} onCheckedChange={(checked) => setAgreed(checked as boolean)} className="mt-1" />
               <div className="grid gap-1.5 leading-none">
@@ -58,7 +58,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
         </div>
 
 
-        <Accordion type="single" collapsible className="w-full my-4">
+        <Accordion type="single" collapsible className="w-full my-2">
           <AccordionItem value="privacy">
             <AccordionTrigger>Privacy Policy</AccordionTrigger>
             <AccordionContent>
@@ -85,7 +85,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
           </AccordionItem>
         </Accordion>
 
-        <DialogFooter className="mt-4 sm:justify-center">
+        <DialogFooter className="mt-2 sm:justify-center">
           <Button type="button" className="w-full" disabled={!agreed} onClick={onConsent}>
             Start Chatting Now
           </Button>
