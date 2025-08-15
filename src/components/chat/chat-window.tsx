@@ -34,7 +34,7 @@ export function ChatWindow({ messages, isLoading }: ChatWindowProps) {
             <Card className="max-w-lg mx-auto mt-20 border-0 shadow-none">
               <CardContent className="p-6 text-center flex flex-col items-center">
                   <Image src={Logo} alt="Logo" width={64} height={64} className="w-16 h-16 mb-4" />
-                  <h2 className="text-xl font-semibold">Welcome to ClimateTalk!</h2>
+                  <h2 className="text-xl font-semibold text-primary">Welcome to Multi-lingual Climate chatbot!</h2>
                   <p className="text-muted-foreground mt-2 max-w-sm">
                       Ask me anything about climate change, and I'll provide you with information and local resources.
                   </p>
