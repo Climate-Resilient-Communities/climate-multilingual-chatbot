@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SendHorizonal } from "lucide-react";
-import { AppHeader } from "@/components/chat/app-header";
+import { AppHeader } from "@/app/components/chat/app-header";
 import { ChatWindow } from "@/components/chat/chat-window";
 import { ConsentDialog } from "@/components/chat/consent-dialog";
 import { type Message } from "@/components/chat/chat-message";
@@ -61,10 +61,10 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="flex flex-col h-screen bg-background/80 backdrop-blur-sm">
       <AppHeader onNewChat={handleNewChat} />
       <ChatWindow messages={messages} isLoading={isLoading} />
-      <div className="p-4 border-t bg-background">
+      <div className="p-4 border-t bg-background/80 backdrop-blur-sm">
         <form
           onSubmit={handleSendMessage}
           className="flex items-center gap-2 max-w-2xl mx-auto"

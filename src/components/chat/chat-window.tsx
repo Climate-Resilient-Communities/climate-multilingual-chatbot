@@ -31,7 +31,7 @@ export function ChatWindow({ messages, isLoading }: ChatWindowProps) {
       <ScrollArea className="h-full" viewportRef={scrollAreaRef}>
         <div className="p-4 sm:p-6 space-y-6">
           {messages.length === 0 && !isLoading && (
-            <Card className="max-w-lg mx-auto mt-20 border-0 shadow-none">
+            <Card className="max-w-lg mx-auto mt-20 border-0 shadow-none bg-transparent">
               <CardContent className="p-6 text-center flex flex-col items-center">
                   <Image src={Logo} alt="Logo" width={64} height={64} className="w-16 h-16 mb-4" />
                   <h2 className="text-xl font-semibold text-primary">Welcome to Multilingual Climate chatbot!</h2>
