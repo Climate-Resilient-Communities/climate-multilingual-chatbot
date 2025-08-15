@@ -70,3 +70,11 @@ langchain_cohere>=0.4.2  # Updated to latest version to work with newer cohere
 safetensors>=0.4.1
 accelerate>=0.27.0
 protobuf>=4.24.4
+
+# MCP (Model Control Plane) requirements
+playwright>=1.40.0
+mcp>=1.0.0
+uvicorn>=0.24.0
+fastapi>=0.104.0
+websockets>=12.0
+httpx>=0.25.0

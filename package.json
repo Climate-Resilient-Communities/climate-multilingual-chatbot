@@ -1,0 +1,26 @@
+{
+  "name": "climate-multilingual-chatbot",
+  "version": "1.0.0",
+  "description": "Production notes - Local JSONL chat logs are disabled by default. To enable locally, set `ENABLE_LOCAL_CHAT_LOGS=1`. Azure Blob logging remains enabled when Azure env vars are present. - All project documentation lives under `info/`. - The consent/Disclaimer is a true overlay via Streamlit `@st.dialog` and app is gated with `st.stop()` until accepted. - The query rewriter now returns strict JSON; the pipeline short-circuits for canned intents (greeting/goodbye/thanks/emergency) and for \"instruction\" shows the How It Works text. Canned text is translated to the user’s selected language.",
+  "main": "gemini-cli-mcp.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Climate-Resilient-Communities/climate-multilingual-chatbot.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Climate-Resilient-Communities/climate-multilingual-chatbot/issues"
+  },
+  "homepage": "https://github.com/Climate-Resilient-Communities/climate-multilingual-chatbot#readme",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.3"
+  }
+}
