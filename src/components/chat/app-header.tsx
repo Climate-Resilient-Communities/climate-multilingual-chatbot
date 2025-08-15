@@ -21,6 +21,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import languagesData from "@/app/languages.json";
 
 type AppHeaderProps = {
@@ -74,20 +75,91 @@ export function AppHeader({ onNewChat }: AppHeaderProps) {
         </div>
       </header>
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[80svh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>FAQ</DialogTitle>
+            <DialogTitle>Support & FAQs</DialogTitle>
             <DialogDescription>
               Frequently Asked Questions
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-muted-foreground">
-              FAQ content will be available in a future version.
-            </p>
+          <div className="py-4 flex-1 overflow-y-auto pr-4 text-sm">
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="accuracy">
+                <AccordionTrigger>📊 Information Accuracy</AccordionTrigger>
+                <AccordionContent className="space-y-4">
+                  <div>
+                    <p className="font-semibold">How accurate is the information provided by the chatbot?</p>
+                    <p className="text-muted-foreground mt-1">
+                      Our chatbot uses Retrieval-Augmented Generation (RAG) technology to provide verified information exclusively from government reports, academic research, and established non-profit organizations' publications. Every response includes citations to original sources, allowing you to verify the information directly. The system matches your questions with relevant, verified information rather than generating content independently.
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-semibold">What sources does the chatbot use?</p>
+                    <p className="text-muted-foreground mt-1">
+                      All information comes from three verified source types: government climate reports, peer-reviewed academic research, and established non-profit organization publications. Each response includes citations linking directly to these sources.
+                    </p>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="privacy">
+                <AccordionTrigger>🔒 Privacy Protection</AccordionTrigger>
+                <AccordionContent className="space-y-4">
+                  <div>
+                    <p className="font-semibold">What information does the chatbot collect?</p>
+                    <p className="text-muted-foreground mt-1">
+                      We maintain a strict privacy-first approach:
+                    </p>
+                    <ul className="list-disc list-outside pl-5 mt-2 text-muted-foreground space-y-1">
+                      <li>No personal identifying information (PII) is collected</li>
+                      <li>Questions are automatically screened to remove any personal details</li>
+                      <li>Only anonymized questions are cached to improve service quality</li>
+                      <li>No user accounts or profiles are created</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="font-semibold">How is the cached data used?</p>
+                    <p className="text-muted-foreground mt-1">
+                      Cached questions, stripped of all identifying information, help us improve response accuracy and identify common climate information needs. We regularly delete cached questions after analysis.
+                    </p>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="trust">
+                <AccordionTrigger>🤝 Trust & Transparency</AccordionTrigger>
+                <AccordionContent className="space-y-4">
+                  <div>
+                    <p className="font-semibold">How can I trust this tool?</p>
+                     <p className="text-muted-foreground mt-1">
+                      Our commitment to trustworthy information rests on:
+                    </p>
+                    <ul className="list-disc list-outside pl-5 mt-2 text-muted-foreground space-y-1">
+                      <li>Citations for every piece of information, linking to authoritative sources</li>
+                      <li>Open-source code available for public review on <a href="https://github.com/Climate-Resilient-Communities/climate-multilingual-chatbot" target="_blank" rel="noopener noreferrer" className="underline">GitHub</a></li>
+                      <li>Community co-design ensuring real-world relevance</li>
+                      <li>Regular updates based on user feedback and new research</li>
+                    </ul>
+                   </div>
+                   <div>
+                     <p className="font-semibold">How can I provide feedback or report issues?</p>
+                     <p className="text-muted-foreground mt-1">
+                      We welcome your input through:
+                    </p>
+                     <ul className="list-disc list-outside pl-5 mt-2 text-muted-foreground space-y-1">
+                        <li>The feedback button within the chat interface</li>
+                        <li>Our <a href="https://github.com/Climate-Resilient-Communities/climate-multilingual-chatbot" target="_blank" rel="noopener noreferrer" className="underline">GitHub repository</a> for technical contributions</li>
+                        <li>Community feedback sessions</li>
+                    </ul>
+                    <a href="https://docs.google.com/forms/d/e/1FAIpQLSd2-iv25ZSpBkMuoz6dGgt8vuU1ifmi-PxY63I7accyAdHirg/viewform?pli=1" target="_blank" rel="noopener noreferrer">
+                        <Button variant="outline" className="mt-4 w-full">Submit Feedback</Button>
+                    </a>
+                    <p className="text-muted-foreground mt-2 text-xs text-center">For technical support or to report issues, please visit our <a href="https://github.com/Climate-Resilient-Communities/climate-multilingual-chatbot" target="_blank" rel="noopener noreferrer" className="underline">GitHub repository</a>.</p>
+                   </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
           <DialogFooter>
-            <Button onClick={() => setSettingsOpen(false)}>Close</Button>
+            <Button onClick={() => setSettingsOpen(false)} className="w-full">Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
