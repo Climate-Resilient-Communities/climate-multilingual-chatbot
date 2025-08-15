@@ -64,7 +64,7 @@ export function AppHeader({ onNewChat }: AppHeaderProps) {
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" onClick={onNewChat} className="h-9 text-white border-gray-600 hover:bg-gray-700 hover:text-white">
+          <Button variant="outline" size="sm" onClick={onNewChat} className="h-9 text-white bg-transparent border-gray-600 hover:bg-gray-700 hover:text-white">
             <MessageSquarePlus className="mr-2 h-4 w-4" />
             New Chat
           </Button>
