@@ -28,29 +28,28 @@ export default function Home() {
 
   const handleSendMessage = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const query = inputValue.trim();
+    const query = inputValue.trim().toLowerCase();
     if (!query) return;
 
     setInputValue("");
-    setMessages((prev) => [...prev, { role: "user", content: query }]);
+    setMessages((prev) => [...prev, { role: "user", content: inputValue.trim() }]);
     setIsLoading(true);
 
-    try {
-      const result = await climateInfoRetrieval({ query });
-      const fullResponse = `${result.answer}\n\n**Resources:**\n${result.resources}`;
-      setMessages((prev) => [...prev, { role: "assistant", content: fullResponse }]);
-    } catch (error) {
-      console.error(error);
-      const errorMessage = "I'm sorry, I encountered an error and couldn't process your request. Please try again.";
-      setMessages((prev) => [...prev, { role: "assistant", content: errorMessage }]);
-      toast({
-        variant: "destructive",
-        title: "An error occurred",
-        description: "Failed to get a response from the assistant.",
-      });
-    } finally {
+    // Mock response logic
+    setTimeout(() => {
+      let response = "";
+      if (query === "hello") {
+        response = "hello im your climate chatbot how can i help you";
+      } else if (query === "what is climage change?") {
+        response = "climate change is..... ";
+      } else {
+        setMessages((prev) => [...prev, { role: "assistant", content: "I'm sorry, I can only respond to 'hello' and 'what is climage change?' right now." }]);
+        setIsLoading(false);
+        return;
+      }
+      setMessages((prev) => [...prev, { role: "assistant", content: response }]);
       setIsLoading(false);
-    }
+    }, 1000);
   };
   
   const handleConsent = () => {
