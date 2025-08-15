@@ -11,11 +11,12 @@ import { Card, CardContent } from "@/components/ui/card";
 
 type ChatWindowProps = {
   messages: Message[];
-  isLoading: boolean;
+  loadingMessage: string | null;
 };
 
-export function ChatWindow({ messages, isLoading }: ChatWindowProps) {
+export function ChatWindow({ messages, loadingMessage }: ChatWindowProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const isLoading = loadingMessage !== null;
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -24,7 +25,7 @@ export function ChatWindow({ messages, isLoading }: ChatWindowProps) {
         behavior: "smooth",
       });
     }
-  }, [messages]);
+  }, [messages, loadingMessage]);
 
   return (
     <div className="flex-1 overflow-hidden">
@@ -48,7 +49,7 @@ export function ChatWindow({ messages, isLoading }: ChatWindowProps) {
             <div className="flex justify-start">
               <div className="flex items-center gap-3 p-3 rounded-lg bg-muted message-bubble">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                <span className="text-sm text-muted-foreground">Thinking...</span>
+                <span className="text-sm text-muted-foreground">{loadingMessage}</span>
               </div>
             </div>
           )}

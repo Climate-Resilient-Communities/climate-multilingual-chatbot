@@ -17,7 +17,7 @@ import { type Message } from "@/components/chat/chat-message";
 export default function Home() {
   const [inputValue, setInputValue] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [showConsent, setShowConsent] = useState(true);
   const { toast } = useToast();
 
@@ -40,10 +40,26 @@ export default function Home() {
 
     setInputValue("");
     setMessages((prev) => [...prev, { role: "user", content: query }]);
-    setIsLoading(true);
+    
+    const loadingStates = [
+        "Thinking…",
+        "Retrieving documents…",
+        "Generating response…",
+        "Finalizing…",
+    ];
+    let stateIndex = 0;
+    setLoadingMessage(loadingStates[stateIndex]);
+
+    const interval = setInterval(() => {
+        stateIndex++;
+        if (stateIndex < loadingStates.length) {
+            setLoadingMessage(loadingStates[stateIndex]);
+        }
+    }, 1200);
 
     // Mock response logic
     setTimeout(() => {
+      clearInterval(interval);
       let response = "I'm sorry, I can only respond to pre-set questions right now.";
       const lowerQuery = query.toLowerCase();
 
@@ -58,8 +74,8 @@ export default function Home() {
       }
       
       setMessages((prev) => [...prev, { role: "assistant", content: response }]);
-      setIsLoading(false);
-    }, 1000);
+      setLoadingMessage(null);
+    }, 1000 * loadingStates.length + 500);
   };
   
   const handleConsent = () => {
@@ -69,12 +85,14 @@ export default function Home() {
   if (showConsent) {
     return <ConsentDialog open={showConsent} onConsent={handleConsent} />;
   }
+  
+  const isLoading = loadingMessage !== null;
 
   return (
     <div className="flex flex-col h-screen">
       <AppHeader onNewChat={handleNewChat} />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <ChatWindow messages={messages} isLoading={isLoading} />
+        <ChatWindow messages={messages} loadingMessage={loadingMessage} />
         {messages.length === 0 && !isLoading && (
             <SampleQuestions 
                 onQuestionClick={(question) => handleSendMessage(question)} 
