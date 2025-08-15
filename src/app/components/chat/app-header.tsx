@@ -7,13 +7,6 @@ import Logo from "@/app/Logo.png";
 import { Languages, HelpCircle, MessageSquarePlus, BarChart, Lock, ShieldCheck, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -109,9 +102,12 @@ export function AppHeader({ onNewChat }: AppHeaderProps) {
                                 {sortedLanguages.map((language) => (
                                 <CommandItem
                                     key={language.value}
-                                    value={language.value}
+                                    value={language.label}
                                     onSelect={(currentValue) => {
-                                        setSelectedLanguage(currentValue === selectedLanguage ? "" : currentValue)
+                                        const selected = sortedLanguages.find(lang => lang.label.toLowerCase() === currentValue.toLowerCase());
+                                        if (selected) {
+                                            setSelectedLanguage(selected.value)
+                                        }
                                         setLangPopoverOpen(false)
                                     }}
                                 >
