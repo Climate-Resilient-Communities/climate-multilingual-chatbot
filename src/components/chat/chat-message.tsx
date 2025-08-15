@@ -93,7 +93,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
                 </Button>
                 <Button variant="ghost" className="h-7 gap-1 px-2 text-muted-foreground hover:text-foreground">
                     <RefreshCw className="h-4 w-4" />
-                    <span className="text-sm">Retry</span>
+                    <span className="text-xs">Retry</span>
                 </Button>
             </div>
         )}
