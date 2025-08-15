@@ -34,13 +34,13 @@ export function ChatWindow({ messages, loadingMessage, onQuestionClick }: ChatWi
       <ScrollArea className="h-full" viewportRef={scrollAreaRef}>
         <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
           {messages.length === 0 && !isLoading && (
-            <div className="flex flex-col items-center justify-center h-full pt-20">
-              <Card className="max-w-3xl mx-auto border-0 shadow-none bg-transparent">
+            <div className="flex flex-col items-center justify-center h-full pt-10 md:pt-20">
+              <Card className="max-w-3xl w-full mx-auto border-0 shadow-none bg-transparent">
                 <CardContent className="p-6 text-center flex flex-col items-center">
                     <Image src={Logo} alt="Logo" width={64} height={64} className="w-16 h-16 mb-4" />
                     <h2 className="text-xl md:text-2xl font-semibold text-primary">Welcome to Multilingual Climate chatbot!</h2>
-                    <p className="text-sm md:text-base text-muted-foreground mt-2 max-w-sm">
-                        Ask me anything about climate change, and I'll provide you with information and local resources.
+                    <p className="text-sm md:text-base text-muted-foreground mt-2 max-w-2xl">
+                        I can chat in many languages. Select yours from the menu above to begin. Ask me anything about climate change, and I'll provide you with information and local resources.
                     </p>
                 </CardContent>
               </Card>
