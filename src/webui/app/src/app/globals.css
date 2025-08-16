@@ -84,4 +84,18 @@
       transform: translateY(0) scale(1);
     }
   }
+
+  /* Mobile viewport fixes */
+  @supports (height: 100svh) {
+    .mobile-viewport {
+      height: 100svh;
+    }
+  }
+
+  /* iOS Safari specific fixes */
+  @supports (-webkit-touch-callout: none) {
+    .mobile-safe-area {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+  }
 }

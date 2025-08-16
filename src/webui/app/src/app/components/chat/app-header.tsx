@@ -4,15 +4,8 @@
 import { useState } from 'react';
 import Image from "next/image";
 import Logo from "@/app/Logo.png";
-import { Languages, HelpCircle, MessageSquarePlus, BarChart, Lock, ShieldCheck } from "lucide-react";
+import { Languages, HelpCircle, MessageSquarePlus, BarChart, Lock, ShieldCheck, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -22,7 +15,28 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command";
 import languagesData from "@/app/languages.json";
+import { cn } from "@/lib/utils";
+
 
 type AppHeaderProps = {
   onNewChat?: () => void;
@@ -30,12 +44,43 @@ type AppHeaderProps = {
 
 export function AppHeader({ onNewChat }: AppHeaderProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const languages = languagesData.speculative_supported_languages_nova_proxy.languages;
-  
-  const sortedLanguages = Object.entries(languages)
-    .sort(([, nameA], [, nameB]) => nameA.localeCompare(nameB));
+  const [langPopoverOpen, setLangPopoverOpen] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState("en");
 
-  const englishIndex = sortedLanguages.findIndex(([code]) => code === 'en');
+  const speculativeLanguages = languagesData.speculative_supported_languages_nova_proxy.languages;
+  const cohereLanguages = languagesData.cohere_command_a_languages.languages;
+
+  const mergedLanguages = new Map<string, string>();
+
+  // Add Cohere languages first to prioritize them
+  cohereLanguages.forEach(langName => {
+    for (const [code, name] of Object.entries(speculativeLanguages)) {
+      if (name === langName && !Array.from(mergedLanguages.values()).includes(name)) {
+        mergedLanguages.set(code, name);
+        break;
+      }
+    }
+  });
+
+  // Add remaining speculative languages
+  for (const [code, name] of Object.entries(speculativeLanguages)) {
+    if (!Array.from(mergedLanguages.values()).includes(name)) {
+      mergedLanguages.set(code, name);
+    }
+  }
+
+  const sortedLanguages = Array.from(mergedLanguages.entries())
+    .map(([code, name]) => ({ value: code, label: name }))
+    .sort((a, b) => {
+      // Prioritize Cohere languages, then sort alphabetically
+      const aIsCohere = cohereLanguages.includes(a.label);
+      const bIsCohere = cohereLanguages.includes(b.label);
+      if (aIsCohere && !bIsCohere) return -1;
+      if (!aIsCohere && bIsCohere) return 1;
+      return a.label.localeCompare(b.label);
+    });
+
+  const englishIndex = sortedLanguages.findIndex((lang) => lang.value === 'en');
   if (englishIndex > -1) {
     const english = sortedLanguages.splice(englishIndex, 1)[0];
     sortedLanguages.unshift(english);
@@ -51,27 +96,80 @@ export function AppHeader({ onNewChat }: AppHeaderProps) {
             </span>
         </a>
         <div className="flex items-center gap-2">
-          <Select defaultValue="en">
-            <SelectTrigger className="w-auto gap-2 text-sm h-9 bg-[#1F1F1F] text-white border-gray-600">
-              <Languages className="h-4 w-4" />
-              <SelectValue placeholder="Language" />
-            </SelectTrigger>
-            <SelectContent>
-              {sortedLanguages.map(([code, name]) => (
-                <SelectItem key={code} value={code}>
-                  {name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <Popover open={langPopoverOpen} onOpenChange={setLangPopoverOpen}>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    aria-expanded={langPopoverOpen}
+                                    className="w-[180px] justify-between h-9 bg-[#1F1F1F] text-white border-gray-600 hover:bg-gray-700 hover:text-white"
+                                >
+                                    <Languages className="mr-2 h-4 w-4 shrink-0" />
+                                    {selectedLanguage
+                                        ? sortedLanguages.find((lang) => lang.value === selectedLanguage)?.label
+                                        : "Select language..."}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Select Language</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+                <PopoverContent className="w-[200px] p-0">
+                    <Command>
+                        <CommandInput placeholder="Search language..." />
+                        <CommandList>
+                            <CommandEmpty>No language found.</CommandEmpty>
+                            <CommandGroup>
+                                {sortedLanguages.map((language) => (
+                                <CommandItem
+                                    key={language.value}
+                                    value={language.label}
+                                    onSelect={(currentValue) => {
+                                        const selected = sortedLanguages.find(lang => lang.label.toLowerCase() === currentValue.toLowerCase());
+                                        if (selected) {
+                                            setSelectedLanguage(selected.value)
+                                        }
+                                        setLangPopoverOpen(false)
+                                    }}
+                                >
+                                    <Check
+                                        className={cn(
+                                            "mr-2 h-4 w-4",
+                                            selectedLanguage === language.value ? "opacity-100" : "opacity-0"
+                                        )}
+                                    />
+                                    {language.label}
+                                </CommandItem>
+                                ))}
+                            </CommandGroup>
+                        </CommandList>
+                    </Command>
+                </PopoverContent>
+            </Popover>
+
           <Button variant="outline" size="sm" onClick={onNewChat} className="h-9 text-white bg-transparent border-gray-600 hover:bg-gray-700 hover:text-white">
-            <MessageSquarePlus className="mr-2 h-4 w-4" />
-            New Chat
+            <MessageSquarePlus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">New Chat</span>
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)} className="h-9 w-9 text-white hover:bg-gray-700 hover:text-white">
-            <HelpCircle className="h-5 w-5" />
-            <span className="sr-only">FAQ</span>
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)} className="h-9 w-9 text-white hover:bg-gray-700 hover:text-white">
+                  <HelpCircle className="h-5 w-5" />
+                  <span className="sr-only">FAQ</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Support & FAQs</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </header>
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
@@ -172,3 +270,5 @@ export function AppHeader({ onNewChat }: AppHeaderProps) {
     </>
   );
 }
+
+    
