@@ -28,7 +28,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
 
   return (
     <Dialog open={open}>
-      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader className="space-y-2">
             <div className="flex justify-center">
                 <Image src={Logo} alt="Logo" width={48} height={48} className="w-12 h-12" />
