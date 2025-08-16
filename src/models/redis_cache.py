@@ -3,7 +3,7 @@ import json
 import logging
 import asyncio
 import os
-from typing import Any, Optional
+from typing import Any, Optional, List
 from threading import Lock
 
 # Configure logging
@@ -164,6 +164,44 @@ class RedisCache:
             logger.info("Redis connection closed")
         except Exception as e:
             logger.error(f"Error closing Redis connection: {str(e)}")
+
+    # --- Enhanced feedback storage methods ---
+    async def store_feedback(self, key: str, feedback_data: dict) -> bool:
+        """Store feedback data in cache"""
+        return await self.set(key, feedback_data)
+
+    async def add_to_list(self, list_key: str, value: str) -> bool:
+        """Add a value to a Redis list"""
+        if self._closed:
+            logger.warning("Attempting to use closed Redis connection")
+            return False
+            
+        try:
+            client = self._get_client()
+            if not client:
+                return False
+                
+            result = await asyncio.to_thread(client.lpush, list_key, value)
+            return bool(result)
+        except Exception as e:
+            logger.error(f"Failed to add to list {list_key}: {str(e)}")
+            return False
+
+    async def get_list(self, list_key: str, start: int = 0, end: int = -1) -> List[str]:
+        """Get items from a Redis list"""
+        if self._closed:
+            return []
+            
+        try:
+            client = self._get_client()
+            if not client:
+                return []
+                
+            items = await asyncio.to_thread(client.lrange, list_key, start, end)
+            return [item.decode('utf-8') if isinstance(item, bytes) else item for item in items]
+        except Exception as e:
+            logger.error(f"Failed to get list {list_key}: {str(e)}")
+            return []
 
     # --- Synchronous helper methods for testing and compatibility ---
     def save_to_cache(self, key: str, value: Any) -> bool:

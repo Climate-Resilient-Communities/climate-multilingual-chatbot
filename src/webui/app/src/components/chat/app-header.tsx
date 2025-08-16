@@ -26,9 +26,11 @@ import languagesData from "@/app/languages.json";
 
 type AppHeaderProps = {
   onNewChat: () => void;
+  selectedLanguage: string;
+  onLanguageChange: (language: string) => void;
 };
 
-export function AppHeader({ onNewChat }: AppHeaderProps) {
+export function AppHeader({ onNewChat, selectedLanguage, onLanguageChange }: AppHeaderProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const languages = languagesData.speculative_supported_languages_nova_proxy.languages;
   
@@ -51,7 +53,7 @@ export function AppHeader({ onNewChat }: AppHeaderProps) {
             </span>
         </a>
         <div className="flex items-center gap-2">
-          <Select defaultValue="en">
+          <Select value={selectedLanguage} onValueChange={onLanguageChange}>
             <SelectTrigger className="w-auto gap-2 text-sm h-9">
               <Languages className="h-4 w-4" />
               <SelectValue placeholder="Language" />

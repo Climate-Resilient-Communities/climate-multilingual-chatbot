@@ -1,28 +1,53 @@
 
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useRef, useEffect } from "react";
 import Image from "next/image";
 import Logo from "@/app/Logo.png";
 import { useToast } from "@/hooks/use-toast";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Textarea as ShadcnTextarea } from "@/components/ui/textarea";
+import Textarea from 'react-textarea-autosize';
 import { SendHorizonal } from "lucide-react";
 import { AppHeader } from "@/app/components/chat/app-header";
 import { ChatWindow } from "@/components/chat/chat-window";
 import { ConsentDialog } from "@/components/chat/consent-dialog";
-import { SampleQuestions } from "@/app/components/chat/sample-questions";
 import { type Message } from "@/components/chat/chat-message";
+import { type Source } from "@/components/chat/citations-popover";
+import { apiClient, type ChatRequest, type CitationDict } from "@/lib/api";
 
 export default function Home() {
   const [inputValue, setInputValue] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [showConsent, setShowConsent] = useState(true);
+  // Language selection state
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('en');
   const { toast } = useToast();
 
   const handleNewChat = () => {
     setMessages([]);
+  };
+
+  const convertCitationsToSources = (citations: CitationDict[]): Source[] => {
+    return citations.map((citation) => ({
+      url: citation.url || '',
+      title: citation.title || 'Untitled Source',
+      text: citation.snippet || citation.content || '',
+      content: citation.content,
+      snippet: citation.snippet
+    }));
+  };
+
+  const handleRetry = (messageIndex: number) => {
+    // Find the last user message before this assistant message
+    const userMessage = messages[messageIndex - 1];
+    if (userMessage && userMessage.role === 'user') {
+      // Remove the failed assistant message and retry
+      setMessages(prev => prev.slice(0, messageIndex));
+      handleSendMessage(userMessage.content);
+    }
   };
 
   const handleSendMessage = async (e: FormEvent<HTMLFormElement> | string) => {
@@ -35,48 +60,107 @@ export default function Home() {
     if (!query) return;
 
     setInputValue("");
-    setMessages((prev) => [...prev, { role: "user", content: query }]);
+    const userMessageId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    setMessages((prev) => [...prev, { role: "user", content: query, id: userMessageId }]);
     
-    const loadingStates = [
-        "Thinking…",
-        "Retrieving documents…",
-        "Generating response…",
-        "Finalizing…",
+    // Start with initial loading state
+    setLoadingMessage("Thinking…");
+
+    // High-level pipeline categories with realistic timing
+    const pipelineStages = [
+      { message: "Thinking…", delay: 1200 },           // Combines: initial setup, routing, rewriting, validation
+      { message: "Retrieving documents…", delay: 1800 }, // Combines: document retrieval, relevance analysis  
+      { message: "Formulating response…", delay: 2700 }, // Combines: LLM generation, quality verification
+      { message: "Finalizing…", delay: 800 }             // Translation and final formatting
     ];
-    let stateIndex = 0;
-    setLoadingMessage(loadingStates[stateIndex]);
 
-    const interval = setInterval(() => {
-        stateIndex++;
-        if (stateIndex < loadingStates.length) {
-            setLoadingMessage(loadingStates[stateIndex]);
-        }
-    }, 300);
+    // Show pipeline stages progressively
+    let stageTimeouts: NodeJS.Timeout[] = [];
+    let totalDelay = 0;
 
-    // Mock response logic
-    setTimeout(() => {
-      clearInterval(interval);
-      let response = "I'm sorry, I can only respond to pre-set questions right now.";
-      const lowerQuery = query.toLowerCase();
+    pipelineStages.forEach((stage, index) => {
+      totalDelay += stage.delay;
+      const timeout = setTimeout(() => {
+        setLoadingMessage(stage.message);
+      }, totalDelay);
+      stageTimeouts.push(timeout);
+    });
 
-      if (lowerQuery.includes("local impacts")) {
-        response = "In Toronto, local impacts of climate change include more frequent and intense heatwaves, increased risk of flooding from severe storms, and changes to ecosystems in local ravines and the Lake Ontario shoreline.";
-      } else if (lowerQuery.includes("summer so hot")) {
-        response = "Summers in Toronto are getting hotter due to the urban heat island effect, where buildings and pavement trap heat, combined with the broader effects of global warming, which raises baseline temperatures.";
-      } else if (lowerQuery.includes("flooding")) {
-        response = "To address flooding in Toronto, you can ensure your property has proper drainage, install a sump pump or backwater valve, use rain barrels to capture runoff, and support city-wide initiatives for green infrastructure like permeable pavements and green roofs.";
-      } else if (lowerQuery.includes("carbon footprint")) {
-        response = "You can reduce your carbon footprint by using public transit, cycling, or walking instead of driving; reducing home energy use with better insulation and energy-efficient appliances; and shifting to a more plant-based diet.";
-      }
+    try {
+      // Convert message format for API
+      const conversationHistory = messages.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+
+      const chatRequest: ChatRequest = {
+        query,
+        language: selectedLanguage,
+        conversation_history: conversationHistory,
+        stream: false
+      };
       
-      setMessages((prev) => [...prev, { role: "assistant", content: response }]);
+      const response = await apiClient.sendChatQuery(chatRequest);
+
+      // Clear any remaining stage timeouts
+      stageTimeouts.forEach(timeout => clearTimeout(timeout));
+      
+      if (response.success) {
+        // Convert API citations to Source objects for the citations popover
+        const sources: Source[] = response.citations.length > 0 
+          ? convertCitationsToSources(response.citations)
+          : [];
+        
+        const assistantMessageId = `assistant_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        setMessages((prev) => [...prev, { 
+          role: "assistant", 
+          content: response.response, // Keep original response without appended citations
+          id: assistantMessageId,
+          sources: sources // Add sources separately for citations popover
+        }]);
+        
+        // Show success toast with processing info
+        toast({
+          title: "Response generated successfully",
+          description: `Model: ${response.model_used} • Time: ${response.processing_time.toFixed(2)}s • Faithfulness: ${(response.faithfulness_score * 100).toFixed(1)}%`,
+        });
+      } else {
+        throw new Error("API returned unsuccessful response");
+      }
+    } catch (error) {
+      console.error('Chat API error:', error);
+      
+      // Clear any remaining stage timeouts on error
+      stageTimeouts.forEach(timeout => clearTimeout(timeout));
+      
+      // Add error message to chat
+      const errorMessageId = `error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      setMessages((prev) => [...prev, { 
+        role: "assistant", 
+        content: "I'm sorry, I encountered an error while processing your request. Please try again or contact support if the issue persists.",
+        id: errorMessageId
+      }]);
+      
+      // Show error toast
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to get response",
+      });
+    } finally {
       setLoadingMessage(null);
-    }, 1200);
+    }
   };
   
   const handleConsent = () => {
     setShowConsent(false);
   };
+
+  useEffect(() => {
+    if (inputRef.current) {
+        inputRef.current.focus();
+    }
+  }, []);
 
   if (showConsent) {
     return <ConsentDialog open={showConsent} onConsent={handleConsent} />;
@@ -85,31 +169,49 @@ export default function Home() {
   const isLoading = loadingMessage !== null;
 
   return (
-    <div className="flex flex-col h-screen">
-      <AppHeader onNewChat={handleNewChat} />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <ChatWindow messages={messages} loadingMessage={loadingMessage} />
-        {messages.length === 0 && !isLoading && (
-            <SampleQuestions 
-                onQuestionClick={(question) => handleSendMessage(question)} 
-            />
-        )}
+    <div className="flex flex-col h-[100svh]">
+      <AppHeader 
+        onNewChat={handleNewChat} 
+        selectedLanguage={selectedLanguage}
+        onLanguageChange={setSelectedLanguage}
+      />
+      <div className="flex-1 overflow-y-auto">
+        <ChatWindow 
+          messages={messages} 
+          loadingMessage={loadingMessage}
+          onQuestionClick={(question) => {
+            handleSendMessage(question);
+            if (inputRef.current) {
+              inputRef.current.focus();
+            }
+          }}
+          onRetry={handleRetry}
+        />
       </div>
       
-      <div className="p-4 border-t bg-background">
+      <div className="p-4 border-t bg-background shrink-0">
         <form
           onSubmit={handleSendMessage}
-          className="flex items-center gap-2 max-w-2xl mx-auto"
+          className="flex items-start gap-4 max-w-4xl mx-auto"
         >
-          <Image src={Logo} alt="Logo" width={24} height={24} className="h-6 w-6" />
-          <Input
+          <Image src={Logo} alt="Logo" width={40} height={40} className="h-10 w-10 mt-0" />
+          <ShadcnTextarea
+            ref={inputRef}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage(e as any);
+              }
+            }}
             placeholder="Ask about climate change..."
-            className="flex-1"
+            className="flex-1 resize-none max-h-40"
+            minRows={1}
             disabled={isLoading}
+            as={Textarea}
           />
-          <Button type="submit" size="icon" disabled={isLoading || !inputValue.trim()}>
+          <Button type="submit" size="icon" disabled={isLoading || !inputValue.trim()} className="self-end h-10 w-10">
             <SendHorizonal className="h-5 w-5" />
             <span className="sr-only">Send</span>
           </Button>

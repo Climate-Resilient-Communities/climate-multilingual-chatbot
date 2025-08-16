@@ -89,7 +89,7 @@ CHAT_LOG_DIR_ENV = os.environ.get("CHAT_LOG_DIR", "").strip()
 if CHAT_LOG_DIR_ENV:
     LOG_DIR = Path(CHAT_LOG_DIR_ENV).expanduser().resolve()
 else:
-    LOG_DIR = Path.home() / ".streamlit/logs"
+LOG_DIR = Path.home() / ".streamlit/logs"
 try:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
 except Exception:
@@ -824,7 +824,7 @@ else:
 
 # Single page config, no reruns around it (prevents fragment errors)
 st.set_page_config(
-    layout="wide",
+    layout="wide", 
     page_title="Multilingual Climate Chatbot",
     page_icon=calculated_favicon,
     initial_sidebar_state=SIDEBAR_STATE[st.session_state._sb_open],
@@ -1453,7 +1453,7 @@ def display_chat_messages(retry_request=None):
     injected_retry_placeholder = None
     
     # Note: custom URL-param based feedback handling removed; using native Streamlit buttons
-
+    
     for i, message in enumerate(st.session_state.chat_history):
         if message['role'] == 'user':
             user_msg = st.chat_message("user")
@@ -2454,22 +2454,22 @@ def main():
             st.session_state.chatbot_init = init_chatbot()
 
     # Always render the main app content; show consent as overlay at the end if needed
-    try:
-        # Get the already-initialized chatbot
-        chatbot_init = st.session_state.chatbot_init
+        try:
+            # Get the already-initialized chatbot
+            chatbot_init = st.session_state.chatbot_init
         if not isinstance(chatbot_init, dict):
             # Try to initialize again if previous state was missing
             chatbot_init = init_chatbot()
             st.session_state.chatbot_init = chatbot_init
         if not isinstance(chatbot_init, dict):
             chatbot_init = {"success": False, "chatbot": None, "error": "Chatbot initialization returned no result"}
-        if not chatbot_init.get("success", False):
-            st.error(chatbot_init.get("error", "Failed to initialize chatbot. Please check your configuration."))
-            st.warning("Make sure all required API keys are properly configured in your environment")
-            return
+            if not chatbot_init.get("success", False):
+                st.error(chatbot_init.get("error", "Failed to initialize chatbot. Please check your configuration."))
+                st.warning("Make sure all required API keys are properly configured in your environment")
+                return
 
-        chatbot = chatbot_init.get("chatbot")
-        
+            chatbot = chatbot_init.get("chatbot")
+
         # Handle sidebar force-open via query param
         try:
             params = st.query_params  # Streamlit 1.30+
@@ -2497,9 +2497,9 @@ def main():
 
                 st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
                 st.markdown('<div class="content">', unsafe_allow_html=True)
-                
+
                 st.title('Multilingual Climate Chatbot')
-                
+
                 # Language selection and confirmation
                 st.write("**Please choose your preferred language to get started:**")
                 languages = sorted(chatbot.LANGUAGE_NAME_TO_CODE.keys())
@@ -2585,7 +2585,7 @@ def main():
                         st.rerun()
                 else:
                     st.session_state.selected_language = selected_language
-                
+
                 if len(st.session_state.chat_history) == 0:
                     st.markdown(
                         """
@@ -2595,9 +2595,9 @@ def main():
                             <li style="margin-bottom: 8px;"><b>Choose Language</b>: Select from 200+ options.</li>
                             <li style="margin-bottom: 8px;"><b>Ask Questions</b>: <i>"What are the local impacts of climate change in Toronto?"</i> or <i>"Why is summer so hot now in Toronto?"</i></li>
                             <li style="margin-bottom: 8px;"><b>Act</b>: Ask about actionable steps such as <i>"What can I do about flooding in Toronto?"</i> or <i>"How to reduce my carbon footprint?"</i> and receive links to local resources (e.g., city programs, community groups).</li>
-                        </ul>
-                        </div>
-                        """,
+                    </ul>
+                    </div>
+                    """,
                         unsafe_allow_html=True
                     )
                 if len(st.session_state.chat_history) > 0:
@@ -2727,10 +2727,10 @@ def main():
         # Remove floating toggle; sidebar collapse is disabled and sidebar always visible via CSS
 
         # FAQ Popup Modal using Streamlit native components (restored)
-        if st.session_state.show_faq_popup:
-            st.markdown(
-                """
-            <style>
+            if st.session_state.show_faq_popup:
+                st.markdown(
+                    """
+                <style>
             .stApp > div > div > div > div > div > section > div { background-color: rgba(0, 0, 0, 0.7) !important; }
             div[data-testid="column"]:has(.faq-popup-marker) {
                 background-color: white; border-radius: 10px; padding: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);
@@ -2769,92 +2769,92 @@ def main():
                 div[data-testid="column"]:has(.faq-popup-marker) [data-testid="stMarkdownContainer"] { 
                     font-size: 0.9rem !important; 
                 }
-            }
-            </style>
-            """,
-                unsafe_allow_html=True,
-            )
-
-            col1, col2, col3 = st.columns([1, 6, 1])
-            with col2:
-                st.markdown('<div class="faq-popup-marker"></div>', unsafe_allow_html=True)
-                header_col1, header_col2 = st.columns([11, 1])
-                with header_col1:
-                    st.markdown("# Support & FAQs")
-                with header_col2:
+                }
+                </style>
+                """,
+                    unsafe_allow_html=True,
+                )
+                
+                col1, col2, col3 = st.columns([1, 6, 1])
+                with col2:
+                    st.markdown('<div class="faq-popup-marker"></div>', unsafe_allow_html=True)
+                    header_col1, header_col2 = st.columns([11, 1])
+                    with header_col1:
+                        st.markdown("# Support & FAQs")
+                    with header_col2:
                     if st.button("✕", key="close_faq_top", help="Close FAQ"):
-                        st.session_state.show_faq_popup = False
-                        st.rerun()
-                st.markdown("---")
-
+                            st.session_state.show_faq_popup = False
+                            st.rerun()
+                    st.markdown("---")
+                    
                 # Info Accuracy
-                with st.container():
-                    st.markdown("## 📊 Information Accuracy")
-                    with st.expander("How accurate is the information provided by the chatbot?", expanded=True):
-                        st.write(
+                    with st.container():
+                        st.markdown("## 📊 Information Accuracy")
+                        with st.expander("How accurate is the information provided by the chatbot?", expanded=True):
+                            st.write(
+                                """
+                            Our chatbot uses Retrieval-Augmented Generation (RAG) technology to provide verified information exclusively 
+                            from government reports, academic research, and established non-profit organizations' publications. Every 
+                            response includes citations to original sources, allowing you to verify the information directly. The system 
+                            matches your questions with relevant, verified information rather than generating content independently.
                             """
-                        Our chatbot uses Retrieval-Augmented Generation (RAG) technology to provide verified information exclusively
-                        from government reports, academic research, and established non-profit organizations' publications. Every
-                        response includes citations to original sources, allowing you to verify the information directly. The system
-                        matches your questions with relevant, verified information rather than generating content independently.
-                        """
-                        )
-                    with st.expander("What sources does the chatbot use?", expanded=True):
-                        st.write(
+                            )
+                        with st.expander("What sources does the chatbot use?", expanded=True):
+                            st.write(
+                                """
+                            All information comes from three verified source types: government climate reports, peer-reviewed academic 
+                            research, and established non-profit organization publications. Each response includes citations linking 
+                            directly to these sources.
                             """
-                        All information comes from three verified source types: government climate reports, peer-reviewed academic
-                        research, and established non-profit organization publications. Each response includes citations linking
-                        directly to these sources.
-                        """
-                        )
-
-                st.markdown("---")
-
+                            )
+                    
+                    st.markdown("---")
+                    
                 # Privacy
-                with st.container():
-                    st.markdown("## 🔒 Privacy Protection")
-                    with st.expander("What information does the chatbot collect?", expanded=True):
-                        st.write("We maintain a strict privacy-first approach:")
-                        st.markdown(
+                    with st.container():
+                        st.markdown("## 🔒 Privacy Protection")
+                        with st.expander("What information does the chatbot collect?", expanded=True):
+                            st.write("We maintain a strict privacy-first approach:")
+                            st.markdown(
+                                """
+                            - No personal identifying information (PII) is collected
+                            - Questions are automatically screened to remove any personal details
+                            - Only anonymized questions are cached to improve service quality
+                            - No user accounts or profiles are created
                             """
-                        - No personal identifying information (PII) is collected
-                        - Questions are automatically screened to remove any personal details
-                        - Only anonymized questions are cached to improve service quality
-                        - No user accounts or profiles are created
-                        """
-                        )
-                    with st.expander("How is the cached data used?", expanded=True):
-                        st.write(
+                            )
+                        with st.expander("How is the cached data used?", expanded=True):
+                            st.write(
+                                """
+                            Cached questions, stripped of all identifying information, help us improve response accuracy and identify 
+                            common climate information needs. We regularly delete cached questions after analysis.
                             """
-                        Cached questions, stripped of all identifying information, help us improve response accuracy and identify
-                        common climate information needs. We regularly delete cached questions after analysis.
-                        """
-                        )
-
-                st.markdown("---")
-
+                            )
+                    
+                    st.markdown("---")
+                    
                 # Trust & Transparency
-                with st.container():
-                    st.markdown("## 🤝 Trust & Transparency")
-                    with st.expander("How can I trust this tool?", expanded=True):
-                        st.write("Our commitment to trustworthy information rests on:")
-                        st.markdown(
+                    with st.container():
+                        st.markdown("## 🤝 Trust & Transparency")
+                        with st.expander("How can I trust this tool?", expanded=True):
+                            st.write("Our commitment to trustworthy information rests on:")
+                            st.markdown(
+                                """
+                            - Citations for every piece of information, linking to authoritative sources
+                            - Open-source code available for public review  
+                            - Community co-design ensuring real-world relevance
+                            - Regular updates based on user feedback and new research
                             """
-                        - Citations for every piece of information, linking to authoritative sources
-                        - Open-source code available for public review
-                        - Community co-design ensuring real-world relevance
-                        - Regular updates based on user feedback and new research
-                        """
-                        )
-                    with st.expander("How can I provide feedback or report issues?", expanded=True):
-                        st.write("We welcome your input through:")
-                        st.markdown(
-                            """
-                        - The feedback button within the chat interface
+                            )
+                        with st.expander("How can I provide feedback or report issues?", expanded=True):
+                            st.write("We welcome your input through:")
+                            st.markdown(
+                                """
+                            - The feedback button within the chat interface
                         - [Our GitHub repository](https://github.com/Climate-Resilient-Communities/climate-multilingual-chatbot) for technical contributions
-                        - Community feedback sessions
-                        """
-                        )
+                            - Community feedback sessions
+                            """
+                            )
                         st.markdown(
                             '<a class="feedback-button" href="https://forms.gle/7mXRSc3JAF8ZSTmr9" target="_blank" title="Report bugs or share feedback (opens Google Form)">📝 Submit Feedback</a>',
                             unsafe_allow_html=True,
@@ -2864,36 +2864,36 @@ def main():
                             unsafe_allow_html=True,
                         )
 
-                st.markdown("<br><br>", unsafe_allow_html=True)
-            st.stop()
+                    st.markdown("<br><br>", unsafe_allow_html=True)
+                st.stop()
 
         # Chat area
         retry_req = st.session_state.get('retry_request') if isinstance(st.session_state.get('retry_request'), dict) else None
         injected_retry_placeholder = display_chat_messages(retry_req)
-        if st.session_state.language_confirmed:
+            if st.session_state.language_confirmed:
             query = st.chat_input("Ask Climate Change Bot", key="chat_input_main")
-            if query:
+                if query:
                 try:
                     from src.utils.logging_setup import ensure_file_logger
                     ensure_file_logger(os.getenv("PIPELINE_LOG_FILE", os.path.join(os.getcwd(), "logs", "pipeline_debug.log")))
                     logger.info("UI IN → raw_query repr=%r codepoints(first20)=%s", query, [ord(c) for c in query[:20]])
                 except Exception:
                     pass
-                st.session_state.chat_history.append({'role': 'user', 'content': query})
-        else:
+                    st.session_state.chat_history.append({'role': 'user', 'content': query})
+            else:
             # Show guidance banner on both mobile and desktop
-            st.markdown(
-                """
+                st.markdown(
+                    """
                 <div style=\"margin-top: 10px; margin-bottom: 30px; background-color: #009376; padding: 10px; border-radius: 5px; color: white; text-align: center;\">Please select your language and click Confirm to start chatting.</div>
                 """,
-                unsafe_allow_html=True
-            )
-            query = None
+                    unsafe_allow_html=True
+                )
+                query = None
 
         # Process query/retry if available
         if (query or retry_req) and chatbot:
-            # User message is already added to chat history above
-            # Display the user message
+                # User message is already added to chat history above
+                # Display the user message
             if query:
                 st.chat_message("user").markdown(render_user_bubble(query), unsafe_allow_html=True)
                 render_message_actions_ui(len(st.session_state.chat_history) - 1, st.session_state.chat_history[-1])
@@ -2907,24 +2907,24 @@ def main():
                 response_placeholder = st.chat_message("assistant")
                 typing_message = response_placeholder.empty()
             # Replace plain text with interactive progress UI below
-
-            try:
-                # Build conversation history for process_query
-                conversation_history = []
-                chat_hist = st.session_state.chat_history
-                i = 0
-                while i < len(chat_hist) - 1:
-                    if chat_hist[i]["role"] == "user" and chat_hist[i+1]["role"] == "assistant":
-                        conversation_history.append({
-                            "query": chat_hist[i]["content"],
-                            "response": chat_hist[i+1]["content"],
-                            "language_code": chat_hist[i+1].get("language_code", "en"),
-                            "language_name": st.session_state.selected_language,
-                            "timestamp": None
-                        })
-                        i += 2
-                    else:
-                        i += 1
+                
+                try:
+                    # Build conversation history for process_query
+                    conversation_history = []
+                    chat_hist = st.session_state.chat_history
+                    i = 0
+                    while i < len(chat_hist) - 1:
+                        if chat_hist[i]["role"] == "user" and chat_hist[i+1]["role"] == "assistant":
+                            conversation_history.append({
+                                "query": chat_hist[i]["content"],
+                                "response": chat_hist[i+1]["content"],
+                                "language_code": chat_hist[i+1].get("language_code", "en"),
+                                "language_name": st.session_state.selected_language,
+                                "timestamp": None
+                            })
+                            i += 2
+                        else:
+                            i += 1
                 # If a retry was requested, use that captured query; else use current input
                 retry_req = st.session_state.get('retry_request') if isinstance(st.session_state.get('retry_request'), dict) else None
                 retry_query = retry_req.get('query') if retry_req else None
@@ -2934,33 +2934,33 @@ def main():
                 result = run_query_with_interactive_progress(
                     chatbot=chatbot,
                     query=effective_query,
-                    language_name=st.session_state.selected_language,
+                        language_name=st.session_state.selected_language,
                     conversation_history=conversation_history,
                     response_placeholder=typing_message,
                     skip_cache=bool(retry_req)
                 )
-
-                typing_message.empty()
-
+                    
+                    typing_message.empty()
+                    
                 # Enhanced handling of successful responses vs off-topic questions
-                if result and result.get('success', False):
-                    # Clean and prepare the response content
-                    response_content = result['response']
-
-                    # Ensure proper markdown formatting for headings
-                    if response_content and isinstance(response_content, str):
-                        # Strip any leading/trailing whitespace
-                        response_content = response_content.strip()
-
-                        # If content starts with a heading, ensure it's properly formatted
-                        if response_content.startswith('#'):
-                            response_content = re.sub(r'^(#{1,6})([^\s#])', r'\1 \2', response_content)
-
-                    # Update response without header formatting
-                    final_response = {
-                        'role': 'assistant',
-                        'language_code': result.get('language_code', 'en'),
-                        'content': response_content,  # Use the cleaned content
+                    if result and result.get('success', False):
+                        # Clean and prepare the response content
+                        response_content = result['response']
+                        
+                        # Ensure proper markdown formatting for headings
+                        if response_content and isinstance(response_content, str):
+                            # Strip any leading/trailing whitespace
+                            response_content = response_content.strip()
+                            
+                            # If content starts with a heading, ensure it's properly formatted
+                            if response_content.startswith('#'):
+                                response_content = re.sub(r'^(#{1,6})([^\s#])', r'\1 \2', response_content)
+                        
+                        # Update response without header formatting
+                        final_response = {
+                            'role': 'assistant',
+                            'language_code': result.get('language_code', 'en'),
+                            'content': response_content,  # Use the cleaned content
                         'citations': result.get('citations', []),
                         'retrieval_source': result.get('retrieval_source'),
                         'fallback_reason': result.get('fallback_reason'),
@@ -2981,21 +2981,21 @@ def main():
                             persist_interaction_record(len(st.session_state.chat_history) - 1, "none")
                         except Exception as log_err:
                             logger.warning(f"Failed to log Q&A interaction: {log_err}")
-
-                    # Display final response without markdown header formatting
-                    language_code = final_response['language_code']
-                    text_align = 'right' if is_rtl_language(language_code) else 'left'
-                    direction = 'rtl' if is_rtl_language(language_code) else 'ltr'
-
-                    content = clean_html_content(final_response['content'])
+                        
+                        # Display final response without markdown header formatting
+                        language_code = final_response['language_code']
+                        text_align = 'right' if is_rtl_language(language_code) else 'left'
+                        direction = 'rtl' if is_rtl_language(language_code) else 'ltr'
+                        
+                        content = clean_html_content(final_response['content'])
 
                     typing_message.markdown(
                         f"""<div style="direction: {direction}; text-align: {text_align}">
-                        {content}
-                        </div>""",
-                        unsafe_allow_html=True
-                    )
-
+                            {content}
+                            </div>""",
+                            unsafe_allow_html=True
+                        )
+                        
                     # Store exactly what was displayed for this assistant message for Copy
                     try:
                         if 'copy_texts' not in st.session_state or not isinstance(st.session_state.copy_texts, dict):
@@ -3004,47 +3004,47 @@ def main():
                     except Exception:
                         pass
 
-                    # Display citations if available
-                    if result.get('citations'):
+                        # Display citations if available
+                        if result.get('citations'):
                         if retry_req and isinstance(retry_req.get('assistant_index'), int):
                             message_idx = min(retry_req['assistant_index'], len(st.session_state.chat_history) - 1)
                         else:
                             message_idx = len(st.session_state.chat_history) - 1
-                        display_source_citations(result['citations'], base_idx=message_idx)
+                            display_source_citations(result['citations'], base_idx=message_idx)
                     # Render message actions for assistant message
                     if retry_req and isinstance(retry_req.get('assistant_index'), int):
                         render_message_actions_ui(message_idx, final_response)
                     else:
                         render_message_actions_ui(len(st.session_state.chat_history) - 1, final_response)
-                else:
-                    # Handle off-topic questions and other errors more comprehensively
-                    # Prefer 'message' but fall back to 'response' when pipeline uses that field
-                    error_message = (
-                        result.get('message')
-                        or result.get('response')
-                        or 'An error occurred'
-                    )
-
-                    # Normalize for checks
-                    error_lower = error_message.lower() if isinstance(error_message, str) else ''
-
-                    # Detect off-topic climate rejections
-                    if (
-                        "not about climate" in error_lower
-                        or "climate change" in error_lower
-                        or result.get('error_type') == "off_topic"
-                        or (result.get('validation_result', {}).get('reason') == "not_climate_related")
-                    ):
-                        off_topic_response = (
-                            "I'm a climate change assistant and can only help with questions about climate, environment, and sustainability. "
-                            "Please ask me about topics like climate change causes, effects, or solutions."
+                    else:
+                        # Handle off-topic questions and other errors more comprehensively
+                        # Prefer 'message' but fall back to 'response' when pipeline uses that field
+                        error_message = (
+                            result.get('message')
+                            or result.get('response')
+                            or 'An error occurred'
                         )
 
-                        st.session_state.chat_history.append({
-                            'role': 'assistant',
-                            'content': off_topic_response,
-                            'language_code': 'en'
-                        })
+                        # Normalize for checks
+                        error_lower = error_message.lower() if isinstance(error_message, str) else ''
+
+                        # Detect off-topic climate rejections
+                        if (
+                            "not about climate" in error_lower
+                            or "climate change" in error_lower
+                            or result.get('error_type') == "off_topic"
+                            or (result.get('validation_result', {}).get('reason') == "not_climate_related")
+                        ):
+                            off_topic_response = (
+                                "I'm a climate change assistant and can only help with questions about climate, environment, and sustainability. "
+                                "Please ask me about topics like climate change causes, effects, or solutions."
+                            )
+
+                            st.session_state.chat_history.append({
+                                'role': 'assistant',
+                                'content': off_topic_response,
+                                'language_code': 'en'
+                            })
 
                         # Log the off-topic interaction
                         try:
@@ -3059,13 +3059,13 @@ def main():
                             st.session_state.copy_texts[len(st.session_state.chat_history) - 1] = off_topic_response
                         except Exception:
                             pass
-                    else:
-                        # Generic error surfaced to user
-                        st.session_state.chat_history.append({
-                            'role': 'assistant',
-                            'content': str(error_message),
-                            'language_code': 'en'
-                        })
+                        else:
+                            # Generic error surfaced to user
+                            st.session_state.chat_history.append({
+                                'role': 'assistant',
+                                'content': str(error_message),
+                                'language_code': 'en'
+                            })
                         typing_message.error(str(error_message))
                         try:
                             if 'copy_texts' not in st.session_state or not isinstance(st.session_state.copy_texts, dict):
@@ -3073,13 +3073,13 @@ def main():
                             st.session_state.copy_texts[len(st.session_state.chat_history) - 1] = str(error_message)
                         except Exception:
                             pass
-            except Exception as e:
-                error_msg = f"Error processing query: {str(e)}"
-                st.session_state.chat_history.append({
-                    'role': 'assistant',
-                    'content': error_msg,
-                    'language_code': 'en'
-                })
+                except Exception as e:
+                    error_msg = f"Error processing query: {str(e)}"
+                    st.session_state.chat_history.append({
+                        'role': 'assistant', 
+                        'content': error_msg,
+                        'language_code': 'en'
+                    })
                 typing_message.error(error_msg)
                 # Render actions even for error messages
                 render_message_actions_ui(len(st.session_state.chat_history) - 1, st.session_state.chat_history[-1])
@@ -3095,9 +3095,9 @@ def main():
                 st.session_state.retry_request = None
                 st.session_state.last_retry_applied = None
             # No manual rerun needed - Streamlit will naturally rerun when state changes
-    except Exception as e:
-        st.error(f"Error initializing chatbot: {str(e)}")
-        st.info("Make sure the .env file exists in the project root directory")
+        except Exception as e:
+            st.error(f"Error initializing chatbot: {str(e)}")
+            st.info("Make sure the .env file exists in the project root directory")
 
 
 if __name__ == "__main__":

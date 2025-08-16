@@ -29,7 +29,7 @@ RETRIEVAL_CONFIG = {
     "top_k_rerank": 5,              # cross-encoder final cap
     "hybrid_alpha": 0.5,            # dense/sparse fusion weight
     # Overfetch controls: balance latency vs recall
-    "overfetch": 10,                # smaller initial vector overfetch for interactive UX
+    "overfetch": 8,                 # smaller initial vector overfetch for interactive UX
     # Similarity gating
     "similarity_base": 0.65,
     "similarity_fallback": 0.55,
@@ -41,7 +41,7 @@ RETRIEVAL_CONFIG = {
     # MMR diversification
     "mmr_enabled": True,
     "mmr_lambda": 0.30,
-    "mmr_overfetch": 8,             # keep tight to limit extra embeddings
+    "mmr_overfetch": 6,             # keep tight to limit extra embeddings
     # Optional quality gates (None disables the filter)
     "min_pinecone_score": None,     # e.g., 0.30 for cosine metric; confirm index metric first
     "min_rerank_score": 0.70,       # tuned via calibration; drop very weak contexts
@@ -63,7 +63,7 @@ RETRIEVAL_CONFIG = {
     # Diagnostics
     "log_retrieval_diagnostics": True,
     # Safety caps (legacy)
-    "max_docs_before_rerank": 10,
+    "max_docs_before_rerank": 8,
     "final_max_docs": 5,
 }
 

@@ -26,6 +26,7 @@ class MultilingualRouter:
         'ar',   # Arabic
         'bn',   # Bengali  
         'zh',   # Chinese
+        # skip english due to latency - routes to Nova instead
         'tl',   # Filipino (Tagalog)
         'fr',   # French
         'gu',   # Gujarati
@@ -44,7 +45,8 @@ class MultilingualRouter:
         'ro',   # Romanian
         'el',   # Greek
         'hi',   # Hindi
-        'he'    # Hebrew
+        'he',   # Hebrew
+        # Spanish, German, Italian, Portuguese, Japanese route to Nova for faster response
     }
     
     LANGUAGE_CODE_MAP = {
@@ -60,6 +62,29 @@ class MultilingualRouter:
         'bg-bg': 'bg', 'cs-cz': 'cs', 'hu-hu': 'hu', 'ro-ro': 'ro',
         'sk-sk': 'sk', 'sl-si': 'sl', 'tl-ph': 'tl', 'gu-in': 'gu',
         'bn-bd': 'bn', 'ta-in': 'ta', 'ur-pk': 'ur', 'fa-ir': 'fa'
+    }
+    
+    # Language code to language name mapping (Source: frontend languages.json - 183 languages)
+    LANGUAGE_NAME_MAP = {
+        'aa': 'afar', 'ab': 'abkhazian', 'ae': 'avestan', 'af': 'afrikaans', 'ak': 'akan', 'am': 'amharic', 'an': 'aragonese', 'ar': 'arabic', 'as': 'assamese', 'av': 'avaric',
+        'ay': 'aymara', 'az': 'azerbaijani', 'ba': 'bashkir', 'be': 'belarusian', 'bg': 'bulgarian', 'bi': 'bislama', 'bm': 'bambara', 'bn': 'bengali', 'bo': 'tibetan', 'br': 'breton',
+        'bs': 'bosnian', 'ca': 'catalan', 'ce': 'chechen', 'ch': 'chamorro', 'co': 'corsican', 'cr': 'cree', 'cs': 'czech', 'cu': 'church slavic', 'cv': 'chuvash', 'cy': 'welsh',
+        'da': 'danish', 'de': 'german', 'dv': 'divehi', 'dz': 'dzongkha', 'ee': 'ewe', 'el': 'greek', 'en': 'english', 'eo': 'esperanto', 'es': 'spanish', 'et': 'estonian',
+        'eu': 'basque', 'fa': 'persian', 'ff': 'fulah', 'fi': 'finnish', 'fj': 'fijian', 'fo': 'faroese', 'fr': 'french', 'fy': 'western frisian', 'ga': 'irish', 'gd': 'gaelic',
+        'gl': 'galician', 'gn': 'guarani', 'gu': 'gujarati', 'gv': 'manx', 'ha': 'hausa', 'he': 'hebrew', 'hi': 'hindi', 'ho': 'hiri motu', 'hr': 'croatian', 'ht': 'haitian',
+        'hu': 'hungarian', 'hy': 'armenian', 'hz': 'herero', 'ia': 'interlingua', 'id': 'indonesian', 'ie': 'interlingue', 'ig': 'igbo', 'ii': 'sichuan yi', 'ik': 'inupiaq', 'io': 'ido',
+        'is': 'icelandic', 'it': 'italian', 'iu': 'inuktitut', 'ja': 'japanese', 'jv': 'javanese', 'ka': 'georgian', 'kg': 'kongo', 'ki': 'kikuyu', 'kj': 'kuanyama', 'kk': 'kazakh',
+        'kl': 'kalaallisut', 'km': 'central khmer', 'kn': 'kannada', 'ko': 'korean', 'kr': 'kanuri', 'ks': 'kashmiri', 'ku': 'kurdish', 'kv': 'komi', 'kw': 'cornish', 'ky': 'kirghiz',
+        'la': 'latin', 'lb': 'luxembourgish', 'lg': 'ganda', 'li': 'limburgan', 'ln': 'lingala', 'lo': 'lao', 'lt': 'lithuanian', 'lu': 'luba-katanga', 'lv': 'latvian', 'mg': 'malagasy',
+        'mh': 'marshallese', 'mi': 'maori', 'mk': 'macedonian', 'ml': 'malayalam', 'mn': 'mongolian', 'mr': 'marathi', 'ms': 'malay', 'mt': 'maltese', 'my': 'burmese', 'na': 'nauru',
+        'nb': 'norwegian bokmål', 'nd': 'ndebele, north', 'ne': 'nepali', 'ng': 'ndonga', 'nl': 'dutch', 'nn': 'norwegian nynorsk', 'no': 'norwegian', 'nr': 'ndebele, south', 'nv': 'navajo', 'ny': 'chichewa',
+        'oc': 'occitan', 'oj': 'ojibwa', 'om': 'oromo', 'or': 'oriya', 'os': 'ossetian', 'pa': 'panjabi', 'pi': 'pali', 'pl': 'polish', 'ps': 'pushto', 'pt': 'portuguese',
+        'qu': 'quechua', 'rm': 'romansh', 'rn': 'rundi', 'ro': 'romanian', 'ru': 'russian', 'rw': 'kinyarwanda', 'sa': 'sanskrit', 'sc': 'sardinian', 'sd': 'sindhi', 'se': 'northern sami',
+        'sg': 'sango', 'si': 'sinhala', 'sk': 'slovak', 'sl': 'slovenian', 'sm': 'samoan', 'sn': 'shona', 'so': 'somali', 'sq': 'albanian', 'sr': 'serbian', 'ss': 'swati',
+        'st': 'sotho, southern', 'su': 'sundanese', 'sv': 'swedish', 'sw': 'swahili', 'ta': 'tamil', 'te': 'telugu', 'tg': 'tajik', 'th': 'thai', 'ti': 'tigrinya', 'tk': 'turkmen',
+        'tl': 'tagalog', 'tn': 'tswana', 'to': 'tonga', 'tr': 'turkish', 'ts': 'tsonga', 'tt': 'tatar', 'tw': 'twi', 'ty': 'tahitian', 'ug': 'uighur', 'uk': 'ukrainian',
+        'ur': 'urdu', 'uz': 'uzbek', 've': 'venda', 'vi': 'vietnamese', 'vo': 'volapük', 'wa': 'walloon', 'wo': 'wolof', 'xh': 'xhosa', 'yi': 'yiddish', 'yo': 'yoruba',
+        'za': 'zhuang', 'zh': 'chinese', 'zu': 'zulu'
     }
 
     def __init__(self):
@@ -145,6 +170,26 @@ class MultilingualRouter:
         lang, score = max(scores.items(), key=lambda x: x[1])
         # Require at least 2 stopword hits to be confident
         return lang if score >= 2 else 'unknown'
+
+    def detect_language(self, text: str) -> Dict[str, Any]:
+        """
+        Detect language for API compatibility.
+        Returns a dict with language_code and confidence.
+        """
+        detected_code = self._detect_language_code_simple(text)
+        
+        if detected_code == 'unknown':
+            # Default to English if can't detect
+            detected_code = 'en'
+            confidence = 0.5
+        else:
+            confidence = 0.8  # Reasonable confidence for detected languages
+        
+        return {
+            'language_code': detected_code,
+            'confidence': confidence,
+            'method': 'simple_detection'
+        }
 
     def standardize_language_code(self, language_code: str) -> str:
         """Standardize language codes to match our supported formats."""
@@ -477,7 +522,7 @@ def test_routing():
             print(f"Nova routes: {nova_count}")
             print(f"Total tests: {len(test_cases)}")
             print(f"Expected Command A: 22 languages")
-            print(f"Expected Nova: 6 languages (English + 5 others)")
+            print(f"Expected Nova: 7 languages (English + Spanish, German, Italian, Portuguese, Japanese, Swedish, Danish)")
                 
         except Exception as e:
             print(f"Test failed: {str(e)}")

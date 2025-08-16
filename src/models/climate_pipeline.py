@@ -299,7 +299,7 @@ class ClimateQueryPipeline:
                 'finnish': 'fi', 'bulgarian': 'bg', 'slovak': 'sk', 'slovenian': 'sl',
                 'estonian': 'et', 'latvian': 'lv', 'lithuanian': 'lt', 'belarusian': 'be',
             })
-            setattr(self, "_lang_code_set", {"en", "es", "fr", "de"})
+            setattr(self, "_lang_code_set", set(languages.keys()))
 
     def get_language_code(self, language_name: str) -> str:
         """Convert a UI language name or code to ISO 639-1 code using languages.json.
