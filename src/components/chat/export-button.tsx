@@ -3,7 +3,7 @@
 
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
-import { ArrowUpToLine, Share2 } from "lucide-react";
+import { ArrowUpToLine } from "lucide-react";
 import { type Message } from "@/components/chat/chat-message";
 
 type ExportButtonProps = {
@@ -59,25 +59,14 @@ export function ExportButton({ message }: ExportButtonProps) {
     }
   };
 
-  if (isMobile) {
-    return (
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7 text-muted-foreground hover:text-foreground"
-        onClick={handleShare}
-      >
-        <Share2 className="h-4 w-4" />
-      </Button>
-    );
-  }
+  const handleClick = isMobile ? handleShare : handleDownload;
 
   return (
     <Button
       variant="ghost"
       size="icon"
       className="h-7 w-7 text-muted-foreground hover:text-foreground"
-      onClick={handleDownload}
+      onClick={handleClick}
     >
       <ArrowUpToLine className="h-4 w-4" />
     </Button>
