@@ -37,11 +37,19 @@ function getFaviconUrl(url: string) {
 
 const SourceIcon = ({ url }: { url: string }) => {
     if (!isValidHttpUrl(url)) {
-        return <FileText className="h-4 w-4 text-muted-foreground" />;
+        return (
+            <div className="flex h-[16px] w-[16px] items-center justify-center rounded-full border-2 border-background bg-white">
+                <FileText className="h-3 w-3 text-muted-foreground" />
+            </div>
+        );
     }
     const faviconUrl = getFaviconUrl(url);
     if (!faviconUrl) {
-        return <FileText className="h-4 w-4 text-muted-foreground" />;
+        return (
+            <div className="flex h-[16px] w-[16px] items-center justify-center rounded-full border-2 border-background bg-white">
+                <FileText className="h-3 w-3 text-muted-foreground" />
+            </div>
+        );
     }
     return (
         <Image
