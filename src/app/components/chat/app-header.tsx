@@ -105,7 +105,7 @@ export function AppHeader({ onNewChat }: AppHeaderProps) {
                                     variant="outline"
                                     role="combobox"
                                     aria-expanded={langPopoverOpen}
-                                    className="min-w-[130px] sm:min-w-[180px] justify-between h-9 bg-[#1F1F1F] text-white border-gray-600 hover:bg-gray-700 hover:text-white"
+                                    className="w-auto justify-between h-9 bg-[#1F1F1F] text-white border-gray-600 hover:bg-gray-700 hover:text-white px-3"
                                 >
                                     <Languages className="mr-2 h-4 w-4 shrink-0" />
                                     <span className="truncate">
