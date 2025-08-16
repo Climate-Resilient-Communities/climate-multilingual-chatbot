@@ -15,10 +15,10 @@ import { type Message, type Source } from "@/components/chat/chat-message";
 
 const mockSources: Record<string, Source[]> = {
   local_impacts: [
-    { url: "https://www.toronto.ca/services-payments/water-environment/environmentally-friendly-city-initiatives/transformto/climate-action-strategy/", title: "TransformTO Net Zero Strategy", text: "Toronto's climate action plan outlines strategies to reduce emissions and adapt to climate change." },
-    { url: "https://www.toronto.ca/wp-content/uploads/2017/11/9924-TARO-TAR-Adaptation-Strategy-2016-Summary-v5-tagged-FINAL.pdf", title: "Toronto's Future Weather & Climate Driver Study", text: "A study on the future weather and climate projections for the City of Toronto." },
+    { url: "TransformTO_Net_Zero_Strategy.pdf", title: "TransformTO Net Zero Strategy", text: "Toronto's climate action plan outlines strategies to reduce emissions and adapt to climate change." },
+    { url: "Toronto_Future_Weather_Climate_Driver_Study.pdf", title: "Toronto's Future Weather & Climate Driver Study", text: "A study on the future weather and climate projections for the City of Toronto." },
     { url: "https://cleanairpartnership.org/wp-content/uploads/2021/08/Toronto-Case-Study-GTHA-2021.pdf", title: "City of Toronto Case Study on Climate Adaptation", text: "Details on how Toronto is building resilience to climate change impacts." },
-    { url: "https://www.ontario.ca/page/climate-change", title: "Ontario Climate Change Impact Assessment", text: "Provincial-level assessment of climate change impacts in Ontario." },
+    { url: "Ontario_Climate_Change_Impact_Assessment.pdf", title: "Ontario Climate Change Impact Assessment", text: "Provincial-level assessment of climate change impacts in Ontario." },
     { url: "https://www.nrcan.gc.ca/our-natural-resources/climate-change/climate-change-impacts-adaptation/regional-perspectives/ontario/21018", title: "Natural Resources Canada - Ontario Climate Change", text: "An overview of climate change impacts in the Ontario region." },
   ],
   summer_hot: [
