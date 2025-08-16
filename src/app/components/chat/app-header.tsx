@@ -105,12 +105,14 @@ export function AppHeader({ onNewChat }: AppHeaderProps) {
                                     variant="outline"
                                     role="combobox"
                                     aria-expanded={langPopoverOpen}
-                                    className="w-[180px] justify-between h-9 bg-[#1F1F1F] text-white border-gray-600 hover:bg-gray-700 hover:text-white"
+                                    className="w-[120px] sm:w-[180px] justify-between h-9 bg-[#1F1F1F] text-white border-gray-600 hover:bg-gray-700 hover:text-white"
                                 >
                                     <Languages className="mr-2 h-4 w-4 shrink-0" />
+                                    <span className="truncate">
                                     {selectedLanguage
                                         ? sortedLanguages.find((lang) => lang.value === selectedLanguage)?.label
                                         : "Select language..."}
+                                    </span>
                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                             </PopoverTrigger>
@@ -154,8 +156,8 @@ export function AppHeader({ onNewChat }: AppHeaderProps) {
             </Popover>
 
           <Button variant="outline" size="sm" onClick={onNewChat} className="h-9 text-white bg-transparent border-gray-600 hover:bg-gray-700 hover:text-white">
-            <MessageSquarePlus className="mr-2 h-4 w-4" />
-            New Chat
+            <MessageSquarePlus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">New Chat</span>
           </Button>
           <TooltipProvider>
             <Tooltip>
@@ -270,5 +272,3 @@ export function AppHeader({ onNewChat }: AppHeaderProps) {
     </>
   );
 }
-
-    
