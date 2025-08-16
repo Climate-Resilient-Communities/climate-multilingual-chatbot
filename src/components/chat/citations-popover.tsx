@@ -48,11 +48,11 @@ export function CitationsPopover({ sources }: CitationsPopoverProps) {
         <div className="space-y-2">
           <h4 className="font-semibold">Citations</h4>
           <ScrollArea className="h-72">
-            <div className="p-1 space-y-2">
+            <div className="p-1 flex flex-col">
                 {sources.map((source, index) => (
-                    <div key={index} className="space-y-1.5 p-2 rounded-lg hover:bg-muted/50">
-                        <a href={source.url} target="_blank" rel="noopener noreferrer" className="group">
-                            <div className="flex items-center gap-3">
+                    <div key={index} className="border-b border-border last:border-b-0">
+                        <a href={source.url} target="_blank" rel="noopener noreferrer" className="block p-4 space-y-1.5 rounded-lg hover:bg-muted/50 group">
+                             <div className="flex items-center gap-3">
                                 <Image
                                     src={getFaviconUrl(source.url)}
                                     alt={source.title}
@@ -60,12 +60,12 @@ export function CitationsPopover({ sources }: CitationsPopoverProps) {
                                     height={16}
                                     className="rounded-full"
                                 />
-                                <div className="text-sm font-medium text-foreground group-hover:underline">
-                                    {source.title}
+                                <div className="text-xs text-muted-foreground">
+                                    {new URL(source.url).hostname.replace('www.', '')}
                                 </div>
                             </div>
-                            <div className="mt-1 text-xs text-muted-foreground">
-                                {new URL(source.url).hostname}
+                            <div className="text-sm font-medium text-foreground group-hover:underline">
+                                {source.title}
                             </div>
                             <div className="mt-2 text-xs text-foreground/80">
                                 {source.text}
