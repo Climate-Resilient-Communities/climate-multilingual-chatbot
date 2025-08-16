@@ -44,14 +44,14 @@ export function CitationsPopover({ sources }: CitationsPopoverProps) {
           <span className="text-xs">Sources</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-96" align="start">
+      <PopoverContent className="w-[28rem]" align="start">
         <div className="space-y-2">
           <h4 className="font-semibold">Citations</h4>
           <ScrollArea className="h-72">
             <div className="p-1 flex flex-col">
                 {sources.map((source, index) => (
                     <div key={index} className="border-b border-border last:border-b-0">
-                        <a href={source.url} target="_blank" rel="noopener noreferrer" className="block p-4 space-y-1.5 rounded-lg hover:bg-muted/50 group">
+                        <a href={source.url} target="_blank" rel="noopener noreferrer" className="block p-4 space-y-2 rounded-lg hover:bg-muted/50 group">
                              <div className="flex items-center gap-3">
                                 <Image
                                     src={getFaviconUrl(source.url)}
@@ -67,7 +67,7 @@ export function CitationsPopover({ sources }: CitationsPopoverProps) {
                             <div className="text-sm font-medium text-foreground group-hover:underline">
                                 {source.title}
                             </div>
-                            <div className="mt-2 text-xs text-foreground/80">
+                            <div className="text-xs text-foreground/80">
                                 {source.text}
                             </div>
                         </a>
