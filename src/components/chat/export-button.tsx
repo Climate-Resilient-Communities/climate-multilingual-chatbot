@@ -50,7 +50,11 @@ export function ExportButton({ message }: ExportButtonProps) {
           text: content,
         });
       } catch (error) {
-        console.error("Error sharing:", error);
+        if (error instanceof Error && error.name === 'NotAllowedError') {
+          console.error("Share permission denied. Ensure you are using HTTPS and the user has granted permission.");
+        } else {
+          console.error("Error sharing:", error);
+        }
       }
     }
   };
