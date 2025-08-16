@@ -12,6 +12,7 @@ import { AppHeader } from "@/app/components/chat/app-header";
 import { ChatWindow } from "@/components/chat/chat-window";
 import { ConsentDialog } from "@/components/chat/consent-dialog";
 import { type Message, type Source } from "@/components/chat/chat-message";
+import { Textarea as ShadcnTextarea } from "@/components/ui/textarea";
 
 const mockSources: Record<string, Source[]> = {
   local_impacts: [
@@ -130,7 +131,7 @@ export default function Home() {
   const isLoading = loadingMessage !== null;
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="flex flex-col h-[100svh] bg-background">
       <AppHeader onNewChat={handleNewChat} />
       <div className="flex-1 overflow-y-auto">
         <ChatWindow 
@@ -148,9 +149,9 @@ export default function Home() {
       <div className="p-4 border-t bg-background shrink-0">
         <form
           onSubmit={handleSendMessage}
-          className="flex items-start gap-2 max-w-4xl mx-auto"
+          className="flex items-start gap-4 max-w-4xl mx-auto"
         >
-          <Image src={Logo} alt="Logo" width={24} height={24} className="h-6 w-6 mt-1.5" />
+          <Image src={Logo} alt="Logo" width={32} height={32} className="h-8 w-8 mt-1" />
           <Textarea
             ref={inputRef}
             value={inputValue}
@@ -162,11 +163,11 @@ export default function Home() {
                 }
             }}
             placeholder="Ask about climate change..."
-            className="flex-1 resize-none max-h-40"
+            className="flex-1 resize-none max-h-40 text-base sm:text-sm !min-h-[2.5rem] p-2"
             minRows={1}
             disabled={isLoading}
           />
-          <Button type="submit" size="icon" disabled={isLoading || !inputValue.trim()} className="self-end">
+          <Button type="submit" size="icon" disabled={isLoading || !inputValue.trim()} className="self-end h-10 w-10">
             <SendHorizonal className="h-5 w-5" />
             <span className="sr-only">Send</span>
           </Button>
