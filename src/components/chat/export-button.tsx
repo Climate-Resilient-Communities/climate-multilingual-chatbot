@@ -5,6 +5,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { ArrowUpToLine } from "lucide-react";
 import { type Message } from "@/components/chat/chat-message";
+import { useToast } from "@/hooks/use-toast";
 
 type ExportButtonProps = {
   message: Message;
@@ -12,6 +13,7 @@ type ExportButtonProps = {
 
 export function ExportButton({ message }: ExportButtonProps) {
   const isMobile = useIsMobile();
+  const { toast } = useToast();
 
   const formatContent = () => {
     let content = `User: ${message.content}\n\n`;
@@ -51,11 +53,25 @@ export function ExportButton({ message }: ExportButtonProps) {
         });
       } catch (error) {
         if (error instanceof Error && error.name === 'NotAllowedError') {
-          console.error("Share permission denied. Ensure you are using HTTPS and the user has granted permission.");
+          toast({
+            variant: "destructive",
+            title: "Sharing Failed",
+            description: "This feature may require a secure (HTTPS) connection and user permission.",
+          });
         } else {
           console.error("Error sharing:", error);
+          toast({
+            variant: "destructive",
+            title: "An Unexpected Error Occurred",
+            description: "Could not share the message.",
+          });
         }
       }
+    } else {
+        toast({
+            title: "Share Not Available",
+            description: "Your browser does not support the Web Share API.",
+        });
     }
   };
 
