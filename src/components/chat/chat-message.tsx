@@ -17,6 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CitationsPopover } from "./citations-popover";
+import { ExportButton } from "./export-button";
 
 
 export type Source = {
@@ -68,6 +69,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
   ];
 
   const feedbackOptions = feedbackType === 'up' ? thumbsUpOptions : thumbsDownOptions;
+  const hasSources = message.sources && message.sources.length > 0;
 
   return (
     <div
@@ -104,9 +106,14 @@ export function ChatMessage({ message }: ChatMessageProps) {
                     <RefreshCw className="h-4 w-4" />
                     <span className="text-xs">Retry</span>
                 </Button>
-                {message.sources && message.sources.length > 0 && (
-                    <CitationsPopover sources={message.sources} />
+                
+                {hasSources && <ExportButton message={message} />}
+
+                {hasSources && (
+                    <CitationsPopover sources={message.sources!} />
                 )}
+                
+                {!hasSources && <ExportButton message={message} />}
             </div>
         )}
       </div>
