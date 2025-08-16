@@ -16,10 +16,19 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { CitationsPopover } from "./citations-popover";
+
+
+export type Source = {
+    url: string;
+    title: string;
+    text: string;
+};
 
 export type Message = {
   role: 'user' | 'assistant';
   content: string;
+  sources?: Source[];
 };
 
 type ChatMessageProps = {
@@ -95,6 +104,9 @@ export function ChatMessage({ message }: ChatMessageProps) {
                     <RefreshCw className="h-4 w-4" />
                     <span className="text-xs">Retry</span>
                 </Button>
+                {message.sources && message.sources.length > 0 && (
+                    <CitationsPopover sources={message.sources} />
+                )}
             </div>
         )}
       </div>
