@@ -28,9 +28,9 @@ export function CitationsPopover({ sources }: CitationsPopoverProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" className="h-7 gap-1 px-2 text-muted-foreground hover:text-foreground">
-            <div className="flex -space-x-3">
-                {sources.slice(0, 3).map((source, index) => (
+        <Button variant="ghost" className="h-7 gap-2 px-3 text-muted-foreground hover:text-foreground">
+            <div className="flex -space-x-2">
+                {sources.slice(0, 5).map((source, index) => (
                     <Image
                         key={index}
                         src={getFaviconUrl(source.url)}
