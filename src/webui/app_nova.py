@@ -3003,7 +3003,7 @@ def main():
                         st.session_state.copy_texts[len(st.session_state.chat_history) - 1] = content or final_response['content'] or ''
                     except Exception:
                         pass
-
+                        
                         # Display citations if available
                         if result.get('citations'):
                         if retry_req and isinstance(retry_req.get('assistant_index'), int):
