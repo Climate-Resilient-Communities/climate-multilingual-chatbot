@@ -54,8 +54,8 @@ class ClimateQueryPipeline:
             logger.info(f"Init: embeddings model ready in {time.time() - _t0:.2f}s")
             _t1 = time.time()
             try:
-                self.index = self._initialize_pinecone_index()
-                logger.info(f"Init: pinecone index ready in {time.time() - _t1:.2f}s")
+            self.index = self._initialize_pinecone_index()
+            logger.info(f"Init: pinecone index ready in {time.time() - _t1:.2f}s")
             except Exception as e:
                 logger.warning(f"Pinecone not available, continuing without index ({e.__class__.__name__})")
                 self.index = None
@@ -288,13 +288,13 @@ class ClimateQueryPipeline:
         except Exception as e:
             logger.warning(f"Failed to load languages.json, falling back to defaults: {e}")
             setattr(self, "_lang_name_to_code", {
-                'english': 'en', 'spanish': 'es', 'french': 'fr', 'german': 'de',
-                'italian': 'it', 'portuguese': 'pt', 'dutch': 'nl', 'russian': 'ru',
-                'chinese': 'zh', 'japanese': 'ja', 'korean': 'ko', 'arabic': 'ar',
-                'hindi': 'hi', 'bengali': 'bn', 'urdu': 'ur', 'tamil': 'ta',
-                'gujarati': 'gu', 'persian': 'fa', 'vietnamese': 'vi', 'thai': 'th',
-                'turkish': 'tr', 'polish': 'pl', 'czech': 'cs', 'hungarian': 'hu',
-                'romanian': 'ro', 'greek': 'el', 'hebrew': 'he', 'ukrainian': 'uk',
+            'english': 'en', 'spanish': 'es', 'french': 'fr', 'german': 'de',
+            'italian': 'it', 'portuguese': 'pt', 'dutch': 'nl', 'russian': 'ru',
+            'chinese': 'zh', 'japanese': 'ja', 'korean': 'ko', 'arabic': 'ar',
+            'hindi': 'hi', 'bengali': 'bn', 'urdu': 'ur', 'tamil': 'ta',
+            'gujarati': 'gu', 'persian': 'fa', 'vietnamese': 'vi', 'thai': 'th',
+            'turkish': 'tr', 'polish': 'pl', 'czech': 'cs', 'hungarian': 'hu',
+            'romanian': 'ro', 'greek': 'el', 'hebrew': 'he', 'ukrainian': 'uk',
                 'indonesian': 'id', 'danish': 'da', 'swedish': 'sv', 'norwegian': 'no',
                 'finnish': 'fi', 'bulgarian': 'bg', 'slovak': 'sk', 'slovenian': 'sl',
                 'estonian': 'et', 'latvian': 'lv', 'lithuanian': 'lt', 'belarusian': 'be',
@@ -669,18 +669,18 @@ class ClimateQueryPipeline:
                         logger.info("✓ Query rewriting skipped (JSON) - no enhancement needed")
                     if not is_json:
                         # Legacy text parsing fallback
-                        # Parse fields
-                        lang_match = re.search(r"Language:\s*([a-z]{2}|unknown)", text, re.IGNORECASE)
-                        cls_match = re.search(r"Classification:\s*(on-topic|off-topic|harmful)", text, re.IGNORECASE)
-                        match_match = re.search(r"LanguageMatch:\s*(yes|no)", text, re.IGNORECASE)
+                # Parse fields
+                lang_match = re.search(r"Language:\s*([a-z]{2}|unknown)", text, re.IGNORECASE)
+                cls_match = re.search(r"Classification:\s*(on-topic|off-topic|harmful)", text, re.IGNORECASE)
+                match_match = re.search(r"LanguageMatch:\s*(yes|no)", text, re.IGNORECASE)
                         rew_match = None
                         try:
-                            rew_match = re.search(r"Rewritten:\s*(.+)", text, re.IGNORECASE)
+                rew_match = re.search(r"Rewritten:\s*(.+)", text, re.IGNORECASE)
                         except Exception:
                             rew_match = None
-                        detected_lang = (lang_match.group(1).lower() if lang_match else 'unknown')
-                        classification = (cls_match.group(1).lower() if cls_match else 'off-topic')
-                        language_match_result = (match_match.group(1).lower() if match_match else 'unknown')
+                detected_lang = (lang_match.group(1).lower() if lang_match else 'unknown')
+                classification = (cls_match.group(1).lower() if cls_match else 'off-topic')
+                language_match_result = (match_match.group(1).lower() if match_match else 'unknown')
                         logger.info(
                             f"Query rewriter processed: detected_lang='{detected_lang}', classification='{classification}', language_match='{language_match_result}'"
                         )
@@ -694,30 +694,30 @@ class ClimateQueryPipeline:
 
                         # Check for language mismatch: block when detected query language is non-English and mismatches selection
                         if (language_match_result == 'no' or (detected_lang != 'unknown' and detected_lang != language_code)):
-                            lang_code_to_name = {
-                                'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
-                                'it': 'Italian', 'pt': 'Portuguese', 'nl': 'Dutch', 'ru': 'Russian',
-                                'zh': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean', 'ar': 'Arabic',
-                                'hi': 'Hindi', 'bn': 'Bengali', 'ur': 'Urdu', 'ta': 'Tamil',
-                                'gu': 'Gujarati', 'fa': 'Persian', 'vi': 'Vietnamese', 'th': 'Thai',
-                                'tr': 'Turkish', 'pl': 'Polish', 'cs': 'Czech', 'hu': 'Hungarian',
-                                'ro': 'Romanian', 'el': 'Greek', 'he': 'Hebrew', 'uk': 'Ukrainian',
-                                'id': 'Indonesian', 'tl': 'Filipino', 'da': 'Danish', 'sv': 'Swedish',
-                                'no': 'Norwegian', 'fi': 'Finnish', 'bg': 'Bulgarian', 'sk': 'Slovak',
-                                'sl': 'Slovenian', 'et': 'Estonian', 'lv': 'Latvian', 'lt': 'Lithuanian'
-                            }
-                            detected_name = lang_code_to_name.get(detected_lang, detected_lang.upper())
-                            selected_name = lang_code_to_name.get(language_code, language_code.upper())
-
+                    lang_code_to_name = {
+                        'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
+                        'it': 'Italian', 'pt': 'Portuguese', 'nl': 'Dutch', 'ru': 'Russian',
+                        'zh': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean', 'ar': 'Arabic',
+                        'hi': 'Hindi', 'bn': 'Bengali', 'ur': 'Urdu', 'ta': 'Tamil',
+                        'gu': 'Gujarati', 'fa': 'Persian', 'vi': 'Vietnamese', 'th': 'Thai',
+                        'tr': 'Turkish', 'pl': 'Polish', 'cs': 'Czech', 'hu': 'Hungarian',
+                        'ro': 'Romanian', 'el': 'Greek', 'he': 'Hebrew', 'uk': 'Ukrainian',
+                        'id': 'Indonesian', 'tl': 'Filipino', 'da': 'Danish', 'sv': 'Swedish',
+                        'no': 'Norwegian', 'fi': 'Finnish', 'bg': 'Bulgarian', 'sk': 'Slovak',
+                        'sl': 'Slovenian', 'et': 'Estonian', 'lv': 'Latvian', 'lt': 'Lithuanian'
+                    }
+                    detected_name = lang_code_to_name.get(detected_lang, detected_lang.upper())
+                    selected_name = lang_code_to_name.get(language_code, language_code.upper())
+                    
                             logger.warning(
                                 f"Language mismatch detected by query rewriter: query is in {detected_name} but {selected_name} was selected"
                             )
                             # Return the exact prior UX message
-                            return self._create_error_response(
+                    return self._create_error_response(
                                 "Whoops! You wrote in a different language than the one you selected. Please choose the language you want me to respond in on the right so we can ensure the best translation for you!",
-                                language_code,
+                        language_code,
                                 time.time() - start_time,
-                            )
+                    )
 
                 # Hard-block for off-topic and harmful in legacy path as well
                 if classification == 'off-topic':
@@ -833,11 +833,11 @@ class ClimateQueryPipeline:
                 # Generate response in English first - add timeout protection
                 response, citations = await asyncio.wait_for(
                     self.response_generator.generate_response(
-                        query=processed_query,
-                        documents=documents,
-                        model_type=model_type,
-                        language_code='en',  # Always generate in English first
-                        conversation_history=conversation_history
+                    query=processed_query,
+                    documents=documents,
+                    model_type=model_type,
+                    language_code='en',  # Always generate in English first
+                    conversation_history=conversation_history
                     ),
                     timeout=45.0  # 45 seconds total for the entire generation process
                 )

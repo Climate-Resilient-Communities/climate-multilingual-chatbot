@@ -106,22 +106,22 @@ def get_query_embeddings(query: str, embed_model) -> tuple:
         last_error = None
         
         try:
-            if isinstance(query, str) and query.strip():
-                # Use list format which is more efficient for batch processing
-                embeddings = embed_model.encode(
-                    [query.strip()], 
-                    return_dense=True, 
-                    return_sparse=True, 
-                    return_colbert_vecs=False
-                )
-            else:
-                # Fallback for edge cases
-                embeddings = embed_model.encode(
-                    [query] if isinstance(query, str) else query,
-                    return_dense=True, 
-                    return_sparse=True, 
-                    return_colbert_vecs=False
-                )
+        if isinstance(query, str) and query.strip():
+            # Use list format which is more efficient for batch processing
+            embeddings = embed_model.encode(
+                [query.strip()], 
+                return_dense=True, 
+                return_sparse=True, 
+                return_colbert_vecs=False
+            )
+        else:
+            # Fallback for edge cases
+            embeddings = embed_model.encode(
+                [query] if isinstance(query, str) else query,
+                return_dense=True, 
+                return_sparse=True, 
+                return_colbert_vecs=False
+            )
         except Exception as e:
             last_error = e
             logger.warning(f"BGE-M3 encoding failed: {str(e)[:100]}")
@@ -222,7 +222,7 @@ def issue_hybrid_query(index, sparse_embedding: Dict, dense_embedding: List[floa
                 )
         except Exception:
             pass
-        return result
+    return result
     except Exception as e:
         elapsed_ms = int((time.time() - start) * 1000)
         try:
