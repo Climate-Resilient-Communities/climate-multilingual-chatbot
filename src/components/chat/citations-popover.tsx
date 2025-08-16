@@ -38,7 +38,7 @@ function getFaviconUrl(url: string) {
 const SourceIcon = ({ url }: { url: string }) => {
     if (!isValidHttpUrl(url)) {
         return (
-            <div className="flex h-[16px] w-[16px] items-center justify-center rounded-full border-2 border-background bg-white">
+            <div className="flex h-[16px] w-[16px] items-center justify-center rounded-full border border-border bg-white">
                 <FileText className="h-3 w-3 text-muted-foreground" />
             </div>
         );
@@ -46,7 +46,7 @@ const SourceIcon = ({ url }: { url: string }) => {
     const faviconUrl = getFaviconUrl(url);
     if (!faviconUrl) {
         return (
-            <div className="flex h-[16px] w-[16px] items-center justify-center rounded-full border-2 border-background bg-white">
+            <div className="flex h-[16px] w-[16px] items-center justify-center rounded-full border border-border bg-white">
                 <FileText className="h-3 w-3 text-muted-foreground" />
             </div>
         );
@@ -57,7 +57,7 @@ const SourceIcon = ({ url }: { url: string }) => {
             alt="Source"
             width={16}
             height={16}
-            className="rounded-full border-2 border-background bg-white"
+            className="rounded-full border border-border bg-white"
         />
     );
 };
