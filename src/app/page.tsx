@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useRef, useEffect } from "react";
 import Image from "next/image";
 import Logo from "@/app/Logo.png";
+import Textarea from "react-textarea-autosize";
 import { useToast } from "@/hooks/use-toast";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SendHorizonal } from "lucide-react";
 import { AppHeader } from "@/app/components/chat/app-header";
@@ -50,6 +50,7 @@ export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [showConsent, setShowConsent] = useState(true);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const handleNewChat = () => {
     setMessages([]);
@@ -116,6 +117,12 @@ export default function Home() {
     setShowConsent(false);
   };
 
+  useEffect(() => {
+    if (inputRef.current) {
+        inputRef.current.focus();
+    }
+  }, []);
+
   if (showConsent) {
     return <ConsentDialog open={showConsent} onConsent={handleConsent} />;
   }
@@ -123,30 +130,43 @@ export default function Home() {
   const isLoading = loadingMessage !== null;
 
   return (
-    <div className="flex flex-col h-[100svh] bg-background">
+    <div className="flex flex-col h-screen bg-background">
       <AppHeader onNewChat={handleNewChat} />
-      <div className="flex flex-col overflow-y-auto">
+      <div className="flex-1 overflow-y-auto">
         <ChatWindow 
           messages={messages} 
           loadingMessage={loadingMessage}
-          onQuestionClick={(question) => handleSendMessage(question)}
+          onQuestionClick={(question) => {
+              handleSendMessage(question);
+              if (inputRef.current) {
+                  inputRef.current.focus();
+              }
+          }}
         />
       </div>
       
       <div className="p-4 border-t bg-background shrink-0">
         <form
           onSubmit={handleSendMessage}
-          className="flex items-center gap-2 max-w-4xl mx-auto"
+          className="flex items-start gap-2 max-w-4xl mx-auto"
         >
-          <Image src={Logo} alt="Logo" width={24} height={24} className="h-6 w-6" />
-          <Input
+          <Image src={Logo} alt="Logo" width={24} height={24} className="h-6 w-6 mt-1.5" />
+          <Textarea
+            ref={inputRef}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage(e as any);
+                }
+            }}
             placeholder="Ask about climate change..."
-            className="flex-1"
+            className="flex-1 resize-none max-h-40"
+            minRows={1}
             disabled={isLoading}
           />
-          <Button type="submit" size="icon" disabled={isLoading || !inputValue.trim()}>
+          <Button type="submit" size="icon" disabled={isLoading || !inputValue.trim()} className="self-end">
             <SendHorizonal className="h-5 w-5" />
             <span className="sr-only">Send</span>
           </Button>
