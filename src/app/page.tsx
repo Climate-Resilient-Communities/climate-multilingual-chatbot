@@ -90,7 +90,10 @@ export default function Home() {
       let sources: Source[] = [];
       const lowerQuery = query.toLowerCase();
 
-      if (lowerQuery.includes("local impacts")) {
+      if (lowerQuery.includes("hello")) {
+        response = "Hello! I'm the Multilingual Climate Chatbot (MLCC). How can I help you today?";
+        sources = [];
+      } else if (lowerQuery.includes("local impacts")) {
         response = "In Toronto, local impacts of climate change include more frequent and intense heatwaves, increased risk of flooding from severe storms, and changes to ecosystems in local ravines and the Lake Ontario shoreline.";
         sources = mockSources.local_impacts;
       } else if (lowerQuery.includes("summer so hot")) {
