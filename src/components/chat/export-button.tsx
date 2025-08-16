@@ -52,6 +52,10 @@ export function ExportButton({ message }: ExportButtonProps) {
           text: content,
         });
       } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          // Do nothing if the user cancels the share sheet
+          return;
+        }
         if (error instanceof Error && error.name === 'NotAllowedError') {
           toast({
             variant: "destructive",
