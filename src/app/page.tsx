@@ -151,8 +151,8 @@ export default function Home() {
           onSubmit={handleSendMessage}
           className="flex items-start gap-4 max-w-4xl mx-auto"
         >
-          <Image src={Logo} alt="Logo" width={32} height={32} className="h-8 w-8 mt-1" />
-          <Textarea
+          <Image src={Logo} alt="Logo" width={40} height={40} className="h-10 w-10 mt-0" />
+          <ShadcnTextarea
             ref={inputRef}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
@@ -163,9 +163,10 @@ export default function Home() {
                 }
             }}
             placeholder="Ask about climate change..."
-            className="flex-1 resize-none max-h-40 text-base sm:text-sm !min-h-[2.5rem] p-2"
+            className="flex-1 resize-none max-h-40"
             minRows={1}
             disabled={isLoading}
+            as={Textarea}
           />
           <Button type="submit" size="icon" disabled={isLoading || !inputValue.trim()} className="self-end h-10 w-10">
             <SendHorizonal className="h-5 w-5" />
