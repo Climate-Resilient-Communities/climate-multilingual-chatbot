@@ -131,7 +131,7 @@ export default function Home() {
   const isLoading = loadingMessage !== null;
 
   return (
-    <div className="flex flex-col h-[100svh] bg-background">
+    <div className="flex flex-col h-[100svh]">
       <AppHeader onNewChat={handleNewChat} />
       <div className="flex-1 overflow-y-auto">
         <ChatWindow 
