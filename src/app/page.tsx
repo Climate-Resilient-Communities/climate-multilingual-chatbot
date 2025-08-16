@@ -123,9 +123,9 @@ export default function Home() {
   const isLoading = loadingMessage !== null;
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="flex flex-col h-[100svh] bg-background">
       <AppHeader onNewChat={handleNewChat} />
-      <div className="flex-1 flex flex-col overflow-y-auto">
+      <div className="flex flex-col overflow-y-auto">
         <ChatWindow 
           messages={messages} 
           loadingMessage={loadingMessage}
