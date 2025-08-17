@@ -13,7 +13,8 @@ from collections import defaultdict, deque
 
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 import uvicorn
 
 # Import existing pipeline components
@@ -290,6 +291,14 @@ def get_cache() -> ClimateCache:
         raise HTTPException(status_code=503, detail="Cache not initialized")
     return cache
 
+# Static file serving for single deployment (Next.js frontend)
+# Mount the static files directory for Next.js assets
+frontend_out_dir = os.path.join(os.path.dirname(__file__), "..", "app", "out")
+if os.path.exists(frontend_out_dir):
+    # Mount Next.js static assets
+    app.mount("/_next", StaticFiles(directory=os.path.join(frontend_out_dir, "_next")), name="next-static")
+    logger.info(f"✅ Mounted Next.js static files from {frontend_out_dir}")
+
 # Import and include routers
 from .routers import chat, languages, feedback, streaming
 
@@ -298,14 +307,27 @@ app.include_router(languages.router, prefix="/api/v1", tags=["languages"])
 app.include_router(feedback.router, prefix="/api/v1", tags=["feedback"])
 app.include_router(streaming.router, prefix="/api/v1", tags=["streaming"])
 
-# Root endpoint
-@app.get("/")
-async def root():
+# Serve Next.js frontend for all non-API routes (single deployment)
+@app.get("/{full_path:path}")
+async def serve_react_app(full_path: str):
+    """Serve Next.js frontend for all non-API routes"""
+    # Skip API routes - let FastAPI routers handle them
+    if full_path.startswith("api/") or full_path.startswith("health") or full_path.startswith("docs"):
+        # These will be handled by other routes
+        return JSONResponse(status_code=404, content={"detail": "Not found"})
+    
+    # Serve the index.html for all frontend routes
+    frontend_index = os.path.join(os.path.dirname(__file__), "..", "app", "out", "index.html")
+    if os.path.exists(frontend_index):
+        return FileResponse(frontend_index)
+    
+    # Fallback API info if frontend not built
     return {
         "message": "Climate Multilingual Chatbot API",
         "version": "1.0.0",
         "docs": "/docs",
-        "health": "/health"
+        "health": "/health",
+        "note": "Frontend not built. Run 'npm run build' in src/webui/app/"
     }
 
 # Global exception handler

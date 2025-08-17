@@ -158,3 +158,29 @@ favicons = await asyncio.gather(*tasks)
 - ✅ Production stability
 
 **Measurement:** Run before/after benchmarks with same test queries across all 37 languages.
+
+## 🚀 Amazon Nova (Bedrock) Performance Optimization
+
+### **Problem**
+
+The Nova model, hosted on Amazon Bedrock, exhibits significantly higher latency (average of 4.65s) compared to the Command A model (0.19s). This can lead to a poor user experience and potential rate limiting issues under high load.
+
+### **Potential Solutions**
+
+1.  **Provisioned Throughput:** For consistent, high-volume workloads, purchasing a guaranteed level of throughput can provide lower latency and avoid on-demand rate limits. This is a good option for production environments with predictable traffic.
+
+2.  **Model Selection:** Explore other Amazon Bedrock models to find a better balance of performance and quality. Smaller models like Amazon Titan Lite may offer faster response times.
+
+3.  **Response Streaming:** While already implemented, ensuring the frontend is optimized to handle streaming responses is crucial for improving *perceived* performance. The user sees the response as it's being generated, rather than waiting for the full response.
+
+4.  **Region Selection:** Deploying the application in the same AWS region as the Bedrock endpoint can minimize network latency.
+
+5.  **Prompt Engineering:** Optimizing prompts to be clear and concise can reduce the number of tokens processed and speed up response times.
+
+### **Implementation Steps**
+
+1.  **Evaluate Workload:** Analyze production traffic patterns to determine if Provisioned Throughput is a cost-effective option.
+2.  **Benchmark Other Models:** Conduct a bake-off between the Nova model and other Bedrock models to compare performance and quality.
+3.  **Optimize Frontend for Streaming:** Ensure the frontend is rendering the streaming response as it's received.
+4.  **Verify AWS Region:** Confirm that the application and Bedrock endpoint are in the same AWS region.
+5.  **Review and Refine Prompts:** Analyze and optimize the prompts used with the Nova model to reduce token count and improve clarity.

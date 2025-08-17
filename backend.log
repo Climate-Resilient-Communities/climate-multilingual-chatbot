@@ -1,0 +1,416 @@
+INFO:     Will watch for changes in these directories: ['/Users/luis_ticas/Documents/GitHub/climate-multilingual-chatbot']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [12514] using StatReload
+2025-08-16 19:58:53,170 - datasets - INFO - PyTorch version 2.6.0 available.
+INFO:     Started server process [12533]
+INFO:     Waiting for application startup.
+2025-08-16 19:59:01,883 - src.webui.api.main - INFO - 🚀 Starting Climate Chatbot API...
+2025-08-16 19:59:01,883 - src.webui.api.main - INFO - Initializing pipeline components...
+2025-08-16 19:59:02,148 - src.models.nova_flow - INFO - ✓ Bedrock client initialized
+2025-08-16 19:59:02,190 - src.models.cohere_flow - INFO - ✓ Cohere client initialized
+2025-08-16 19:59:02,191 - src.models.gen_response_unified - INFO - ✓ Unified Response Generator initialized
+2025-08-16 19:59:02,191 - src.models.redis_cache - INFO - Initializing Redis connection to localhost:6379 (SSL: False)
+2025-08-16 19:59:02,489 - src.models.redis_cache - INFO - ✓ Redis connection test successful to localhost
+2025-08-16 19:59:02,489 - src.models.redis_cache - INFO - ✓ Redis cache initialized for localhost
+2025-08-16 19:59:03,194 - src.models.nova_flow - INFO - ✓ Bedrock client initialized
+2025-08-16 19:59:03,319 - src.models.cohere_flow - INFO - ✓ Cohere client initialized
+Fetching 30 files:   0%|          | 0/30 [00:00<?, ?it/s]Fetching 30 files: 100%|██████████| 30/30 [00:00<00:00, 15439.16it/s]
+2025-08-16 19:59:15,115 - FlagEmbedding.finetune.embedder.encoder_only.m3.runner - INFO - loading existing colbert_linear and sparse_linear---------
+2025-08-16 19:59:15,121 - src.models.climate_pipeline - INFO - ✓ Embedding model initialized with fast tokenizer
+2025-08-16 19:59:15,121 - src.models.climate_pipeline - INFO - Init: embeddings model ready in 11.80s
+2025-08-16 19:59:15,127 - pinecone_plugin_interface.logging - INFO - Discovering subpackages in _NamespacePath(['/Users/luis_ticas/Documents/GitHub/climate-multilingual-chatbot/.venv/lib/python3.12/site-packages/pinecone_plugins'])
+2025-08-16 19:59:15,128 - pinecone_plugin_interface.logging - INFO - Looking for plugins in pinecone_plugins.assistant
+2025-08-16 19:59:15,195 - pinecone_plugin_interface.logging - INFO - Looking for plugins in pinecone_plugins.inference
+2025-08-16 19:59:15,219 - pinecone_plugin_interface.logging - INFO - Installing plugin assistant into Pinecone
+2025-08-16 19:59:15,220 - pinecone_plugin_interface.logging - INFO - Installing plugin inference into Pinecone
+2025-08-16 19:59:15,220 - src.models.climate_pipeline - INFO - Pinecone: initialized using v5 client
+2025-08-16 19:59:15,792 - src.models.climate_pipeline - INFO - Init: pinecone index ready in 0.67s
+2025-08-16 19:59:15,873 - src.models.climate_pipeline - INFO - Init: cohere client ready in 0.08s
+2025-08-16 19:59:15,873 - src.models.climate_pipeline - INFO - ✓ Climate Query Pipeline initialized (eager heavy-init)
+2025-08-16 19:59:15,873 - src.webui.api.main - INFO - ✅ Climate pipeline initialized (prewarming in background)
+2025-08-16 19:59:15,873 - src.webui.api.main - INFO - ✅ Conversation parser initialized
+2025-08-16 19:59:15,873 - src.webui.api.main - INFO - ✅ Language router initialized
+2025-08-16 19:59:15,873 - src.models.redis_cache - INFO - Initializing Redis connection to localhost:6379 (SSL: False)
+2025-08-16 19:59:15,896 - src.models.redis_cache - INFO - ✓ Redis connection test successful to localhost
+2025-08-16 19:59:15,896 - src.models.redis_cache - INFO - ✓ Redis cache initialized for localhost
+2025-08-16 19:59:15,896 - src.webui.api.main - INFO - ✅ Redis cache initialized
+2025-08-16 19:59:15,896 - src.webui.api.main - INFO - 🎉 All components initialized successfully!
+2025-08-16 19:59:15,897 - src.webui.api.main - INFO - 🔥 Starting background pipeline prewarming...
+2025-08-16 19:59:15,897 - src.models.climate_pipeline - INFO - Prewarm: starting heavy component initialization
+2025-08-16 19:59:15,897 - src.models.climate_pipeline - INFO - Prewarm: embeddings ready in 0.00s
+2025-08-16 19:59:15,897 - src.models.climate_pipeline - INFO - Prewarming embed model...
+You're using a XLMRobertaTokenizerFast tokenizer. Please note that with a fast tokenizer, using the `__call__` method is faster than using a method to encode the text followed by a call to the `pad` method to get a padded encoding.
+2025-08-16 19:59:23,335 - src.models.climate_pipeline - INFO - Prewarm encode took 7438ms
+2025-08-16 19:59:23,511 - src.models.climate_pipeline - INFO - Second prewarm took 175ms
+2025-08-16 19:59:23,511 - src.models.climate_pipeline - INFO - Prewarm: pinecone ready in 0.00s
+2025-08-16 19:59:23,511 - src.models.climate_pipeline - INFO - Prewarm: cohere client ready in 0.00s
+2025-08-16 19:59:23,511 - src.models.climate_pipeline - INFO - Prewarm complete in 7.61s
+2025-08-16 19:59:23,511 - src.webui.api.main - INFO - ✅ Background prewarming completed
+INFO:     Application startup complete.
+2025-08-16 19:59:41,338 - src.webui.api.main - INFO - REQUEST OPTIONS /api/v1/languages/validate status=200 time=0.001s id=req_1755388781337 ip=127.0.0.1
+INFO:     127.0.0.1:59680 - "OPTIONS /api/v1/languages/validate HTTP/1.1" 200 OK
+2025-08-16 19:59:41,352 - src.webui.api.routers.languages - INFO - Language validation: query_len=72 detected=en model=nova confidence=0.800
+2025-08-16 19:59:41,354 - src.webui.api.main - INFO - REQUEST POST /api/v1/languages/validate status=200 time=0.010s id=req_1755388781344 ip=127.0.0.1
+INFO:     127.0.0.1:59680 - "POST /api/v1/languages/validate HTTP/1.1" 200 OK
+2025-08-16 19:59:41,373 - src.webui.api.main - INFO - REQUEST OPTIONS /api/v1/chat/query status=200 time=0.000s id=req_1755388781373 ip=127.0.0.1
+INFO:     127.0.0.1:59680 - "OPTIONS /api/v1/chat/query HTTP/1.1" 200 OK
+2025-08-16 19:59:41,416 - src.webui.api.routers.chat - INFO - Processing chat query: id=req_1755388781406 query_len=72 lang=en
+2025-08-16 19:59:41,416 - src.webui.api.routers.chat - INFO - Language routing: detected=en model=nova
+2025-08-16 19:59:41,733 - src.models.climate_pipeline - INFO - ✓ Language map loaded from languages.json: 187 names → 183 codes (e.g., belarusian→be)
+2025-08-16 19:59:41,733 - src.models.climate_pipeline - INFO - Processing query: 'help thers flooding in rexdale community its an emergency what can I do?...' in english (code: en)
+2025-08-16 19:59:41,733 - src.models.climate_pipeline - INFO - Raw query repr: 'help thers flooding in rexdale community its an emergency what can I do?'
+2025-08-16 19:59:41,733 - src.models.climate_pipeline - INFO - Router IN → language_name=english, language_code=en
+2025-08-16 19:59:41,733 - src.models.climate_pipeline - INFO - Step 1: Query Routing
+2025-08-16 19:59:41,733 - src.models.query_routing - INFO - Language: english (en) → Model: Nova
+2025-08-16 19:59:41,733 - src.models.climate_pipeline - INFO - Router OUT → model=Nova, support=nova, needs_translation=False
+2025-08-16 19:59:41,733 - src.models.climate_pipeline - INFO - Router OUT → english_query='help thers flooding in rexdale community its an emergency what can I do?'
+2025-08-16 19:59:41,733 - src.models.climate_pipeline - INFO - Router OUT → processed_query='help thers flooding in rexdale community its an emergency what can I do?'
+2025-08-16 19:59:41,733 - src.models.climate_pipeline - INFO - ✓ Routed to Nova model
+2025-08-16 19:59:41,733 - src.models.climate_pipeline - INFO - Timing: routing=0.1ms
+2025-08-16 19:59:41,733 - src.models.climate_pipeline - INFO - Net debug → original_query len=72, utf8_bytes=72
+2025-08-16 19:59:41,733 - src.models.climate_pipeline - INFO - Net debug → english_query len=72, utf8_bytes=72
+2025-08-16 19:59:41,733 - src.models.climate_pipeline - INFO - Step 2: Cache Check
+2025-08-16 19:59:41,733 - src.models.redis_cache - INFO - Initializing Redis connection to localhost:6379 (SSL: False)
+2025-08-16 19:59:41,742 - src.models.redis_cache - INFO - ✓ Redis connection test successful to localhost
+2025-08-16 19:59:41,742 - src.models.redis_cache - INFO - ✓ Redis cache initialized for localhost
+2025-08-16 19:59:41,749 - src.models.climate_pipeline - INFO - Cache miss for english query
+2025-08-16 19:59:41,770 - src.models.climate_pipeline - INFO - Timing: cache=37.3ms
+2025-08-16 19:59:41,770 - src.models.climate_pipeline - INFO - Step 3: Query Rewriting
+2025-08-16 19:59:41,771 - src.models.conversation_parser - INFO - No conversation history to format
+2025-08-16 19:59:41,771 - src.models.climate_pipeline - INFO - Rewriter IN → expected_lang=en, history_len=0
+2025-08-16 19:59:41,771 - src.models.climate_pipeline - INFO - Rewriter IN → original_query='help thers flooding in rexdale community its an emergency what can I do?'
+2025-08-16 19:59:41,771 - query_rewriter - INFO - Rewriter NET IN → expected_lang=en, user_query repr='help thers flooding in rexdale community its an emergency what can I do?', norm='help thers flooding in rexdale community its an emergency what can I do?'
+2025-08-16 19:59:42,642 - src.models.nova_flow - INFO - dep=bedrock host=bedrock.us-east-1.amazonaws.com op=invoke_model ms=871 status=OK request_id=ae30e23a-6707-4e45-9049-df114fb471d8
+2025-08-16 19:59:42,643 - query_rewriter - INFO - Model raw (first 300): {"reason":"User query contains climate emergency terms and requests for immediate action.","language":"en","expected_language":"en","language_match":true,"classification":"on-topic","rewrite_en":"What should I do during a flooding emergency in the Rexdale community?","ask_how_to_use":false,"how_it_w
+2025-08-16 19:59:42,643 - query_rewriter - INFO - Rewriter NET OUT → json keys=['ask_how_to_use', 'classification', 'error', 'expected_language', 'how_it_works', 'language', 'language_match', 'reason', 'rewrite_en']
+2025-08-16 19:59:42,643 - query_rewriter - INFO - 🔍 CLASSIFICATION_DEBUG: query='help thers flooding in rexdale community its an em...' expected_lang=en detected_lang=en classification=on-topic language_match=True reason='User query contains climate emergency terms and requests for immediate action....'
+2025-08-16 19:59:42,643 - src.models.climate_pipeline - INFO - Rewriter OUT → detected_lang='en', classification='on-topic', language_match='yes', canned=False
+2025-08-16 19:59:42,643 - src.models.climate_pipeline - INFO - Rewriter OUT → rewrite_en='What should I do during a flooding emergency in the Rexdale community?'
+2025-08-16 19:59:42,643 - src.models.climate_pipeline - INFO - ✓ Query rewritten (JSON) for better retrieval
+2025-08-16 19:59:42,643 - src.models.climate_pipeline - INFO - Timing: rewrite=872.4ms
+2025-08-16 19:59:42,643 - src.models.climate_pipeline - INFO - Step 4: Input Guards
+2025-08-16 19:59:42,643 - src.models.climate_pipeline - INFO - ✓ Input guards passed
+2025-08-16 19:59:42,643 - src.models.climate_pipeline - INFO - Timing: guards=0.0ms
+2025-08-16 19:59:42,643 - src.models.climate_pipeline - INFO - Step 5: Document Retrieval
+2025-08-16 19:59:42,643 - src.models.retrieval - INFO - 🔄 Pre-computing query embeddings to avoid redundant encode() calls
+2025-08-16 19:59:42,643 - src.models.retrieval - INFO - Query embedding IN: query_len=70 chars, query_repr='What should I do during a flooding emergency in the Rexdale community?...'
+2025-08-16 19:59:43,445 - src.models.retrieval - INFO - dep=query_embed op=encode ms=801 dense_dim=1024 sparse_tokens=14
+2025-08-16 19:59:43,837 - src.models.retrieval - INFO - dep=pinecone host=unknown op=query ms=391 status=OK
+2025-08-16 19:59:43,837 - src.models.retrieval - INFO - dep=hybrid_search embed_ms=0 query_ms=392 total_ms=392
+2025-08-16 19:59:43,981 - src.models.retrieval - INFO - dep=pinecone host=unknown op=query ms=143 status=OK
+2025-08-16 19:59:43,981 - src.models.retrieval - INFO - pinecone.match type=<class 'pinecone.core.openapi.data.model.scored_vector.ScoredVector'> attrs_have_values=True has_values=True
+2025-08-16 19:59:43,981 - src.models.retrieval - INFO - dep=hybrid_search embed_ms=0 query_ms=144 total_ms=144
+2025-08-16 19:59:43,987 - src.models.retrieval - INFO - dep=mmr_embed used_index=2 used_cache=0 embedded=0 ms=0 n_docs=2 valid_vecs=2 q_embed_ms=0
+2025-08-16 19:59:43,988 - src.models.rerank - INFO - dep=cohere_rerank payload_chars=2189 n_docs=2
+2025-08-16 19:59:44,262 - httpx - INFO - HTTP Request: POST https://api.cohere.com/v1/rerank "HTTP/1.1 200 OK"
+2025-08-16 19:59:44,264 - src.models.rerank - INFO - dep=cohere_rerank host=api.cohere.com op=rerank ms=275.9 status=OK
+2025-08-16 19:59:44,268 - src.models.retrieval - INFO - Query embedding IN: query_len=70 chars, query_repr='What should I do during a flooding emergency in the Rexdale community?...'
+2025-08-16 19:59:44,342 - src.models.retrieval - INFO - dep=query_embed op=encode ms=74 dense_dim=1024 sparse_tokens=14
+2025-08-16 19:59:45,062 - src.models.retrieval - INFO - dep=pinecone host=unknown op=query ms=208 status=OK
+2025-08-16 19:59:45,062 - src.models.retrieval - INFO - pinecone.match type=<class 'pinecone.core.openapi.data.model.scored_vector.ScoredVector'> attrs_have_values=True has_values=True
+2025-08-16 19:59:45,062 - src.models.retrieval - INFO - dep=hybrid_search embed_ms=0 query_ms=208 total_ms=208
+2025-08-16 19:59:45,063 - src.models.rerank - INFO - dep=cohere_rerank payload_chars=10118 n_docs=8
+2025-08-16 19:59:46,702 - httpx - INFO - HTTP Request: POST https://api.cohere.com/v1/rerank "HTTP/1.1 200 OK"
+2025-08-16 19:59:46,704 - src.models.rerank - INFO - dep=cohere_rerank host=api.cohere.com op=rerank ms=1640.1 status=OK
+2025-08-16 19:59:46,704 - src.models.retrieval - INFO - Retained docs preview: [{'title': 'Rexdale Snap Action Plan Report 11 20 23 Fa 2 2', 'pinecone_score': 0.334517956, 'rerank_score': 0.32146, 'has_values': True}, {'title': 'Rexdale Snap Action Plan Executive Summary Final 2', 'pinecone_score': 0.320043027, 'rerank_score': 1.948522e-06, 'has_values': True}, {'title': 'Climate Change Adaptation Planning Guidebooks For Indigenous Communties Report', 'pinecone_score': 0.153440461, 'rerank_score': 0.6445608, 'has_values': True}, {'title': '50 Great Ideas For Inspiring Community Resilience To Climate Change', 'pinecone_score': 0.25493145, 'rerank_score': 0.017242778, 'has_values': True}, {'title': 'Climate Change Impact & Adaptation Infosheets', 'pinecone_score': 0.161071524, 'rerank_score': 0.0139557095, 'has_values': True}]
+2025-08-16 19:59:46,704 - src.models.retrieval - INFO - q='What should I do during a flooding emergency in the Rexdale ', base=2, kept_pre=2, refill=0, final_before=0, final_after=5, hybrid_refill=5, floor=0.60, delta=0.100, max_sim_pre=0.335, p50_sim_pre=0.320, p95_sim_pre=0.335, blocked_base=0, dropped_top2=[{'segment_id': '69', 'title': 'Rexdale Snap Action Plan Report 11 20 23 Fa 2 2', 'score': 0.32146}, {'segment_id': '3', 'title': 'Rexdale Snap Action Plan Executive Summary Final 2', 'score': 1.948522e-06}]
+2025-08-16 19:59:46,706 - src.models.climate_pipeline - INFO - ✓ Retrieved 5 documents
+2025-08-16 19:59:46,706 - src.models.climate_pipeline - INFO - Timing: retrieval=4062.6ms
+2025-08-16 19:59:46,706 - src.models.climate_pipeline - INFO - Step 6: Response Generation (Nova)
+2025-08-16 19:59:46,706 - src.models.gen_response_unified - INFO - Starting nova response generation
+2025-08-16 19:59:46,706 - src.models.redis_cache - INFO - Initializing Redis connection to localhost:6379 (SSL: False)
+2025-08-16 19:59:46,707 - src.models.redis_cache - INFO - ✓ Redis connection test successful to localhost
+2025-08-16 19:59:46,707 - src.models.redis_cache - INFO - ✓ Redis cache initialized for localhost
+2025-08-16 19:59:46,707 - src.models.gen_response_unified - INFO - Successfully processed 5 documents
+2025-08-16 19:59:46,707 - src.models.gen_response_unified - INFO - Successfully processed 5 documents for nova
+2025-08-16 19:59:50,700 - src.models.nova_flow - INFO - dep=bedrock host=bedrock.us-east-1.amazonaws.com op=invoke_model ms=3992 status=OK request_id=9c683598-e26e-4d92-8304-78b3306a62d6
+2025-08-16 19:59:50,705 - src.models.gen_response_unified - INFO - nova response cached successfully
+2025-08-16 19:59:50,706 - src.models.gen_response_unified - INFO - nova response generation complete
+2025-08-16 19:59:50,706 - src.models.climate_pipeline - INFO - ✓ Response generated successfully in English
+2025-08-16 19:59:50,706 - src.models.climate_pipeline - INFO - Timing: generation=4000.1ms
+2025-08-16 19:59:50,706 - src.models.climate_pipeline - INFO - Step 7: Quality Validation
+2025-08-16 19:59:52,186 - src.models.nova_flow - INFO - dep=bedrock host=bedrock.us-east-1.amazonaws.com op=invoke_model ms=1480 status=OK request_id=d6ab71d6-f95f-4926-a3c0-38484c9bfde1
+2025-08-16 19:59:52,187 - src.models.hallucination_guard - INFO - Faithfulness score: 0.9
+2025-08-16 19:59:52,187 - src.models.climate_pipeline - INFO - ✓ Faithfulness score: 0.900
+2025-08-16 19:59:52,187 - src.models.climate_pipeline - INFO - ✓ Assessment: Highly Faithful
+2025-08-16 19:59:52,187 - src.models.climate_pipeline - INFO - Timing: faithfulness=1481.0ms
+2025-08-16 19:59:52,187 - src.models.redis_cache - INFO - Initializing Redis connection to localhost:6379 (SSL: False)
+2025-08-16 19:59:52,190 - src.models.redis_cache - INFO - ✓ Redis connection test successful to localhost
+2025-08-16 19:59:52,190 - src.models.redis_cache - INFO - ✓ Redis cache initialized for localhost
+2025-08-16 19:59:52,198 - src.models.climate_pipeline - INFO - ✓ Response cached in english
+2025-08-16 19:59:52,230 - src.models.climate_pipeline - INFO - Timing summary (ms): routing=0.1 rewrite=872.4 guards=0.0 retrieval=4062.6 generation=4000.1 faithfulness=1481.0 translation=0.0 total=10454.4
+2025-08-16 19:59:52,230 - src.models.climate_pipeline - INFO - ✓ Query processed successfully in 10.45s
+2025-08-16 19:59:52,231 - src.webui.api.routers.chat - INFO - Query processed successfully: id=req_1755388781406 time=10.814s model=nova faithfulness=0.900
+2025-08-16 19:59:52,234 - src.webui.api.main - INFO - REQUEST POST /api/v1/chat/query status=200 time=10.829s id=req_1755388781406 ip=127.0.0.1
+INFO:     127.0.0.1:59680 - "POST /api/v1/chat/query HTTP/1.1" 200 OK
+2025-08-16 20:01:12,513 - src.webui.api.routers.languages - INFO - Language validation: query_len=16 detected=en model=nova confidence=0.500
+2025-08-16 20:01:12,526 - src.webui.api.main - INFO - REQUEST POST /api/v1/languages/validate status=200 time=0.047s id=req_1755388872479 ip=127.0.0.1
+INFO:     127.0.0.1:60582 - "POST /api/v1/languages/validate HTTP/1.1" 200 OK
+2025-08-16 20:01:12,562 - src.webui.api.routers.chat - INFO - Processing chat query: id=req_1755388872544 query_len=16 lang=en
+2025-08-16 20:01:12,567 - src.models.conversation_parser - INFO - Parsed 2 messages from conversation history
+2025-08-16 20:01:12,567 - src.webui.api.routers.chat - INFO - Parsed conversation history: 2 messages
+2025-08-16 20:01:12,567 - src.webui.api.routers.chat - INFO - Language routing: detected=en model=nova
+2025-08-16 20:01:12,575 - src.models.climate_pipeline - INFO - Processing query: 'how about fires?...' in english (code: en)
+2025-08-16 20:01:12,575 - src.models.climate_pipeline - INFO - Raw query repr: 'how about fires?'
+2025-08-16 20:01:12,577 - src.models.climate_pipeline - INFO - Router IN → language_name=english, language_code=en
+2025-08-16 20:01:12,577 - src.models.climate_pipeline - INFO - Step 1: Query Routing
+2025-08-16 20:01:12,581 - src.models.query_routing - INFO - Language: english (en) → Model: Nova
+2025-08-16 20:01:12,584 - src.models.climate_pipeline - INFO - Router OUT → model=Nova, support=nova, needs_translation=False
+2025-08-16 20:01:12,584 - src.models.climate_pipeline - INFO - Router OUT → english_query='how about fires?'
+2025-08-16 20:01:12,584 - src.models.climate_pipeline - INFO - Router OUT → processed_query='how about fires?'
+2025-08-16 20:01:12,584 - src.models.climate_pipeline - INFO - ✓ Routed to Nova model
+2025-08-16 20:01:12,584 - src.models.climate_pipeline - INFO - Timing: routing=6.5ms
+2025-08-16 20:01:12,584 - src.models.climate_pipeline - INFO - Net debug → original_query len=16, utf8_bytes=16
+2025-08-16 20:01:12,584 - src.models.climate_pipeline - INFO - Net debug → english_query len=16, utf8_bytes=16
+2025-08-16 20:01:12,584 - src.models.climate_pipeline - INFO - Step 2: Cache Check
+2025-08-16 20:01:12,587 - src.models.redis_cache - INFO - Initializing Redis connection to localhost:6379 (SSL: False)
+2025-08-16 20:01:12,638 - src.models.redis_cache - INFO - ✓ Redis connection test successful to localhost
+2025-08-16 20:01:12,638 - src.models.redis_cache - INFO - ✓ Redis cache initialized for localhost
+2025-08-16 20:01:12,638 - src.models.climate_pipeline - INFO - Cache miss for english query
+2025-08-16 20:01:12,639 - src.models.climate_pipeline - INFO - Timing: cache=55.0ms
+2025-08-16 20:01:12,639 - src.models.climate_pipeline - INFO - Step 3: Query Rewriting
+2025-08-16 20:01:12,641 - src.models.conversation_parser - INFO - Parsed 2 messages from conversation history
+2025-08-16 20:01:12,641 - src.models.conversation_parser - INFO - Formatted conversation history for query rewriter:
+2025-08-16 20:01:12,641 - src.models.conversation_parser - INFO -   Message 1 (user): help thers flooding in rexdale community its an emergency what can I do?...
+2025-08-16 20:01:12,641 - src.models.conversation_parser - INFO -   Message 2 (assistant): # Staying Safe During Flooding in Rexdale
+
+If you're in Rexdale and a flood is imminent, it's import...
+2025-08-16 20:01:12,641 - src.models.climate_pipeline - INFO - Rewriter IN → expected_lang=en, history_len=2
+2025-08-16 20:01:12,641 - src.models.climate_pipeline - INFO - Rewriter IN → original_query='how about fires?'
+2025-08-16 20:01:12,647 - query_rewriter - INFO - Rewriter NET IN → expected_lang=en, user_query repr='how about fires?', norm='how about fires?'
+2025-08-16 20:01:13,358 - src.models.nova_flow - INFO - dep=bedrock host=bedrock.us-east-1.amazonaws.com op=invoke_model ms=708 status=OK request_id=0db0ef8e-a9a0-4578-a053-8a0bc929af16
+2025-08-16 20:01:13,358 - query_rewriter - INFO - Model raw (first 300): {"reason":"User query is related to climate impacts, specifically fires.","language":"en","expected_language":"en","language_match":true,"classification":"on-topic","rewrite_en":"What are the impacts of climate change on fires?","ask_how_to_use":false,"how_it_works":null,"error":null}
+2025-08-16 20:01:13,358 - query_rewriter - INFO - Rewriter NET OUT → json keys=['ask_how_to_use', 'classification', 'error', 'expected_language', 'how_it_works', 'language', 'language_match', 'reason', 'rewrite_en']
+2025-08-16 20:01:13,359 - query_rewriter - INFO - 🔍 CLASSIFICATION_DEBUG: query='how about fires?...' expected_lang=en detected_lang=en classification=on-topic language_match=True reason='User query is related to climate impacts, specifically fires....'
+2025-08-16 20:01:13,359 - src.models.climate_pipeline - INFO - Rewriter OUT → detected_lang='en', classification='on-topic', language_match='yes', canned=False
+2025-08-16 20:01:13,359 - src.models.climate_pipeline - INFO - Rewriter OUT → rewrite_en='What are the impacts of climate change on fires?'
+2025-08-16 20:01:13,359 - src.models.climate_pipeline - INFO - ✓ Query rewritten (JSON) for better retrieval
+2025-08-16 20:01:13,359 - src.models.climate_pipeline - INFO - Timing: rewrite=719.6ms
+2025-08-16 20:01:13,359 - src.models.climate_pipeline - INFO - Step 4: Input Guards
+2025-08-16 20:01:13,359 - src.models.climate_pipeline - INFO - ✓ Input guards passed
+2025-08-16 20:01:13,359 - src.models.climate_pipeline - INFO - Timing: guards=0.0ms
+2025-08-16 20:01:13,359 - src.models.climate_pipeline - INFO - Step 5: Document Retrieval
+2025-08-16 20:01:13,359 - src.models.retrieval - INFO - 🔄 Pre-computing query embeddings to avoid redundant encode() calls
+2025-08-16 20:01:13,359 - src.models.retrieval - INFO - Query embedding IN: query_len=48 chars, query_repr='What are the impacts of climate change on fires?...'
+2025-08-16 20:01:14,760 - src.models.retrieval - INFO - dep=query_embed op=encode ms=1400 dense_dim=1024 sparse_tokens=10
+2025-08-16 20:01:15,154 - src.models.retrieval - INFO - dep=pinecone host=unknown op=query ms=390 status=OK
+2025-08-16 20:01:15,154 - src.models.retrieval - INFO - dep=hybrid_search embed_ms=0 query_ms=391 total_ms=391
+2025-08-16 20:01:15,312 - src.models.retrieval - INFO - dep=pinecone host=unknown op=query ms=157 status=OK
+2025-08-16 20:01:15,312 - src.models.retrieval - INFO - pinecone.match type=<class 'pinecone.core.openapi.data.model.scored_vector.ScoredVector'> attrs_have_values=True has_values=True
+2025-08-16 20:01:15,312 - src.models.retrieval - INFO - dep=hybrid_search embed_ms=0 query_ms=157 total_ms=157
+2025-08-16 20:01:15,316 - src.models.retrieval - INFO - dep=mmr_embed used_index=7 used_cache=0 embedded=0 ms=0 n_docs=7 valid_vecs=7 q_embed_ms=0
+2025-08-16 20:01:15,317 - src.models.rerank - INFO - dep=cohere_rerank payload_chars=8832 n_docs=7
+2025-08-16 20:01:15,458 - httpx - INFO - HTTP Request: POST https://api.cohere.com/v1/rerank "HTTP/1.1 200 OK"
+2025-08-16 20:01:15,546 - src.models.rerank - INFO - dep=cohere_rerank host=api.cohere.com op=rerank ms=228.6 status=OK
+2025-08-16 20:01:15,549 - src.models.retrieval - INFO - Retained docs preview: [{'title': 'Climate Change Impact & Adaptation Infosheets', 'pinecone_score': 0.279044837, 'rerank_score': 0.9939731, 'has_values': True}, {'title': "Canada's Changing Climate Report 2019", 'pinecone_score': 0.300613582, 'rerank_score': 0.98555213, 'has_values': True}, {'title': 'Heatwaves And Our Health – A Special Report On Climate Change In Canada', 'pinecone_score': 0.29459846, 'rerank_score': 0.9829547, 'has_values': True}, {'title': '1 S2.0 S266727822300055x Main', 'pinecone_score': 0.282897979, 'rerank_score': 0.9777564, 'has_values': True}, {'title': 'Health Of Canadians In Changing Climate Report', 'pinecone_score': 0.266930342, 'rerank_score': 0.8446654, 'has_values': True}]
+2025-08-16 20:01:15,549 - src.models.retrieval - INFO - q='What are the impacts of climate change on fires?', base=7, kept_pre=7, refill=0, final_before=5, final_after=5, hybrid_refill=0, floor=0.82, delta=0.100, max_sim_pre=0.301, p50_sim_pre=0.279, p95_sim_pre=0.301, blocked_base=0, dropped_top2=[{'segment_id': '5', 'title': 'Kgad011', 'score': 0.81582016}, {'segment_id': '24', 'title': 'Intactcentre Wildfire Ready 2023', 'score': 0.7501869}]
+2025-08-16 20:01:15,549 - src.models.climate_pipeline - INFO - ✓ Retrieved 5 documents
+2025-08-16 20:01:15,549 - src.models.climate_pipeline - INFO - Timing: retrieval=2190.7ms
+2025-08-16 20:01:15,549 - src.models.climate_pipeline - INFO - Step 6: Response Generation (Nova)
+2025-08-16 20:01:15,550 - src.models.gen_response_unified - INFO - Starting nova response generation
+2025-08-16 20:01:15,550 - src.models.redis_cache - INFO - Initializing Redis connection to localhost:6379 (SSL: False)
+2025-08-16 20:01:15,557 - src.models.redis_cache - INFO - ✓ Redis connection test successful to localhost
+2025-08-16 20:01:15,557 - src.models.redis_cache - INFO - ✓ Redis cache initialized for localhost
+2025-08-16 20:01:15,558 - src.models.gen_response_unified - INFO - Successfully processed 5 documents
+2025-08-16 20:01:15,558 - src.models.gen_response_unified - INFO - Successfully processed 5 documents for nova
+2025-08-16 20:01:18,978 - src.models.nova_flow - INFO - dep=bedrock host=bedrock.us-east-1.amazonaws.com op=invoke_model ms=3419 status=OK request_id=824a2bf9-1346-45fa-a2e2-2f323434101f
+2025-08-16 20:01:18,984 - src.models.gen_response_unified - INFO - nova response cached successfully
+2025-08-16 20:01:18,984 - src.models.gen_response_unified - INFO - nova response generation complete
+2025-08-16 20:01:18,984 - src.models.climate_pipeline - INFO - ✓ Response generated successfully in English
+2025-08-16 20:01:18,985 - src.models.climate_pipeline - INFO - Timing: generation=3434.6ms
+2025-08-16 20:01:18,985 - src.models.climate_pipeline - INFO - Step 7: Quality Validation
+2025-08-16 20:01:20,806 - src.models.nova_flow - INFO - dep=bedrock host=bedrock.us-east-1.amazonaws.com op=invoke_model ms=1818 status=OK request_id=f1cae6d2-fea4-4b80-a33f-efed627a70a7
+2025-08-16 20:01:20,807 - src.models.hallucination_guard - INFO - Faithfulness score: 0.95
+2025-08-16 20:01:20,807 - src.models.climate_pipeline - INFO - ✓ Faithfulness score: 0.950
+2025-08-16 20:01:20,807 - src.models.climate_pipeline - INFO - ✓ Assessment: Highly Faithful
+2025-08-16 20:01:20,807 - src.models.climate_pipeline - INFO - Timing: faithfulness=1822.1ms
+2025-08-16 20:01:20,807 - src.models.redis_cache - INFO - Initializing Redis connection to localhost:6379 (SSL: False)
+2025-08-16 20:01:20,814 - src.models.redis_cache - INFO - ✓ Redis connection test successful to localhost
+2025-08-16 20:01:20,814 - src.models.redis_cache - INFO - ✓ Redis cache initialized for localhost
+2025-08-16 20:01:20,839 - src.models.climate_pipeline - INFO - ✓ Response cached in english
+2025-08-16 20:01:20,853 - src.models.climate_pipeline - INFO - Timing summary (ms): routing=6.5 rewrite=719.6 guards=0.0 retrieval=2190.7 generation=3434.6 faithfulness=1822.1 translation=0.0 total=8232.0
+2025-08-16 20:01:20,853 - src.models.climate_pipeline - INFO - ✓ Query processed successfully in 8.23s
+2025-08-16 20:01:20,854 - src.webui.api.routers.chat - INFO - Query processed successfully: id=req_1755388872544 time=8.294s model=nova faithfulness=0.950
+2025-08-16 20:01:20,856 - src.webui.api.main - INFO - REQUEST POST /api/v1/chat/query status=200 time=8.312s id=req_1755388872544 ip=127.0.0.1
+INFO:     127.0.0.1:60582 - "POST /api/v1/chat/query HTTP/1.1" 200 OK
+2025-08-16 20:01:59,953 - src.webui.api.routers.chat - INFO - Processing chat query: id=req_1755388919949 query_len=63 lang=es
+2025-08-16 20:01:59,954 - src.webui.api.routers.chat - INFO - Language routing: detected=es model=nova
+2025-08-16 20:01:59,955 - src.models.climate_pipeline - INFO - Processing query: 'Hola como estas tengo un pretunga sobre los cambios climaticos?...' in spanish (code: es)
+2025-08-16 20:01:59,955 - src.models.climate_pipeline - INFO - Raw query repr: 'Hola como estas tengo un pretunga sobre los cambios climaticos?'
+2025-08-16 20:01:59,955 - src.models.climate_pipeline - INFO - Router IN → language_name=spanish, language_code=es
+2025-08-16 20:01:59,955 - src.models.climate_pipeline - INFO - Step 1: Query Routing
+2025-08-16 20:01:59,956 - src.models.query_routing - INFO - Language: spanish (es) → Model: Nova
+2025-08-16 20:01:59,956 - src.models.climate_pipeline - INFO - Router OUT → model=Nova, support=nova, needs_translation=True
+2025-08-16 20:01:59,957 - src.models.climate_pipeline - INFO - Router OUT → english_query='Hola como estas tengo un pretunga sobre los cambios climaticos?'
+2025-08-16 20:01:59,957 - src.models.climate_pipeline - INFO - Router OUT → processed_query='Hola como estas tengo un pretunga sobre los cambios climaticos?'
+2025-08-16 20:01:59,957 - src.models.climate_pipeline - INFO - ✓ Routed to Nova model
+2025-08-16 20:01:59,957 - src.models.climate_pipeline - INFO - Timing: routing=1.3ms
+2025-08-16 20:01:59,957 - src.models.climate_pipeline - INFO - Routing requires translation → provider=Nova
+2025-08-16 20:01:59,957 - src.models.query_routing - INFO - Language: spanish (es) → Model: Nova
+2025-08-16 20:01:59,957 - src.models.query_routing - INFO - Translating query from spanish to English
+2025-08-16 20:01:59,957 - src.models.query_routing - INFO - Router NET IN → query repr='Hola como estas tengo un pretunga sobre los cambios climaticos?'
+2025-08-16 20:02:00,219 - src.models.nova_flow - INFO - dep=bedrock host=bedrock.us-east-1.amazonaws.com op=invoke_model ms=261 status=OK request_id=3a253e62-a553-4d6e-bd22-f83f499ec493
+2025-08-16 20:02:00,219 - src.models.query_routing - INFO - Translation successful
+2025-08-16 20:02:00,219 - src.models.query_routing - INFO - Router NET OUT → english_query repr='Hello, how are you? I have a question about climate change.'
+2025-08-16 20:02:00,219 - src.models.climate_pipeline - INFO - Router RERUN OUT → english_query='Hello, how are you? I have a question about climate change.'
+2025-08-16 20:02:00,219 - src.models.climate_pipeline - INFO - Router RERUN OUT → processed_query='Hello, how are you? I have a question about climate change.'
+2025-08-16 20:02:00,219 - src.models.climate_pipeline - INFO - Net debug → original_query len=63, utf8_bytes=63
+2025-08-16 20:02:00,219 - src.models.climate_pipeline - INFO - Net debug → english_query len=59, utf8_bytes=59
+2025-08-16 20:02:00,219 - src.models.climate_pipeline - INFO - Step 2: Cache Check
+2025-08-16 20:02:00,220 - src.models.redis_cache - INFO - Initializing Redis connection to localhost:6379 (SSL: False)
+2025-08-16 20:02:00,222 - src.models.redis_cache - INFO - ✓ Redis connection test successful to localhost
+2025-08-16 20:02:00,222 - src.models.redis_cache - INFO - ✓ Redis cache initialized for localhost
+2025-08-16 20:02:00,222 - src.models.climate_pipeline - INFO - Cache miss for spanish query
+2025-08-16 20:02:00,223 - src.models.climate_pipeline - INFO - Timing: cache=3.9ms
+2025-08-16 20:02:00,223 - src.models.climate_pipeline - INFO - Step 3: Query Rewriting
+2025-08-16 20:02:00,223 - src.models.conversation_parser - INFO - No conversation history to format
+2025-08-16 20:02:00,223 - src.models.climate_pipeline - INFO - Rewriter IN → expected_lang=es, history_len=0
+2025-08-16 20:02:00,223 - src.models.climate_pipeline - INFO - Rewriter IN → original_query='Hola como estas tengo un pretunga sobre los cambios climaticos?'
+2025-08-16 20:02:00,224 - query_rewriter - INFO - Rewriter NET IN → expected_lang=es, user_query repr='Hola como estas tengo un pretunga sobre los cambios climaticos?', norm='Hola como estas tengo un pretunga sobre los cambios climaticos?'
+2025-08-16 20:02:00,856 - src.models.nova_flow - INFO - dep=bedrock host=bedrock.us-east-1.amazonaws.com op=invoke_model ms=632 status=OK request_id=541e5bfd-768b-4d64-973c-a64f435c1902
+2025-08-16 20:02:00,857 - query_rewriter - INFO - Model raw (first 300): {"reason":"User query contains climate-related terms and is in Spanish.","language":"es","expected_language":"es","language_match":true,"classification":"on-topic","rewrite_en":"What concerns do you have about climate change?","ask_how_to_use":false,"how_it_works":null,"error":null}
+2025-08-16 20:02:00,857 - query_rewriter - INFO - Rewriter NET OUT → json keys=['ask_how_to_use', 'classification', 'error', 'expected_language', 'how_it_works', 'language', 'language_match', 'reason', 'rewrite_en']
+2025-08-16 20:02:00,857 - query_rewriter - INFO - 🔍 CLASSIFICATION_DEBUG: query='Hola como estas tengo un pretunga sobre los cambio...' expected_lang=es detected_lang=es classification=on-topic language_match=True reason='User query contains climate-related terms and is in Spanish....'
+2025-08-16 20:02:00,857 - src.models.climate_pipeline - INFO - Rewriter OUT → detected_lang='es', classification='on-topic', language_match='yes', canned=False
+2025-08-16 20:02:00,857 - src.models.climate_pipeline - INFO - Rewriter OUT → rewrite_en='What concerns do you have about climate change?'
+2025-08-16 20:02:00,857 - src.models.climate_pipeline - INFO - ✓ Query rewritten (JSON) for better retrieval
+2025-08-16 20:02:00,858 - src.models.climate_pipeline - INFO - Timing: rewrite=634.1ms
+2025-08-16 20:02:00,858 - src.models.climate_pipeline - INFO - Step 4: Input Guards
+2025-08-16 20:02:00,858 - src.models.climate_pipeline - INFO - ✓ Input guards passed
+2025-08-16 20:02:00,858 - src.models.climate_pipeline - INFO - Timing: guards=0.0ms
+2025-08-16 20:02:00,858 - src.models.climate_pipeline - INFO - Step 5: Document Retrieval
+2025-08-16 20:02:00,858 - src.models.retrieval - INFO - 🔄 Pre-computing query embeddings to avoid redundant encode() calls
+2025-08-16 20:02:00,858 - src.models.retrieval - INFO - Query embedding IN: query_len=47 chars, query_repr='What concerns do you have about climate change?...'
+2025-08-16 20:02:03,369 - src.models.retrieval - INFO - dep=query_embed op=encode ms=2511 dense_dim=1024 sparse_tokens=10
+2025-08-16 20:02:03,410 - src.models.retrieval - INFO - dep=pinecone host=unknown op=query ms=39 status=OK
+2025-08-16 20:02:03,410 - src.models.retrieval - INFO - dep=hybrid_search embed_ms=0 query_ms=39 total_ms=39
+2025-08-16 20:02:03,504 - src.models.retrieval - INFO - dep=pinecone host=unknown op=query ms=93 status=OK
+2025-08-16 20:02:03,504 - src.models.retrieval - INFO - pinecone.match type=<class 'pinecone.core.openapi.data.model.scored_vector.ScoredVector'> attrs_have_values=True has_values=True
+2025-08-16 20:02:03,504 - src.models.retrieval - INFO - dep=hybrid_search embed_ms=0 query_ms=93 total_ms=93
+2025-08-16 20:02:03,505 - src.models.retrieval - INFO - dep=mmr_embed used_index=6 used_cache=0 embedded=0 ms=0 n_docs=6 valid_vecs=6 q_embed_ms=0
+2025-08-16 20:02:03,506 - src.models.rerank - INFO - dep=cohere_rerank payload_chars=4678 n_docs=6
+2025-08-16 20:02:03,648 - httpx - INFO - HTTP Request: POST https://api.cohere.com/v1/rerank "HTTP/1.1 200 OK"
+2025-08-16 20:02:03,651 - src.models.rerank - INFO - dep=cohere_rerank host=api.cohere.com op=rerank ms=144.9 status=OK
+2025-08-16 20:02:03,653 - src.models.retrieval - INFO - Retained docs preview: [{'title': '1 S2.0 S2667278223000172 Main', 'pinecone_score': 0.269567966, 'rerank_score': 0.9809856, 'has_values': True}, {'title': '1 S2.0 S2667278221000778 Main', 'pinecone_score': 0.240417212, 'rerank_score': 0.94539934, 'has_values': True}, {'title': '1 S2.0 S2667278222000359 Main', 'pinecone_score': 0.284839481, 'rerank_score': 0.82290184, 'has_values': True}, {'title': 'Kgab003', 'pinecone_score': 0.241824105, 'rerank_score': 0.7208598, 'has_values': True}, {'title': '1 S2.0 S2667278222000050 Main', 'pinecone_score': 0.251459301, 'rerank_score': 0.28517285, 'has_values': True}]
+2025-08-16 20:02:03,653 - src.models.retrieval - INFO - q='What concerns do you have about climate change?', base=6, kept_pre=6, refill=0, final_before=4, final_after=5, hybrid_refill=0, floor=0.60, delta=0.100, max_sim_pre=0.285, p50_sim_pre=0.250, p95_sim_pre=0.285, blocked_base=0, dropped_top2=[{'segment_id': '14', 'title': '1 S2.0 S2667278222000050 Main', 'score': 0.28517285}, {'segment_id': '7', 'title': '1 S2.0 S2667278224000233 Main', 'score': 0.2703839}]
+2025-08-16 20:02:03,653 - src.models.climate_pipeline - INFO - ✓ Retrieved 5 documents
+2025-08-16 20:02:03,653 - src.models.climate_pipeline - INFO - Timing: retrieval=2795.4ms
+2025-08-16 20:02:03,653 - src.models.climate_pipeline - INFO - Step 6: Response Generation (Nova)
+2025-08-16 20:02:03,653 - src.models.gen_response_unified - INFO - Starting nova response generation
+2025-08-16 20:02:03,653 - src.models.redis_cache - INFO - Initializing Redis connection to localhost:6379 (SSL: False)
+2025-08-16 20:02:03,656 - src.models.redis_cache - INFO - ✓ Redis connection test successful to localhost
+2025-08-16 20:02:03,656 - src.models.redis_cache - INFO - ✓ Redis cache initialized for localhost
+2025-08-16 20:02:03,659 - src.models.gen_response_unified - INFO - Successfully processed 5 documents
+2025-08-16 20:02:03,659 - src.models.gen_response_unified - INFO - Successfully processed 5 documents for nova
+2025-08-16 20:02:06,982 - src.models.nova_flow - INFO - dep=bedrock host=bedrock.us-east-1.amazonaws.com op=invoke_model ms=3323 status=OK request_id=fe3c7336-b103-4c5c-b225-33633ce9507f
+2025-08-16 20:02:06,984 - src.models.gen_response_unified - INFO - nova response cached successfully
+2025-08-16 20:02:06,984 - src.models.gen_response_unified - INFO - nova response generation complete
+2025-08-16 20:02:06,985 - src.models.climate_pipeline - INFO - ✓ Response generated successfully in English
+2025-08-16 20:02:06,985 - src.models.climate_pipeline - INFO - Timing: generation=3331.5ms
+2025-08-16 20:02:06,985 - src.models.climate_pipeline - INFO - Step 7: Quality Validation
+2025-08-16 20:02:08,750 - src.models.nova_flow - INFO - dep=bedrock host=bedrock.us-east-1.amazonaws.com op=invoke_model ms=1764 status=OK request_id=166112c4-c40b-4b1a-9852-24661c282a84
+2025-08-16 20:02:08,750 - src.models.hallucination_guard - INFO - Faithfulness score: 0.95
+2025-08-16 20:02:08,750 - src.models.climate_pipeline - INFO - ✓ Faithfulness score: 0.950
+2025-08-16 20:02:08,750 - src.models.climate_pipeline - INFO - ✓ Assessment: Highly Faithful
+2025-08-16 20:02:08,750 - src.models.climate_pipeline - INFO - Timing: faithfulness=1765.5ms
+2025-08-16 20:02:08,750 - src.models.climate_pipeline - INFO - Step 8: Translating response to spanish (code=es)
+2025-08-16 20:02:12,830 - src.models.nova_flow - INFO - dep=bedrock host=bedrock.us-east-1.amazonaws.com op=invoke_model ms=4078 status=OK request_id=43f01ebc-8f07-429d-8396-62e23e9bb33a
+2025-08-16 20:02:12,838 - src.models.climate_pipeline - INFO - ✓ Response translated successfully to spanish
+2025-08-16 20:02:12,839 - src.models.climate_pipeline - INFO - Timing: translation=4088.4ms
+2025-08-16 20:02:12,839 - src.models.redis_cache - INFO - Initializing Redis connection to localhost:6379 (SSL: False)
+2025-08-16 20:02:12,842 - src.models.redis_cache - INFO - ✓ Redis connection test successful to localhost
+2025-08-16 20:02:12,842 - src.models.redis_cache - INFO - ✓ Redis cache initialized for localhost
+2025-08-16 20:02:12,842 - src.models.climate_pipeline - INFO - ✓ Response cached in spanish
+2025-08-16 20:02:12,843 - src.models.climate_pipeline - INFO - ✓ English version also cached
+2025-08-16 20:02:12,844 - src.models.climate_pipeline - INFO - Timing summary (ms): routing=1.3 rewrite=634.1 guards=0.0 retrieval=2795.4 generation=3331.5 faithfulness=1765.5 translation=4088.4 total=12884.1
+2025-08-16 20:02:12,844 - src.models.climate_pipeline - INFO - ✓ Query processed successfully in 12.88s
+2025-08-16 20:02:12,845 - src.webui.api.routers.chat - INFO - Query processed successfully: id=req_1755388919949 time=12.892s model=nova faithfulness=0.950
+2025-08-16 20:02:12,846 - src.webui.api.main - INFO - REQUEST POST /api/v1/chat/query status=200 time=12.897s id=req_1755388919949 ip=127.0.0.1
+INFO:     127.0.0.1:61063 - "POST /api/v1/chat/query HTTP/1.1" 200 OK
+2025-08-16 20:18:47,261 - src.webui.api.main - INFO - REQUEST OPTIONS /api/v1/languages/validate status=200 time=0.008s id=req_1755389927253 ip=127.0.0.1
+INFO:     127.0.0.1:53985 - "OPTIONS /api/v1/languages/validate HTTP/1.1" 200 OK
+2025-08-16 20:18:47,295 - src.webui.api.routers.languages - INFO - Language validation: query_len=56 detected=en model=nova confidence=0.800
+2025-08-16 20:18:47,298 - src.webui.api.main - INFO - REQUEST POST /api/v1/languages/validate status=200 time=0.028s id=req_1755389927270 ip=127.0.0.1
+INFO:     127.0.0.1:53985 - "POST /api/v1/languages/validate HTTP/1.1" 200 OK
+2025-08-16 20:18:47,342 - src.webui.api.main - INFO - REQUEST OPTIONS /api/v1/chat/query status=200 time=0.002s id=req_1755389927340 ip=127.0.0.1
+INFO:     127.0.0.1:53985 - "OPTIONS /api/v1/chat/query HTTP/1.1" 200 OK
+2025-08-16 20:18:47,351 - src.webui.api.routers.chat - INFO - Processing chat query: id=req_1755389927347 query_len=56 lang=en
+2025-08-16 20:18:47,351 - src.webui.api.routers.chat - INFO - Language routing: detected=en model=nova
+2025-08-16 20:18:47,360 - src.models.climate_pipeline - INFO - Processing query: 'What are the local impacts of climate change in Toronto?...' in english (code: en)
+2025-08-16 20:18:47,360 - src.models.climate_pipeline - INFO - Raw query repr: 'What are the local impacts of climate change in Toronto?'
+2025-08-16 20:18:47,361 - src.models.climate_pipeline - INFO - Router IN → language_name=english, language_code=en
+2025-08-16 20:18:47,361 - src.models.climate_pipeline - INFO - Step 1: Query Routing
+2025-08-16 20:18:47,361 - src.models.query_routing - INFO - Language: english (en) → Model: Nova
+2025-08-16 20:18:47,361 - src.models.climate_pipeline - INFO - Router OUT → model=Nova, support=nova, needs_translation=False
+2025-08-16 20:18:47,362 - src.models.climate_pipeline - INFO - Router OUT → english_query='What are the local impacts of climate change in Toronto?'
+2025-08-16 20:18:47,362 - src.models.climate_pipeline - INFO - Router OUT → processed_query='What are the local impacts of climate change in Toronto?'
+2025-08-16 20:18:47,362 - src.models.climate_pipeline - INFO - ✓ Routed to Nova model
+2025-08-16 20:18:47,362 - src.models.climate_pipeline - INFO - Timing: routing=1.0ms
+2025-08-16 20:18:47,362 - src.models.climate_pipeline - INFO - Net debug → original_query len=56, utf8_bytes=56
+2025-08-16 20:18:47,362 - src.models.climate_pipeline - INFO - Net debug → english_query len=56, utf8_bytes=56
+2025-08-16 20:18:47,362 - src.models.climate_pipeline - INFO - Step 2: Cache Check
+2025-08-16 20:18:47,365 - src.models.redis_cache - INFO - Initializing Redis connection to localhost:6379 (SSL: False)
+2025-08-16 20:18:47,426 - src.models.redis_cache - INFO - ✓ Redis connection test successful to localhost
+2025-08-16 20:18:47,426 - src.models.redis_cache - INFO - ✓ Redis cache initialized for localhost
+2025-08-16 20:18:47,464 - src.models.climate_pipeline - INFO - Cache miss for english query
+2025-08-16 20:18:47,480 - src.models.climate_pipeline - INFO - Timing: cache=118.0ms
+2025-08-16 20:18:47,480 - src.models.climate_pipeline - INFO - Step 3: Query Rewriting
+2025-08-16 20:18:47,480 - src.models.conversation_parser - INFO - No conversation history to format
+2025-08-16 20:18:47,480 - src.models.climate_pipeline - INFO - Rewriter IN → expected_lang=en, history_len=0
+2025-08-16 20:18:47,480 - src.models.climate_pipeline - INFO - Rewriter IN → original_query='What are the local impacts of climate change in Toronto?'
+2025-08-16 20:18:47,482 - query_rewriter - INFO - Rewriter NET IN → expected_lang=en, user_query repr='What are the local impacts of climate change in Toronto?', norm='What are the local impacts of climate change in Toronto?'
+2025-08-16 20:18:48,119 - src.models.nova_flow - INFO - dep=bedrock host=bedrock.us-east-1.amazonaws.com op=invoke_model ms=635 status=OK request_id=54ba4a52-5ce7-47b7-ae05-4eb5f2c9a95d
+2025-08-16 20:18:48,119 - query_rewriter - INFO - Model raw (first 300): {"reason":"User query is directly about climate impacts in Toronto.","language":"en","expected_language":"en","language_match":true,"classification":"on-topic","rewrite_en":"What are the local impacts of climate change in Toronto?","ask_how_to_use":false,"how_it_works":null,"error":null}
+2025-08-16 20:18:48,120 - query_rewriter - INFO - Rewriter NET OUT → json keys=['ask_how_to_use', 'classification', 'error', 'expected_language', 'how_it_works', 'language', 'language_match', 'reason', 'rewrite_en']
+2025-08-16 20:18:48,121 - query_rewriter - INFO - 🔍 CLASSIFICATION_DEBUG: query='What are the local impacts of climate change in To...' expected_lang=en detected_lang=en classification=on-topic language_match=True reason='User query is directly about climate impacts in Toronto....'
+2025-08-16 20:18:48,121 - src.models.climate_pipeline - INFO - Rewriter OUT → detected_lang='en', classification='on-topic', language_match='yes', canned=False
+2025-08-16 20:18:48,121 - src.models.climate_pipeline - INFO - Rewriter OUT → rewrite_en='What are the local impacts of climate change in Toronto?'
+2025-08-16 20:18:48,121 - src.models.climate_pipeline - INFO - ✓ Query rewritten (JSON) for better retrieval
+2025-08-16 20:18:48,121 - src.models.climate_pipeline - INFO - Timing: rewrite=641.3ms
+2025-08-16 20:18:48,121 - src.models.climate_pipeline - INFO - Step 4: Input Guards
+2025-08-16 20:18:48,121 - src.models.climate_pipeline - INFO - ✓ Input guards passed
+2025-08-16 20:18:48,121 - src.models.climate_pipeline - INFO - Timing: guards=0.0ms
+2025-08-16 20:18:48,121 - src.models.climate_pipeline - INFO - Step 5: Document Retrieval
+2025-08-16 20:18:48,122 - src.models.retrieval - INFO - 🔄 Pre-computing query embeddings to avoid redundant encode() calls
+2025-08-16 20:18:48,122 - src.models.retrieval - INFO - Query embedding IN: query_len=56 chars, query_repr='What are the local impacts of climate change in Toronto?...'
+2025-08-16 20:18:52,444 - src.models.retrieval - INFO - dep=query_embed op=encode ms=4321 dense_dim=1024 sparse_tokens=12
+2025-08-16 20:18:52,793 - src.models.retrieval - INFO - dep=pinecone host=unknown op=query ms=347 status=OK
+2025-08-16 20:18:52,793 - src.models.retrieval - INFO - dep=hybrid_search embed_ms=0 query_ms=347 total_ms=347
+2025-08-16 20:18:52,979 - src.models.retrieval - INFO - dep=pinecone host=unknown op=query ms=186 status=OK
+2025-08-16 20:18:52,979 - src.models.retrieval - INFO - pinecone.match type=<class 'pinecone.core.openapi.data.model.scored_vector.ScoredVector'> attrs_have_values=True has_values=True
+2025-08-16 20:18:52,979 - src.models.retrieval - INFO - dep=hybrid_search embed_ms=0 query_ms=186 total_ms=186
+2025-08-16 20:18:52,981 - src.models.retrieval - INFO - dep=mmr_embed used_index=6 used_cache=0 embedded=0 ms=0 n_docs=6 valid_vecs=6 q_embed_ms=0
+2025-08-16 20:18:52,982 - src.models.rerank - INFO - dep=cohere_rerank payload_chars=8375 n_docs=6
+2025-08-16 20:18:53,264 - httpx - INFO - HTTP Request: POST https://api.cohere.com/v1/rerank "HTTP/1.1 200 OK"
+2025-08-16 20:18:53,271 - src.models.rerank - INFO - dep=cohere_rerank host=api.cohere.com op=rerank ms=288.1 status=OK
+2025-08-16 20:18:53,273 - src.models.retrieval - INFO - Retained docs preview: [{'title': 'Guide And Workbook For Municipal Climate Adaptation', 'pinecone_score': 0.278877825, 'rerank_score': 0.9920002, 'has_values': True}, {'title': "Report For Action Toronto's Climate Change Readiness Updates Oncommitments And A", 'pinecone_score': 0.302861631, 'rerank_score': 0.9899476, 'has_values': True}, {'title': 'Canada In A Changing Climate Synthesis Report', 'pinecone_score': 0.279870391, 'rerank_score': 0.9430336, 'has_values': True}, {'title': 'Toronto First Resilience Strategy', 'pinecone_score': 0.287962556, 'rerank_score': 0.7595823, 'has_values': True}, {'title': 'Transformto Net Zero Strategy A Climate Action Pathway To 2030 And Beyond', 'pinecone_score': 0.274986476, 'rerank_score': 0.29138398, 'has_values': True}]
+2025-08-16 20:18:53,273 - src.models.retrieval - INFO - q='What are the local impacts of climate change in Toronto?', base=6, kept_pre=6, refill=0, final_before=4, final_after=5, hybrid_refill=0, floor=0.60, delta=0.100, max_sim_pre=0.303, p50_sim_pre=0.280, p95_sim_pre=0.303, blocked_base=0, dropped_top2=[{'segment_id': '19', 'title': 'Transformto Net Zero Strategy A Climate Action Pathway To 2030 And Beyond', 'score': 0.29138398}, {'segment_id': '8', 'title': 'Developing Community Resilience For Climate Adaptation In Toronto Ontario', 'score': 0.02120612}]
+2025-08-16 20:18:53,273 - src.models.climate_pipeline - INFO - ✓ Retrieved 5 documents
+2025-08-16 20:18:53,273 - src.models.climate_pipeline - INFO - Timing: retrieval=5152.2ms
+2025-08-16 20:18:53,273 - src.models.climate_pipeline - INFO - Step 6: Response Generation (Nova)
+2025-08-16 20:18:53,274 - src.models.gen_response_unified - INFO - Starting nova response generation
+2025-08-16 20:18:53,274 - src.models.redis_cache - INFO - Initializing Redis connection to localhost:6379 (SSL: False)
+2025-08-16 20:18:53,275 - src.models.redis_cache - INFO - ✓ Redis connection test successful to localhost
+2025-08-16 20:18:53,275 - src.models.redis_cache - INFO - ✓ Redis cache initialized for localhost
+2025-08-16 20:18:53,276 - src.models.gen_response_unified - INFO - Successfully processed 5 documents
+2025-08-16 20:18:53,276 - src.models.gen_response_unified - INFO - Successfully processed 5 documents for nova
+2025-08-16 20:18:58,189 - src.models.nova_flow - INFO - dep=bedrock host=bedrock.us-east-1.amazonaws.com op=invoke_model ms=4912 status=OK request_id=48f1179f-29e5-472e-b25c-8fa71783f60e
+2025-08-16 20:18:58,210 - src.models.gen_response_unified - INFO - nova response cached successfully
+2025-08-16 20:18:58,210 - src.models.gen_response_unified - INFO - nova response generation complete
+2025-08-16 20:18:58,211 - src.models.climate_pipeline - INFO - ✓ Response generated successfully in English
+2025-08-16 20:18:58,211 - src.models.climate_pipeline - INFO - Timing: generation=4937.6ms
+2025-08-16 20:18:58,211 - src.models.climate_pipeline - INFO - Step 7: Quality Validation
+2025-08-16 20:19:00,768 - src.models.nova_flow - INFO - dep=bedrock host=bedrock.us-east-1.amazonaws.com op=invoke_model ms=2556 status=OK request_id=ba7808ff-931d-4625-bb91-1de71d8209bf
+2025-08-16 20:19:00,769 - src.models.hallucination_guard - INFO - Faithfulness score: 0.95
+2025-08-16 20:19:00,769 - src.models.climate_pipeline - INFO - ✓ Faithfulness score: 0.950
+2025-08-16 20:19:00,769 - src.models.climate_pipeline - INFO - ✓ Assessment: Highly Faithful
+2025-08-16 20:19:00,769 - src.models.climate_pipeline - INFO - Timing: faithfulness=2557.4ms
+2025-08-16 20:19:00,769 - src.models.redis_cache - INFO - Initializing Redis connection to localhost:6379 (SSL: False)
+2025-08-16 20:19:00,777 - src.models.redis_cache - INFO - ✓ Redis connection test successful to localhost
+2025-08-16 20:19:00,777 - src.models.redis_cache - INFO - ✓ Redis cache initialized for localhost
+2025-08-16 20:19:00,781 - src.models.climate_pipeline - INFO - ✓ Response cached in english
+2025-08-16 20:19:00,784 - src.models.climate_pipeline - INFO - Timing summary (ms): routing=1.0 rewrite=641.3 guards=0.0 retrieval=5152.2 generation=4937.6 faithfulness=2557.4 translation=0.0 total=13408.9
+2025-08-16 20:19:00,784 - src.models.climate_pipeline - INFO - ✓ Query processed successfully in 13.41s
+2025-08-16 20:19:00,784 - src.webui.api.routers.chat - INFO - Query processed successfully: id=req_1755389927347 time=13.434s model=nova faithfulness=0.950
+2025-08-16 20:19:00,785 - src.webui.api.main - INFO - REQUEST POST /api/v1/chat/query status=200 time=13.438s id=req_1755389927347 ip=127.0.0.1
+INFO:     127.0.0.1:53985 - "POST /api/v1/chat/query HTTP/1.1" 200 OK

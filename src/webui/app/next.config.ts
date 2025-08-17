@@ -2,6 +2,8 @@ import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
+  // output: 'export',    // Commented out for development testing
+  // distDir: 'out',      // Commented out for development testing
   typescript: {
     ignoreBuildErrors: true,
   },

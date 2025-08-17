@@ -30,23 +30,24 @@ from src.models.conversation_parser import conversation_parser
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 class ClimateQueryPipeline:
     """New unified processing pipeline for climate queries."""
-    
+
     def __init__(self, index_name: Optional[str] = None):
         """Initialize the processing pipeline with eager heavy-resource setup for fast first query."""
         try:
             load_environment()
-            
+
             # Lightweight components
             self.router = MultilingualRouter()
             self.response_generator = UnifiedResponseGenerator()
             self.redis_client = self._initialize_redis()
-            
+
             # Models for translation (lightweight clients)
             self.nova_model = BedrockModel()
             self.cohere_model = CohereModel()
-            
+
             # Eager heavy initialization for embeddings, index, and Cohere client
             self.index_name = index_name or "climate-change-adaptation-index-10-24-prod"
             _t0 = time.time()
@@ -54,20 +55,20 @@ class ClimateQueryPipeline:
             logger.info(f"Init: embeddings model ready in {time.time() - _t0:.2f}s")
             _t1 = time.time()
             try:
-            self.index = self._initialize_pinecone_index()
-            logger.info(f"Init: pinecone index ready in {time.time() - _t1:.2f}s")
+                self.index = self._initialize_pinecone_index()
+                logger.info(f"Init: pinecone index ready in {time.time() - _t1:.2f}s")
             except Exception as e:
                 logger.warning(f"Pinecone not available, continuing without index ({e.__class__.__name__})")
                 self.index = None
-            
+
             # Cohere client for retrieval and reranking
             self.COHERE_API_KEY = os.getenv("COHERE_API_KEY")
             _t2 = time.time()
             self.cohere_client = self._init_cohere()
             logger.info(f"Init: cohere client ready in {time.time() - _t2:.2f}s")
-            
+
             logger.info("✓ Climate Query Pipeline initialized (eager heavy-init)")
-            
+
         except Exception as e:
             logger.error(f"Failed to initialize Climate Query Pipeline: {str(e)}")
             raise
@@ -82,19 +83,19 @@ class ClimateQueryPipeline:
             if self.embed_model is None:
                 self.embed_model = self._initialize_embedding_model()
             logger.info(f"Prewarm: embeddings ready in {time.time() - t0:.2f}s")
-            
+
             # Force the BGE-M3 model to fully initialize (fixes 6-second cold start)
             logger.info("Prewarming embed model...")
             dummy_text = "This is a prewarm query to initialize the model"
             start_prewarm = time.time()
             _ = self.embed_model.encode([dummy_text])
-            logger.info(f"Prewarm encode took {(time.time()-start_prewarm)*1000:.0f}ms")
-            
+            logger.info(f"Prewarm encode took {(time.time() - start_prewarm) * 1000:.0f}ms")
+
             # Do it twice to ensure everything is cached
             start_second = time.time()
             _ = self.embed_model.encode([dummy_text])
-            logger.info(f"Second prewarm took {(time.time()-start_second)*1000:.0f}ms")
-            
+            logger.info(f"Second prewarm took {(time.time() - start_second) * 1000:.0f}ms")
+
             # Pinecone index
             t1 = time.time()
             if self.index is None:
@@ -123,22 +124,22 @@ class ClimateQueryPipeline:
         try:
             from FlagEmbedding import BGEM3FlagModel
             model_path = os.getenv("EMBED_MODEL_PATH", "BAAI/bge-m3")
-            
+
             # Initialize with optimizations and warning suppression
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", UserWarning)
                 warnings.simplefilter("ignore", FutureWarning)
                 warnings.filterwarnings("ignore", message=".*XLMRobertaTokenizerFast.*")
                 warnings.filterwarnings("ignore", message=".*fast tokenizer.*")
-                
+
                 model = BGEM3FlagModel(model_path, use_fp16=True, device="cpu")
-            
+
             # Try to optimize tokenizer usage if accessible
             if hasattr(model, 'tokenizer') and hasattr(model.tokenizer, '__call__'):
                 logger.info("✓ Embedding model initialized with fast tokenizer")
             else:
                 logger.debug("Embedding model using standard tokenizer (performance could be improved)")
-                
+
             return model
         except Exception as e:
             logger.error(f"Failed to initialize embedding model: {str(e)}")
@@ -154,9 +155,9 @@ class ClimateQueryPipeline:
         except Exception:
             default_env = None
         env = (
-            os.getenv("PINECONE_ENVIRONMENT")
-            or os.getenv("PINECONE_ENV")
-            or default_env
+                os.getenv("PINECONE_ENVIRONMENT")
+                or os.getenv("PINECONE_ENV")
+                or default_env
         )
         # Try LEGACY client first (faster init, no plugin overhead)
         try:
@@ -226,7 +227,7 @@ class ClimateQueryPipeline:
             )
 
             # Faithfulness check on fallback
-            web_contexts = [f"{d.get('title','')}: {d.get('content','')}" for d in docs_for_fallback]
+            web_contexts = [f"{d.get('title', '')}: {d.get('content', '')}" for d in docs_for_fallback]
             fallback_score = await check_hallucination(
                 question=english_query,
                 answer=response,
@@ -288,13 +289,13 @@ class ClimateQueryPipeline:
         except Exception as e:
             logger.warning(f"Failed to load languages.json, falling back to defaults: {e}")
             setattr(self, "_lang_name_to_code", {
-            'english': 'en', 'spanish': 'es', 'french': 'fr', 'german': 'de',
-            'italian': 'it', 'portuguese': 'pt', 'dutch': 'nl', 'russian': 'ru',
-            'chinese': 'zh', 'japanese': 'ja', 'korean': 'ko', 'arabic': 'ar',
-            'hindi': 'hi', 'bengali': 'bn', 'urdu': 'ur', 'tamil': 'ta',
-            'gujarati': 'gu', 'persian': 'fa', 'vietnamese': 'vi', 'thai': 'th',
-            'turkish': 'tr', 'polish': 'pl', 'czech': 'cs', 'hungarian': 'hu',
-            'romanian': 'ro', 'greek': 'el', 'hebrew': 'he', 'ukrainian': 'uk',
+                'english': 'en', 'spanish': 'es', 'french': 'fr', 'german': 'de',
+                'italian': 'it', 'portuguese': 'pt', 'dutch': 'nl', 'russian': 'ru',
+                'chinese': 'zh', 'japanese': 'ja', 'korean': 'ko', 'arabic': 'ar',
+                'hindi': 'hi', 'bengali': 'bn', 'urdu': 'ur', 'tamil': 'ta',
+                'gujarati': 'gu', 'persian': 'fa', 'vietnamese': 'vi', 'thai': 'th',
+                'turkish': 'tr', 'polish': 'pl', 'czech': 'cs', 'hungarian': 'hu',
+                'romanian': 'ro', 'greek': 'el', 'hebrew': 'he', 'ukrainian': 'uk',
                 'indonesian': 'id', 'danish': 'da', 'swedish': 'sv', 'norwegian': 'no',
                 'finnish': 'fi', 'bulgarian': 'bg', 'slovak': 'sk', 'slovenian': 'sl',
                 'estonian': 'et', 'latvian': 'lv', 'lithuanian': 'lt', 'belarusian': 'be',
@@ -326,23 +327,23 @@ class ClimateQueryPipeline:
 
     @traceable(name="climate_query_processing")
     async def process_query(
-        self,
-        query: str,
-        language_name: str,
-        conversation_history: Optional[List[Dict]] = None,
-        run_manager=None,
-        progress_callback: Optional[Callable[[str, float], None]] = None,
-        skip_cache: bool = False,
+            self,
+            query: str,
+            language_name: str,
+            conversation_history: Optional[List[Dict]] = None,
+            run_manager=None,
+            progress_callback: Optional[Callable[[str, float], None]] = None,
+            skip_cache: bool = False,
     ) -> Dict[str, Any]:
         """
         Main processing pipeline - replaces the old _process_query_internal.
-        
+
         Flow: Route → Rewrite → Retrieve → Generate → Guard → Return
         """
         start_time = time.time()
         # Per-stage timings (ms)
         route_ms = rewrite_ms = guards_ms = retrieval_ms = generation_ms = faithfulness_ms = translation_ms = 0.0
-        
+
         def report(stage: str, pct: float) -> None:
             if progress_callback is None:
                 return
@@ -351,8 +352,9 @@ class ClimateQueryPipeline:
             except Exception:
                 # Never fail pipeline due to UI callback issues
                 pass
+
         language_code = self.get_language_code(language_name)
-        
+
         try:
             logger.info(f"Processing query: '{query[:100]}...' in {language_name} (code: {language_code})")
             try:
@@ -361,18 +363,18 @@ class ClimateQueryPipeline:
                 pass
             logger.info(f"Router IN → language_name={language_name}, language_code={language_code}")
             report("Thinking…", 0.02)
-            
+
             # Initialize holders
             response: Optional[str] = None
             citations: List[Dict[str, Any]] = []
             used_cached: bool = False
             cached_response_language: str = 'en'  # Track language of cached response
             _retr_start = _gen_start = _hall_start = time.time()
-            
+
             # STEP 1: ROUTE THE QUERY
             logger.info("Step 1: Query Routing")
             _route_start = time.time()
-            
+
             # Get translation function based on routing decision
             route_result = await self.router.route_query(
                 query=query,
@@ -393,7 +395,7 @@ class ClimateQueryPipeline:
                     logger.info("Router OUT → processed_query='%s'", str(route_result.get('processed_query'))[:120])
             except Exception:
                 pass
-            
+
             # Check for language mismatch early: do not block English; only warn for non-English
             if route_result.get('routing_info', {}).get('language_mismatch') and language_code != 'en':
                 detected_lang = route_result['routing_info'].get('detected_language', 'unknown')
@@ -411,10 +413,11 @@ class ClimateQueryPipeline:
                 }
                 detected_name = lang_code_to_name.get(detected_lang, detected_lang.upper())
                 selected_name = lang_code_to_name.get(language_code, language_code.upper())
-                logger.warning(f"Router language mismatch: query is in {detected_name} but {selected_name} was selected")
+                logger.warning(
+                    f"Router language mismatch: query is in {detected_name} but {selected_name} was selected")
                 # Soft warning only; proceed with processing
                 logger.info("Proceeding despite router mismatch (soft warning only)")
-            
+
             if not route_result['should_proceed']:
                 return self._create_error_response(
                     route_result['routing_info']['message'],
@@ -424,19 +427,19 @@ class ClimateQueryPipeline:
 
             routing_info = route_result['routing_info']
             model_type = routing_info['model_type']
-            
+
             logger.info(f"✓ Routed to {routing_info['model_name']} model")
             route_ms = (time.time() - _route_start) * 1000
             logger.info(f"Timing: routing={route_ms:.1f}ms")
-            
+
             # Set translation function based on model type
             if routing_info['needs_translation']:
                 if model_type == 'nova':
                     translation_func = self.nova_model.translate
                 else:
                     translation_func = self.cohere_model.translate
-                logger.info("Routing requires translation → provider=%s", 'Nova' if model_type=='nova' else 'Command-A')
-                
+                logger.info("Routing requires translation → provider=%s", 'Nova' if model_type == 'nova' else 'Command-A')
+
                 # Re-run routing with proper translation function
                 route_result = await self.router.route_query(
                     query=query,
@@ -446,12 +449,14 @@ class ClimateQueryPipeline:
                 )
                 try:
                     if 'english_query' in route_result:
-                        logger.info("Router RERUN OUT → english_query='%s'", str(route_result.get('english_query'))[:200])
+                        logger.info("Router RERUN OUT → english_query='%s'",
+                                    str(route_result.get('english_query'))[:200])
                     if 'processed_query' in route_result:
-                        logger.info("Router RERUN OUT → processed_query='%s'", str(route_result.get('processed_query'))[:200])
+                        logger.info("Router RERUN OUT → processed_query='%s'",
+                                    str(route_result.get('processed_query'))[:200])
                 except Exception:
                     pass
-                
+
                 if not route_result['should_proceed']:
                     return self._create_error_response(
                         route_result['routing_info']['message'],
@@ -472,41 +477,41 @@ class ClimateQueryPipeline:
                     logger.info("Net debug → english_query is not str: %r", type(english_query))
             except Exception:
                 pass
-            
+
             # STEP 2: CHECK CACHE
             logger.info("Step 2: Cache Check")
             _cache_start = time.time()
             normalized = self._normalize_query(english_query)
-            
+
             # FIX: Create language-specific cache keys for non-English queries
             # This ensures Filipino queries get Filipino responses from cache
             cache_key = self._make_cache_key(language_code, model_type, normalized)
-            
+
             if self.redis_client and not skip_cache:
                 try:
                     cache = ClimateCache()
                     cached_result = await cache.get(cache_key)
-                    
+
                     if cached_result:
                         logger.info(f"✓ Cache hit for {language_name} - returning cached response")
                         # Cached result should already be in the correct language
                         return self._add_processing_time(cached_result, start_time)
                     else:
                         logger.info(f"Cache miss for {language_name} query")
-                        
+
                         # Try fuzzy match for this specific language
                         fuzzy_hit = await self._try_fuzzy_cache_match(
-                            normalized, 
+                            normalized,
                             language_code=language_code,
                             model_type=model_type
                         )
                         if fuzzy_hit is not None:
                             logger.info(f"✓ Cache hit via fuzzy match (score={fuzzy_hit['score']:.2f})")
                             return self._add_processing_time(fuzzy_hit['result'], start_time)
-                            
+
                 except Exception as e:
                     logger.debug(f"Cache unavailable: {str(e)}")
-            logger.info(f"Timing: cache={(time.time() - _cache_start)*1000:.1f}ms")
+            logger.info(f"Timing: cache={(time.time() - _cache_start) * 1000:.1f}ms")
 
             # STEP 3: REWRITE THE QUERY
             logger.info("Step 3: Query Rewriting")
@@ -516,11 +521,12 @@ class ClimateQueryPipeline:
                 # Parse conversation history properly for query rewriter
                 formatted_history = conversation_parser.format_for_query_rewriter(conversation_history)
                 try:
-                    logger.info("Rewriter IN → expected_lang=%s, history_len=%d", language_code, len(formatted_history or []))
+                    logger.info("Rewriter IN → expected_lang=%s, history_len=%d", language_code,
+                                len(formatted_history or []))
                     logger.info("Rewriter IN → original_query='%s'", query[:200])
                 except Exception:
                     pass
-                
+
                 rewriter_output = await query_rewriter(
                     user_query=query,  # Use original query for language detection, not translated version
                     nova_model=self.nova_model,
@@ -551,12 +557,13 @@ class ClimateQueryPipeline:
                     # Check if rewriter had an error and apply safety net
                     qr_error = (qr.get("error") or {}).get("message")
                     if qr_error:
-                        logger.warning("Rewriter error detected → applying safety net", extra={"error": qr_error[:100]})
+                        logger.warning("Rewriter error detected → applying safety net",
+                                       extra={"error": qr_error[:100]})
                         # Use original query as fallback
                         processed_query = (
-                            route_result.get("english_query")
-                            or route_result.get("processed_query")
-                            or query
+                                route_result.get("english_query")
+                                or route_result.get("processed_query")
+                                or query
                         )
                         # Don't block a climate query just because the rewriter errored
                         from src.models.query_rewriter import _looks_climate_any
@@ -667,82 +674,82 @@ class ClimateQueryPipeline:
                         logger.info("✓ Query rewritten (JSON) for better retrieval")
                     else:
                         logger.info("✓ Query rewriting skipped (JSON) - no enhancement needed")
-                    if not is_json:
-                        # Legacy text parsing fallback
-                # Parse fields
-                lang_match = re.search(r"Language:\s*([a-z]{2}|unknown)", text, re.IGNORECASE)
-                cls_match = re.search(r"Classification:\s*(on-topic|off-topic|harmful)", text, re.IGNORECASE)
-                match_match = re.search(r"LanguageMatch:\s*(yes|no)", text, re.IGNORECASE)
+                else:
+                    # Legacy text parsing fallback
+                    # Parse fields
+                    lang_match = re.search(r"Language:\s*([a-z]{2}|unknown)", text, re.IGNORECASE)
+                    cls_match = re.search(r"Classification:\s*(on-topic|off-topic|harmful)", text, re.IGNORECASE)
+                    match_match = re.search(r"LanguageMatch:\s*(yes|no)", text, re.IGNORECASE)
+                    rew_match = None
+                    try:
+                        rew_match = re.search(r"Rewritten:\s*(.+)", text, re.IGNORECASE)
+                    except Exception:
                         rew_match = None
-                        try:
-                rew_match = re.search(r"Rewritten:\s*(.+)", text, re.IGNORECASE)
-                        except Exception:
-                            rew_match = None
-                detected_lang = (lang_match.group(1).lower() if lang_match else 'unknown')
-                classification = (cls_match.group(1).lower() if cls_match else 'off-topic')
-                language_match_result = (match_match.group(1).lower() if match_match else 'unknown')
-                        logger.info(
-                            f"Query rewriter processed: detected_lang='{detected_lang}', classification='{classification}', language_match='{language_match_result}'"
+                    detected_lang = (lang_match.group(1).lower() if lang_match else 'unknown')
+                    classification = (cls_match.group(1).lower() if cls_match else 'off-topic')
+                    language_match_result = (match_match.group(1).lower() if match_match else 'unknown')
+                    logger.info(
+                        f"Query rewriter processed: detected_lang='{detected_lang}', classification='{classification}', language_match='{language_match_result}'"
+                    )
+
+                    # Adopt rewritten query if provided (legacy path)
+                    if rew_match and rew_match.group(1).strip().lower() != 'n/a':
+                        processed_query = rew_match.group(1).strip()
+                        logger.info("✓ Query rewritten for better retrieval")
+                    else:
+                        logger.info("✓ Query rewriting skipped - no enhancement needed")
+
+                    # Check for language mismatch: block when detected query language is non-English and mismatches selection
+                    if (language_match_result == 'no' or (
+                            detected_lang != 'unknown' and detected_lang != language_code)):
+                        lang_code_to_name = {
+                            'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
+                            'it': 'Italian', 'pt': 'Portuguese', 'nl': 'Dutch', 'ru': 'Russian',
+                            'zh': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean', 'ar': 'Arabic',
+                            'hi': 'Hindi', 'bn': 'Bengali', 'ur': 'Urdu', 'ta': 'Tamil',
+                            'gu': 'Gujarati', 'fa': 'Persian', 'vi': 'Vietnamese', 'th': 'Thai',
+                            'tr': 'Turkish', 'pl': 'Polish', 'cs': 'Czech', 'hu': 'Hungarian',
+                            'ro': 'Romanian', 'el': 'Greek', 'he': 'Hebrew', 'uk': 'Ukrainian',
+                            'id': 'Indonesian', 'tl': 'Filipino', 'da': 'Danish', 'sv': 'Swedish',
+                            'no': 'Norwegian', 'fi': 'Finnish', 'bg': 'Bulgarian', 'sk': 'Slovak',
+                            'sl': 'Slovenian', 'et': 'Estonian', 'lv': 'Latvian', 'lt': 'Lithuanian'
+                        }
+                        detected_name = lang_code_to_name.get(detected_lang, detected_lang.upper())
+                        selected_name = lang_code_to_name.get(language_code, language_code.upper())
+
+                        logger.warning(
+                            f"Language mismatch detected by query rewriter: query is in {detected_name} but {selected_name} was selected"
                         )
-                        
-                        # Adopt rewritten query if provided (legacy path)
-                        if rew_match and rew_match.group(1).strip().lower() != 'n/a':
-                            processed_query = rew_match.group(1).strip()
-                            logger.info("✓ Query rewritten for better retrieval")
-                        else:
-                            logger.info("✓ Query rewriting skipped - no enhancement needed")
+                        # Return the exact prior UX message
+                        return self._create_error_response(
+                            "Whoops! You wrote in a different language than the one you selected. Please choose the language you want me to respond in on the right so we can ensure the best translation for you!",
+                            language_code,
+                            time.time() - start_time,
+                        )
 
-                        # Check for language mismatch: block when detected query language is non-English and mismatches selection
-                        if (language_match_result == 'no' or (detected_lang != 'unknown' and detected_lang != language_code)):
-                    lang_code_to_name = {
-                        'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
-                        'it': 'Italian', 'pt': 'Portuguese', 'nl': 'Dutch', 'ru': 'Russian',
-                        'zh': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean', 'ar': 'Arabic',
-                        'hi': 'Hindi', 'bn': 'Bengali', 'ur': 'Urdu', 'ta': 'Tamil',
-                        'gu': 'Gujarati', 'fa': 'Persian', 'vi': 'Vietnamese', 'th': 'Thai',
-                        'tr': 'Turkish', 'pl': 'Polish', 'cs': 'Czech', 'hu': 'Hungarian',
-                        'ro': 'Romanian', 'el': 'Greek', 'he': 'Hebrew', 'uk': 'Ukrainian',
-                        'id': 'Indonesian', 'tl': 'Filipino', 'da': 'Danish', 'sv': 'Swedish',
-                        'no': 'Norwegian', 'fi': 'Finnish', 'bg': 'Bulgarian', 'sk': 'Slovak',
-                        'sl': 'Slovenian', 'et': 'Estonian', 'lv': 'Latvian', 'lt': 'Lithuanian'
-                    }
-                    detected_name = lang_code_to_name.get(detected_lang, detected_lang.upper())
-                    selected_name = lang_code_to_name.get(language_code, language_code.upper())
-                    
-                            logger.warning(
-                                f"Language mismatch detected by query rewriter: query is in {detected_name} but {selected_name} was selected"
-                            )
-                            # Return the exact prior UX message
-                    return self._create_error_response(
-                                "Whoops! You wrote in a different language than the one you selected. Please choose the language you want me to respond in on the right so we can ensure the best translation for you!",
-                        language_code,
-                                time.time() - start_time,
-                    )
-
-                # Hard-block for off-topic and harmful in legacy path as well
-                if classification == 'off-topic':
-                    msg_en = (
-                        "I'm a climate change assistant and can only help with questions about climate, environment, and sustainability. "
-                        "Please ask me about topics like climate change causes, effects, or solutions."
-                    )
-                    final_msg = msg_en
-                    if language_code != 'en':
-                        try:
-                            final_msg = await self.nova_model.translate(msg_en, 'english', language_name)
-                        except Exception:
-                            final_msg = msg_en
-                    return self._create_error_response(
-                        final_msg,
-                        language_code,
-                        time.time() - start_time
-                    )
-                if classification == 'harmful':
-                    return self._create_error_response(
-                        "I can't assist with that request. Please ask me questions about climate change, environmental issues, or sustainability.",
-                        language_code,
-                        time.time() - start_time
-                    )
-
+                    # Hard-block for off-topic and harmful in legacy path as well
+                    if classification == 'off-topic':
+                        msg_en = (
+                            "I'm a climate change assistant and can only help with questions about climate, environment, and sustainability. "
+                            "Please ask me about topics like climate change causes, effects, or solutions."
+                        )
+                        final_msg = msg_en
+                        if language_code != 'en':
+                            try:
+                                final_msg = await self.nova_model.translate(msg_en, 'english', language_name)
+                            except Exception:
+                                final_msg = msg_en
+                        return self._create_error_response(
+                            final_msg,
+                            language_code,
+                            time.time() - start_time
+                        )
+                    if classification == 'harmful':
+                        return self._create_error_response(
+                            "I can't assist with that request. Please ask me questions about climate change, environmental issues, or sustainability.",
+                            language_code,
+                            time.time() - start_time
+                        )
 
             except Exception as e:
                 logger.warning(f"Query rewriting failed, using original: {str(e)}")
@@ -801,7 +808,8 @@ class ClimateQueryPipeline:
 
             # Early fallback: if no RAG documents, try Tavily before generation
             if not documents:
-                fb = await self._try_tavily_fallback(original_query=query, english_query=english_query, language_name=language_name)
+                fb = await self._try_tavily_fallback(original_query=query, english_query=english_query,
+                                                     language_name=language_name)
                 if fb.get("success"):
                     # Translate fallback response if needed
                     final_resp = fb["response"]
@@ -833,11 +841,11 @@ class ClimateQueryPipeline:
                 # Generate response in English first - add timeout protection
                 response, citations = await asyncio.wait_for(
                     self.response_generator.generate_response(
-                    query=processed_query,
-                    documents=documents,
-                    model_type=model_type,
-                    language_code='en',  # Always generate in English first
-                    conversation_history=conversation_history
+                        query=processed_query,
+                        documents=documents,
+                        model_type=model_type,
+                        language_code='en',  # Always generate in English first
+                        conversation_history=conversation_history
                     ),
                     timeout=45.0  # 45 seconds total for the entire generation process
                 )
@@ -884,7 +892,8 @@ class ClimateQueryPipeline:
 
             # Low-faithfulness fallback to Tavily
             if faithfulness_score < 0.1:
-                fb = await self._try_tavily_fallback(original_query=query, english_query=english_query, language_name=language_name)
+                fb = await self._try_tavily_fallback(original_query=query, english_query=english_query,
+                                                     language_name=language_name)
                 if fb.get("success") and fb.get("faithfulness_score", 0.0) > faithfulness_score:
                     response = fb["response"]
                     citations = fb.get("citations", [])
@@ -895,15 +904,15 @@ class ClimateQueryPipeline:
             # STEP 8: TRANSLATE RESPONSE IF NEEDED
             _trans_time = 0.0
             original_english_response = response  # Keep English version for caching
-            
+
             if language_code != 'en':
                 logger.info(f"Step 8: Translating response to {language_name} (code={language_code})")
                 try:
                     _trans_start = time.time()
                     # Use Nova translator for all languages including Filipino
                     translated_response = await self.nova_model.translate(
-                        response, 
-                        'english', 
+                        response,
+                        'english',
                         language_name
                     )
                     response = translated_response
@@ -943,11 +952,11 @@ class ClimateQueryPipeline:
             if self.redis_client:
                 try:
                     cache = ClimateCache()
-                    
+
                     # Cache the response in the requested language
                     await cache.set(cache_key, result)
                     logger.info(f"✓ Response cached in {language_name}")
-                    
+
                     # Also cache the English version if different
                     if language_code != 'en':
                         english_cache_key = self._make_cache_key('en', model_type, normalized)
@@ -956,7 +965,7 @@ class ClimateQueryPipeline:
                         english_result['language_code'] = 'en'
                         await cache.set(english_cache_key, english_result)
                         logger.info("✓ English version also cached")
-                    
+
                     # Maintain recent queries list
                     try:
                         entry = f"{cache_key}|{normalized}|{language_code}"
@@ -964,7 +973,7 @@ class ClimateQueryPipeline:
                         await asyncio.to_thread(self.redis_client.ltrim, "q:recent", 0, 99)
                     except Exception as list_err:
                         logger.debug(f"Recent list update skipped: {list_err}")
-                        
+
                 except Exception as e:
                     logger.warning(f"Failed to cache result: {str(e)}")
 
@@ -993,7 +1002,8 @@ class ClimateQueryPipeline:
         """Process input moderation guards."""
         return {"passed": True, "reason": "query_rewriter_classification_passed"}
 
-    def _create_error_response(self, error_message: str, language_code: str, processing_time: float) -> Dict[str, Any]:
+    def _create_error_response(self, error_message: str, language_code: str, processing_time: float) -> Dict[
+        str, Any]:
         """Create standardized error response."""
         return {
             "success": False,
@@ -1013,7 +1023,7 @@ class ClimateQueryPipeline:
 
     def _make_cache_key(self, language_code: str, model_type: str, base_query: str) -> str:
         """Create a stable cache key using normalized query and metadata.
-        
+
         FIX: Include language_code in the cache key to ensure language-specific caching.
         """
         key_material = f"{language_code}:{model_type}:{base_query}".encode("utf-8")
@@ -1030,40 +1040,40 @@ class ClimateQueryPipeline:
         return t
 
     async def _try_fuzzy_cache_match(
-        self, 
-        normalized_query: str, 
-        language_code: str,
-        model_type: str,
-        threshold: float = 0.92
+            self,
+            normalized_query: str,
+            language_code: str,
+            model_type: str,
+            threshold: float = 0.92
     ) -> Optional[Dict[str, Any]]:
         """Try to reuse a cached response if a recent query is a near-duplicate.
-        
+
         FIX: Only match queries in the same language.
         """
         try:
             recent_entries = await asyncio.to_thread(self.redis_client.lrange, "q:recent", 0, 49)
             if not recent_entries:
                 return None
-                
+
             norm_tokens = set(normalized_query.split())
             best = {"score": 0.0, "key": None}
-            
+
             for entry in recent_entries:
                 try:
-                    parts = entry.split("|")
+                    parts = entry.decode('utf-8').split("|") # Decode bytes to string
                     if len(parts) >= 3:
                         key, norm, lang = parts[0], parts[1], parts[2]
                     else:
                         key, norm = parts[0], parts[1]
                         lang = 'en'  # Default for backward compatibility
-                        
+
                     # Only consider entries in the same language
                     if lang != language_code:
                         continue
-                        
-                except ValueError:
+
+                except (ValueError, IndexError):
                     continue
-                    
+
                 if norm == normalized_query:
                     sim = 1.0
                 else:
@@ -1074,16 +1084,16 @@ class ClimateQueryPipeline:
                         inter = len(norm_tokens & other_tokens)
                         union = len(norm_tokens | other_tokens)
                         sim = inter / union if union else 0.0
-                        
+
                 if sim > best["score"]:
                     best = {"score": sim, "key": key}
-                    
+
             if best["key"] and best["score"] >= threshold:
                 cache = ClimateCache()
                 cached = await cache.get(best["key"])
                 if cached:
                     return {"result": cached, "score": best["score"]}
-                    
+
         except Exception as e:
             logger.debug(f"Fuzzy cache match skipped: {e}")
         return None
@@ -1091,7 +1101,7 @@ class ClimateQueryPipeline:
     async def cleanup(self) -> None:
         """Cleanup resources."""
         cleanup_errors = []
-        
+
         # Close Nova model (BedrockModel) async client
         if hasattr(self, 'nova_model') and self.nova_model:
             try:
@@ -1100,19 +1110,19 @@ class ClimateQueryPipeline:
             except Exception as e:
                 cleanup_errors.append(f"Nova model cleanup error: {str(e)}")
                 logger.error(f"Error closing Nova model: {str(e)}")
-        
+
         # Close Cohere client connections (if it has async connections)
         if hasattr(self, 'cohere_client') and self.cohere_client:
             try:
                 # Cohere client is synchronous, but we can still set it to None
                 if hasattr(self.cohere_client, 'close'):
-                    await self.cohere_client.close()
+                    self.cohere_client.close() # Assuming synchronous close
                 self.cohere_client = None
                 logger.info("✓ Cohere client closed")
             except Exception as e:
                 cleanup_errors.append(f"Cohere client cleanup error: {str(e)}")
                 logger.error(f"Error closing Cohere client: {str(e)}")
-        
+
         # Close Redis connection
         if self.redis_client and not getattr(self.redis_client, '_closed', False):
             try:

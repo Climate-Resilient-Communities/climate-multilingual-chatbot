@@ -62,6 +62,17 @@ export interface SupportedLanguagesResponse {
   total_supported: number;
 }
 
+export interface LanguageDetectionRequest {
+  query: string;
+  detected_language?: string;
+}
+
+export interface LanguageDetectionResponse {
+  detected_language: string;
+  confidence: number;
+  recommended_model: string;
+}
+
 export interface ApiError {
   error: {
     code: string;
@@ -94,8 +105,36 @@ class ApiClient {
     });
 
     if (!response.ok) {
-      const errorData: ApiError = await response.json();
-      throw new Error(errorData.error.message || `HTTP ${response.status}`);
+      try {
+        const errorData = await response.json();
+        
+        // Handle FastAPI validation errors (422)
+        if (errorData.detail && Array.isArray(errorData.detail)) {
+          const errorMessages = errorData.detail.map((err: any) => err.msg).join(', ');
+          throw new Error(`Validation error: ${errorMessages}`);
+        }
+        
+        // Handle custom API errors
+        if (errorData.error && errorData.error.message) {
+          throw new Error(errorData.error.message);
+        }
+        
+        // Handle generic error messages
+        if (errorData.message) {
+          throw new Error(errorData.message);
+        }
+        
+        // Handle detail string errors
+        if (typeof errorData.detail === 'string') {
+          throw new Error(errorData.detail);
+        }
+        
+        // Fallback to HTTP status
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      } catch (parseError) {
+        // If JSON parsing fails, use HTTP status
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
     }
 
     return response.json();
@@ -116,6 +155,16 @@ class ApiClient {
    */
   async submitFeedback(request: FeedbackRequest): Promise<FeedbackResponse> {
     return this.request<FeedbackResponse>('/api/v1/feedback/submit', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  /**
+   * Detect language for a given query
+   */
+  async detectLanguage(request: LanguageDetectionRequest): Promise<LanguageDetectionResponse> {
+    return this.request<LanguageDetectionResponse>('/api/v1/languages/validate', {
       method: 'POST',
       body: JSON.stringify(request),
     });
