@@ -414,3 +414,200 @@ INFO:     127.0.0.1:53985 - "OPTIONS /api/v1/chat/query HTTP/1.1" 200 OK
 2025-08-16 20:19:00,784 - src.webui.api.routers.chat - INFO - Query processed successfully: id=req_1755389927347 time=13.434s model=nova faithfulness=0.950
 2025-08-16 20:19:00,785 - src.webui.api.main - INFO - REQUEST POST /api/v1/chat/query status=200 time=13.438s id=req_1755389927347 ip=127.0.0.1
 INFO:     127.0.0.1:53985 - "POST /api/v1/chat/query HTTP/1.1" 200 OK
+2025-08-16 21:10:36,235 - src.webui.api.main - INFO - REQUEST OPTIONS /api/v1/languages/validate status=200 time=0.019s id=req_1755393036215 ip=127.0.0.1
+INFO:     127.0.0.1:49264 - "OPTIONS /api/v1/languages/validate HTTP/1.1" 200 OK
+2025-08-16 21:10:36,511 - src.webui.api.routers.languages - INFO - Language validation: query_len=56 detected=en model=nova confidence=0.800
+2025-08-16 21:10:36,527 - src.webui.api.main - INFO - REQUEST POST /api/v1/languages/validate status=200 time=0.128s id=req_1755393036398 ip=127.0.0.1
+INFO:     127.0.0.1:49266 - "POST /api/v1/languages/validate HTTP/1.1" 200 OK
+2025-08-16 21:10:36,536 - src.webui.api.main - INFO - REQUEST OPTIONS /api/v1/chat/query status=200 time=0.003s id=req_1755393036532 ip=127.0.0.1
+INFO:     127.0.0.1:49266 - "OPTIONS /api/v1/chat/query HTTP/1.1" 200 OK
+2025-08-16 21:10:36,673 - src.webui.api.routers.chat - INFO - Processing chat query: id=req_1755393036542 query_len=56 lang=en
+2025-08-16 21:10:36,673 - src.webui.api.routers.chat - INFO - Language routing: detected=en model=nova
+2025-08-16 21:10:36,685 - src.models.climate_pipeline - INFO - Processing query: 'What are the local impacts of climate change in Toronto?...' in english (code: en)
+2025-08-16 21:10:36,685 - src.models.climate_pipeline - INFO - Raw query repr: 'What are the local impacts of climate change in Toronto?'
+2025-08-16 21:10:36,685 - src.models.climate_pipeline - INFO - Router IN → language_name=english, language_code=en
+2025-08-16 21:10:36,685 - src.models.climate_pipeline - INFO - Step 1: Query Routing
+2025-08-16 21:10:36,686 - src.models.query_routing - INFO - Language: english (en) → Model: Nova
+2025-08-16 21:10:36,686 - src.models.climate_pipeline - INFO - Router OUT → model=Nova, support=nova, needs_translation=False
+2025-08-16 21:10:36,686 - src.models.climate_pipeline - INFO - Router OUT → english_query='What are the local impacts of climate change in Toronto?'
+2025-08-16 21:10:36,686 - src.models.climate_pipeline - INFO - Router OUT → processed_query='What are the local impacts of climate change in Toronto?'
+2025-08-16 21:10:36,686 - src.models.climate_pipeline - INFO - ✓ Routed to Nova model
+2025-08-16 21:10:36,686 - src.models.climate_pipeline - INFO - Timing: routing=0.8ms
+2025-08-16 21:10:36,686 - src.models.climate_pipeline - INFO - Net debug → original_query len=56, utf8_bytes=56
+2025-08-16 21:10:36,688 - src.models.climate_pipeline - INFO - Net debug → english_query len=56, utf8_bytes=56
+2025-08-16 21:10:36,688 - src.models.climate_pipeline - INFO - Step 2: Cache Check
+2025-08-16 21:10:36,699 - src.models.redis_cache - INFO - Initializing Redis connection to localhost:6379 (SSL: False)
+2025-08-16 21:10:36,737 - src.models.redis_cache - INFO - ✓ Redis connection test successful to localhost
+2025-08-16 21:10:36,737 - src.models.redis_cache - INFO - ✓ Redis cache initialized for localhost
+2025-08-16 21:10:36,742 - src.models.climate_pipeline - INFO - ✓ Cache hit for english - returning cached response
+2025-08-16 21:10:36,746 - src.webui.api.routers.chat - INFO - Query processed successfully: id=req_1755393036542 time=0.073s model=nova faithfulness=0.950
+2025-08-16 21:10:36,747 - src.webui.api.main - INFO - REQUEST POST /api/v1/chat/query status=200 time=0.205s id=req_1755393036542 ip=127.0.0.1
+INFO:     127.0.0.1:49272 - "POST /api/v1/chat/query HTTP/1.1" 200 OK
+2025-08-16 21:22:45,391 - src.webui.api.main - INFO - REQUEST OPTIONS /api/v1/languages/validate status=200 time=0.053s id=req_1755393765336 ip=127.0.0.1
+INFO:     127.0.0.1:55658 - "OPTIONS /api/v1/languages/validate HTTP/1.1" 200 OK
+2025-08-16 21:22:45,438 - src.webui.api.routers.languages - INFO - Language validation: query_len=56 detected=en model=nova confidence=0.800
+2025-08-16 21:22:45,443 - src.webui.api.main - INFO - REQUEST POST /api/v1/languages/validate status=200 time=0.038s id=req_1755393765405 ip=127.0.0.1
+INFO:     127.0.0.1:55658 - "POST /api/v1/languages/validate HTTP/1.1" 200 OK
+2025-08-16 21:22:45,549 - src.webui.api.main - INFO - REQUEST OPTIONS /api/v1/chat/query status=200 time=0.001s id=req_1755393765548 ip=127.0.0.1
+INFO:     127.0.0.1:55660 - "OPTIONS /api/v1/chat/query HTTP/1.1" 200 OK
+2025-08-16 21:22:45,563 - src.webui.api.routers.chat - INFO - Processing chat query: id=req_1755393765553 query_len=56 lang=en
+2025-08-16 21:22:45,564 - src.webui.api.routers.chat - INFO - Language routing: detected=en model=nova
+2025-08-16 21:22:45,572 - src.models.climate_pipeline - INFO - Processing query: 'What are the local impacts of climate change in Toronto?...' in english (code: en)
+2025-08-16 21:22:45,572 - src.models.climate_pipeline - INFO - Raw query repr: 'What are the local impacts of climate change in Toronto?'
+2025-08-16 21:22:45,572 - src.models.climate_pipeline - INFO - Router IN → language_name=english, language_code=en
+2025-08-16 21:22:45,572 - src.models.climate_pipeline - INFO - Step 1: Query Routing
+2025-08-16 21:22:45,573 - src.models.query_routing - INFO - Language: english (en) → Model: Nova
+2025-08-16 21:22:45,573 - src.models.climate_pipeline - INFO - Router OUT → model=Nova, support=nova, needs_translation=False
+2025-08-16 21:22:45,573 - src.models.climate_pipeline - INFO - Router OUT → english_query='What are the local impacts of climate change in Toronto?'
+2025-08-16 21:22:45,573 - src.models.climate_pipeline - INFO - Router OUT → processed_query='What are the local impacts of climate change in Toronto?'
+2025-08-16 21:22:45,573 - src.models.climate_pipeline - INFO - ✓ Routed to Nova model
+2025-08-16 21:22:45,573 - src.models.climate_pipeline - INFO - Timing: routing=0.7ms
+2025-08-16 21:22:45,573 - src.models.climate_pipeline - INFO - Net debug → original_query len=56, utf8_bytes=56
+2025-08-16 21:22:45,573 - src.models.climate_pipeline - INFO - Net debug → english_query len=56, utf8_bytes=56
+2025-08-16 21:22:45,573 - src.models.climate_pipeline - INFO - Step 2: Cache Check
+2025-08-16 21:22:45,576 - src.models.redis_cache - INFO - Initializing Redis connection to localhost:6379 (SSL: False)
+2025-08-16 21:22:45,593 - src.models.redis_cache - INFO - ✓ Redis connection test successful to localhost
+2025-08-16 21:22:45,593 - src.models.redis_cache - INFO - ✓ Redis cache initialized for localhost
+2025-08-16 21:22:45,596 - src.models.climate_pipeline - INFO - Cache miss for english query
+2025-08-16 21:22:45,603 - src.models.climate_pipeline - INFO - Timing: cache=29.6ms
+2025-08-16 21:22:45,603 - src.models.climate_pipeline - INFO - Step 3: Query Rewriting
+2025-08-16 21:22:45,603 - src.models.conversation_parser - INFO - No conversation history to format
+2025-08-16 21:22:45,603 - src.models.climate_pipeline - INFO - Rewriter IN → expected_lang=en, history_len=0
+2025-08-16 21:22:45,604 - src.models.climate_pipeline - INFO - Rewriter IN → original_query='What are the local impacts of climate change in Toronto?'
+2025-08-16 21:22:45,605 - query_rewriter - INFO - Rewriter NET IN → expected_lang=en, user_query repr='What are the local impacts of climate change in Toronto?', norm='What are the local impacts of climate change in Toronto?'
+2025-08-16 21:22:47,607 - query_rewriter - WARNING - REWRITER_TIMEOUT_2S → using original query fallback
+2025-08-16 21:22:47,609 - src.models.climate_pipeline - INFO - Rewriter OUT → detected_lang='en', classification='on-topic', language_match='yes', canned=False
+2025-08-16 21:22:47,609 - src.models.climate_pipeline - INFO - Rewriter OUT → rewrite_en='What are the local impacts of climate change in Toronto?'
+2025-08-16 21:22:47,609 - src.models.climate_pipeline - INFO - ✓ Query rewritten (JSON) for better retrieval
+2025-08-16 21:22:47,609 - src.models.climate_pipeline - INFO - Timing: rewrite=2005.8ms
+2025-08-16 21:22:47,609 - src.models.climate_pipeline - INFO - Step 4: Input Guards
+2025-08-16 21:22:47,609 - src.models.climate_pipeline - INFO - ✓ Input guards passed
+2025-08-16 21:22:47,609 - src.models.climate_pipeline - INFO - Timing: guards=0.0ms
+2025-08-16 21:22:47,609 - src.models.climate_pipeline - INFO - Step 5: Document Retrieval
+2025-08-16 21:22:47,610 - src.models.retrieval - INFO - 🔄 Pre-computing query embeddings to avoid redundant encode() calls
+2025-08-16 21:22:47,610 - src.models.retrieval - INFO - Query embedding IN: query_len=56 chars, query_repr='What are the local impacts of climate change in Toronto?...'
+2025-08-16 21:22:53,597 - src.models.retrieval - INFO - dep=query_embed op=encode ms=5987 dense_dim=1024 sparse_tokens=12
+2025-08-16 21:22:54,078 - src.models.retrieval - INFO - dep=pinecone host=unknown op=query ms=477 status=OK
+2025-08-16 21:22:54,078 - src.models.retrieval - INFO - dep=hybrid_search embed_ms=0 query_ms=478 total_ms=478
+2025-08-16 21:22:54,235 - src.models.retrieval - INFO - dep=pinecone host=unknown op=query ms=156 status=OK
+2025-08-16 21:22:54,235 - src.models.retrieval - INFO - pinecone.match type=<class 'pinecone.core.openapi.data.model.scored_vector.ScoredVector'> attrs_have_values=True has_values=True
+2025-08-16 21:22:54,235 - src.models.retrieval - INFO - dep=hybrid_search embed_ms=0 query_ms=156 total_ms=156
+2025-08-16 21:22:54,238 - src.models.retrieval - INFO - dep=mmr_embed used_index=6 used_cache=0 embedded=0 ms=0 n_docs=6 valid_vecs=6 q_embed_ms=0
+2025-08-16 21:22:54,239 - src.models.rerank - INFO - dep=cohere_rerank payload_chars=8375 n_docs=6
+2025-08-16 21:22:54,475 - httpx - INFO - HTTP Request: POST https://api.cohere.com/v1/rerank "HTTP/1.1 200 OK"
+2025-08-16 21:22:54,482 - src.models.rerank - INFO - dep=cohere_rerank host=api.cohere.com op=rerank ms=242.7 status=OK
+2025-08-16 21:22:54,487 - src.models.retrieval - INFO - Retained docs preview: [{'title': 'Guide And Workbook For Municipal Climate Adaptation', 'pinecone_score': 0.278877825, 'rerank_score': 0.9920002, 'has_values': True}, {'title': "Report For Action Toronto's Climate Change Readiness Updates Oncommitments And A", 'pinecone_score': 0.302861631, 'rerank_score': 0.9899476, 'has_values': True}, {'title': 'Canada In A Changing Climate Synthesis Report', 'pinecone_score': 0.279870391, 'rerank_score': 0.9430336, 'has_values': True}, {'title': 'Toronto First Resilience Strategy', 'pinecone_score': 0.287962556, 'rerank_score': 0.7595823, 'has_values': True}, {'title': 'Transformto Net Zero Strategy A Climate Action Pathway To 2030 And Beyond', 'pinecone_score': 0.274986476, 'rerank_score': 0.29138398, 'has_values': True}]
+2025-08-16 21:22:54,487 - src.models.retrieval - INFO - q='What are the local impacts of climate change in Toronto?', base=6, kept_pre=6, refill=0, final_before=4, final_after=5, hybrid_refill=0, floor=0.60, delta=0.100, max_sim_pre=0.303, p50_sim_pre=0.280, p95_sim_pre=0.303, blocked_base=0, dropped_top2=[{'segment_id': '19', 'title': 'Transformto Net Zero Strategy A Climate Action Pathway To 2030 And Beyond', 'score': 0.29138398}, {'segment_id': '8', 'title': 'Developing Community Resilience For Climate Adaptation In Toronto Ontario', 'score': 0.02120612}]
+2025-08-16 21:22:54,487 - src.models.climate_pipeline - INFO - ✓ Retrieved 5 documents
+2025-08-16 21:22:54,488 - src.models.climate_pipeline - INFO - Timing: retrieval=6878.5ms
+2025-08-16 21:22:54,488 - src.models.climate_pipeline - INFO - Step 6: Response Generation (Nova)
+2025-08-16 21:22:54,488 - src.models.gen_response_unified - INFO - Starting nova response generation
+2025-08-16 21:22:54,488 - src.models.redis_cache - INFO - Initializing Redis connection to localhost:6379 (SSL: False)
+2025-08-16 21:22:54,492 - src.models.redis_cache - INFO - ✓ Redis connection test successful to localhost
+2025-08-16 21:22:54,492 - src.models.redis_cache - INFO - ✓ Redis cache initialized for localhost
+2025-08-16 21:22:54,493 - src.models.gen_response_unified - INFO - Successfully processed 5 documents
+2025-08-16 21:22:54,493 - src.models.gen_response_unified - INFO - Successfully processed 5 documents for nova
+2025-08-16 21:23:05,205 - src.models.nova_flow - INFO - dep=bedrock host=bedrock.us-east-1.amazonaws.com op=invoke_model ms=19598 status=OK request_id=85938e4f-5676-4f8f-a35b-611607b04a2b
+2025-08-16 21:23:18,433 - src.models.nova_flow - INFO - dep=bedrock host=bedrock.us-east-1.amazonaws.com op=invoke_model ms=23939 status=OK request_id=606c6851-fbb6-498b-87c7-557672ad65eb
+2025-08-16 21:23:18,569 - src.models.gen_response_unified - INFO - nova response cached successfully
+2025-08-16 21:23:18,569 - src.models.gen_response_unified - INFO - nova response generation complete
+2025-08-16 21:23:18,576 - src.models.climate_pipeline - INFO - ✓ Response generated successfully in English
+2025-08-16 21:23:18,576 - src.models.climate_pipeline - INFO - Timing: generation=24088.5ms
+2025-08-16 21:23:18,576 - src.models.climate_pipeline - INFO - Step 7: Quality Validation
+2025-08-16 21:23:20,751 - src.models.nova_flow - INFO - dep=bedrock host=bedrock.us-east-1.amazonaws.com op=invoke_model ms=2163 status=OK request_id=eacb2ab5-0896-47d3-af12-033390a327e2
+2025-08-16 21:23:20,752 - src.models.hallucination_guard - INFO - Faithfulness score: 0.95
+2025-08-16 21:23:20,752 - src.models.climate_pipeline - INFO - ✓ Faithfulness score: 0.950
+2025-08-16 21:23:20,752 - src.models.climate_pipeline - INFO - ✓ Assessment: Highly Faithful
+2025-08-16 21:23:20,752 - src.models.climate_pipeline - INFO - Timing: faithfulness=2175.7ms
+2025-08-16 21:23:20,753 - src.models.redis_cache - INFO - Initializing Redis connection to localhost:6379 (SSL: False)
+2025-08-16 21:23:20,755 - src.models.redis_cache - INFO - ✓ Redis connection test successful to localhost
+2025-08-16 21:23:20,755 - src.models.redis_cache - INFO - ✓ Redis cache initialized for localhost
+2025-08-16 21:23:20,757 - src.models.climate_pipeline - INFO - ✓ Response cached in english
+2025-08-16 21:23:20,760 - src.models.climate_pipeline - INFO - Timing summary (ms): routing=0.7 rewrite=2005.8 guards=0.0 retrieval=6878.5 generation=24088.5 faithfulness=2175.7 translation=0.0 total=35180.2
+2025-08-16 21:23:20,760 - src.models.climate_pipeline - INFO - ✓ Query processed successfully in 35.18s
+2025-08-16 21:23:20,760 - src.webui.api.routers.chat - INFO - Query processed successfully: id=req_1755393765553 time=35.200s model=nova faithfulness=0.950
+2025-08-16 21:23:20,761 - src.webui.api.main - INFO - REQUEST POST /api/v1/chat/query status=200 time=35.209s id=req_1755393765553 ip=127.0.0.1
+INFO:     127.0.0.1:55660 - "POST /api/v1/chat/query HTTP/1.1" 200 OK
+2025-08-16 21:26:49,538 - src.webui.api.main - INFO - REQUEST OPTIONS /api/v1/languages/validate status=200 time=0.157s id=req_1755394009350 ip=127.0.0.1
+INFO:     127.0.0.1:57811 - "OPTIONS /api/v1/languages/validate HTTP/1.1" 200 OK
+2025-08-16 21:26:49,938 - src.webui.api.routers.languages - INFO - Language validation: query_len=56 detected=en model=nova confidence=0.800
+2025-08-16 21:26:49,996 - src.webui.api.main - INFO - REQUEST POST /api/v1/languages/validate status=200 time=0.317s id=req_1755394009679 ip=127.0.0.1
+INFO:     127.0.0.1:57830 - "POST /api/v1/languages/validate HTTP/1.1" 200 OK
+2025-08-16 21:26:50,014 - src.webui.api.main - INFO - REQUEST OPTIONS /api/v1/chat/query status=200 time=0.005s id=req_1755394010009 ip=127.0.0.1
+INFO:     127.0.0.1:57830 - "OPTIONS /api/v1/chat/query HTTP/1.1" 200 OK
+2025-08-16 21:26:50,189 - src.webui.api.routers.chat - INFO - Processing chat query: id=req_1755394010091 query_len=56 lang=en
+2025-08-16 21:26:50,189 - src.webui.api.routers.chat - INFO - Language routing: detected=en model=nova
+2025-08-16 21:26:50,198 - src.models.climate_pipeline - INFO - Processing query: 'What are the local impacts of climate change in Toronto?...' in english (code: en)
+2025-08-16 21:26:50,198 - src.models.climate_pipeline - INFO - Raw query repr: 'What are the local impacts of climate change in Toronto?'
+2025-08-16 21:26:50,199 - src.models.climate_pipeline - INFO - Router IN → language_name=english, language_code=en
+2025-08-16 21:26:50,199 - src.models.climate_pipeline - INFO - Step 1: Query Routing
+2025-08-16 21:26:50,206 - src.models.query_routing - INFO - Language: english (en) → Model: Nova
+2025-08-16 21:26:50,206 - src.models.climate_pipeline - INFO - Router OUT → model=Nova, support=nova, needs_translation=False
+2025-08-16 21:26:50,206 - src.models.climate_pipeline - INFO - Router OUT → english_query='What are the local impacts of climate change in Toronto?'
+2025-08-16 21:26:50,206 - src.models.climate_pipeline - INFO - Router OUT → processed_query='What are the local impacts of climate change in Toronto?'
+2025-08-16 21:26:50,206 - src.models.climate_pipeline - INFO - ✓ Routed to Nova model
+2025-08-16 21:26:50,206 - src.models.climate_pipeline - INFO - Timing: routing=7.5ms
+2025-08-16 21:26:50,206 - src.models.climate_pipeline - INFO - Net debug → original_query len=56, utf8_bytes=56
+2025-08-16 21:26:50,206 - src.models.climate_pipeline - INFO - Net debug → english_query len=56, utf8_bytes=56
+2025-08-16 21:26:50,206 - src.models.climate_pipeline - INFO - Step 2: Cache Check
+2025-08-16 21:26:50,216 - src.models.redis_cache - INFO - Initializing Redis connection to localhost:6379 (SSL: False)
+2025-08-16 21:26:50,275 - src.models.redis_cache - INFO - ✓ Redis connection test successful to localhost
+2025-08-16 21:26:50,275 - src.models.redis_cache - INFO - ✓ Redis cache initialized for localhost
+2025-08-16 21:26:50,292 - src.models.climate_pipeline - INFO - ✓ Cache hit for english - returning cached response
+2025-08-16 21:26:50,298 - src.webui.api.routers.chat - INFO - Query processed successfully: id=req_1755394010091 time=0.109s model=nova faithfulness=0.950
+2025-08-16 21:26:50,300 - src.webui.api.main - INFO - REQUEST POST /api/v1/chat/query status=200 time=0.209s id=req_1755394010091 ip=127.0.0.1
+INFO:     127.0.0.1:57830 - "POST /api/v1/chat/query HTTP/1.1" 200 OK
+2025-08-16 21:27:58,411 - src.webui.api.main - INFO - REQUEST OPTIONS /api/v1/languages/validate status=200 time=0.037s id=req_1755394078370 ip=127.0.0.1
+INFO:     127.0.0.1:58434 - "OPTIONS /api/v1/languages/validate HTTP/1.1" 200 OK
+2025-08-16 21:27:58,513 - src.webui.api.routers.languages - INFO - Language validation: query_len=56 detected=en model=nova confidence=0.800
+2025-08-16 21:27:58,526 - src.webui.api.main - INFO - REQUEST POST /api/v1/languages/validate status=200 time=0.058s id=req_1755394078468 ip=127.0.0.1
+INFO:     127.0.0.1:58444 - "POST /api/v1/languages/validate HTTP/1.1" 200 OK
+2025-08-16 21:27:58,540 - src.webui.api.main - INFO - REQUEST OPTIONS /api/v1/chat/query status=200 time=0.002s id=req_1755394078537 ip=127.0.0.1
+INFO:     127.0.0.1:58444 - "OPTIONS /api/v1/chat/query HTTP/1.1" 200 OK
+2025-08-16 21:27:58,595 - src.webui.api.routers.chat - INFO - Processing chat query: id=req_1755394078546 query_len=56 lang=en
+2025-08-16 21:27:58,597 - src.webui.api.routers.chat - INFO - Language routing: detected=en model=nova
+2025-08-16 21:27:58,620 - src.models.climate_pipeline - INFO - Processing query: 'What are the local impacts of climate change in Toronto?...' in english (code: en)
+2025-08-16 21:27:58,621 - src.models.climate_pipeline - INFO - Raw query repr: 'What are the local impacts of climate change in Toronto?'
+2025-08-16 21:27:58,621 - src.models.climate_pipeline - INFO - Router IN → language_name=english, language_code=en
+2025-08-16 21:27:58,621 - src.models.climate_pipeline - INFO - Step 1: Query Routing
+2025-08-16 21:27:58,624 - src.models.query_routing - INFO - Language: english (en) → Model: Nova
+2025-08-16 21:27:58,624 - src.models.climate_pipeline - INFO - Router OUT → model=Nova, support=nova, needs_translation=False
+2025-08-16 21:27:58,624 - src.models.climate_pipeline - INFO - Router OUT → english_query='What are the local impacts of climate change in Toronto?'
+2025-08-16 21:27:58,625 - src.models.climate_pipeline - INFO - Router OUT → processed_query='What are the local impacts of climate change in Toronto?'
+2025-08-16 21:27:58,625 - src.models.climate_pipeline - INFO - ✓ Routed to Nova model
+2025-08-16 21:27:58,625 - src.models.climate_pipeline - INFO - Timing: routing=4.1ms
+2025-08-16 21:27:58,625 - src.models.climate_pipeline - INFO - Net debug → original_query len=56, utf8_bytes=56
+2025-08-16 21:27:58,625 - src.models.climate_pipeline - INFO - Net debug → english_query len=56, utf8_bytes=56
+2025-08-16 21:27:58,625 - src.models.climate_pipeline - INFO - Step 2: Cache Check
+2025-08-16 21:27:58,626 - src.models.redis_cache - INFO - Initializing Redis connection to localhost:6379 (SSL: False)
+2025-08-16 21:27:58,660 - src.models.redis_cache - INFO - ✓ Redis connection test successful to localhost
+2025-08-16 21:27:58,660 - src.models.redis_cache - INFO - ✓ Redis cache initialized for localhost
+2025-08-16 21:27:58,674 - src.models.climate_pipeline - INFO - ✓ Cache hit for english - returning cached response
+2025-08-16 21:27:58,675 - src.webui.api.routers.chat - INFO - Query processed successfully: id=req_1755394078546 time=0.081s model=nova faithfulness=0.950
+2025-08-16 21:27:58,676 - src.webui.api.main - INFO - REQUEST POST /api/v1/chat/query status=200 time=0.130s id=req_1755394078546 ip=127.0.0.1
+INFO:     127.0.0.1:58446 - "POST /api/v1/chat/query HTTP/1.1" 200 OK
+2025-08-16 21:29:41,973 - src.webui.api.routers.languages - INFO - Language validation: query_len=56 detected=en model=nova confidence=0.800
+2025-08-16 21:29:41,974 - src.webui.api.main - INFO - REQUEST POST /api/v1/languages/validate status=200 time=0.014s id=req_1755394181960 ip=127.0.0.1
+INFO:     127.0.0.1:59405 - "POST /api/v1/languages/validate HTTP/1.1" 200 OK
+2025-08-16 21:29:42,043 - src.webui.api.routers.chat - INFO - Processing chat query: id=req_1755394182013 query_len=56 lang=en
+2025-08-16 21:29:42,043 - src.webui.api.routers.chat - INFO - Language routing: detected=en model=nova
+2025-08-16 21:29:42,050 - src.models.climate_pipeline - INFO - Processing query: 'What are the local impacts of climate change in Toronto?...' in english (code: en)
+2025-08-16 21:29:42,050 - src.models.climate_pipeline - INFO - Raw query repr: 'What are the local impacts of climate change in Toronto?'
+2025-08-16 21:29:42,050 - src.models.climate_pipeline - INFO - Router IN → language_name=english, language_code=en
+2025-08-16 21:29:42,050 - src.models.climate_pipeline - INFO - Step 1: Query Routing
+2025-08-16 21:29:42,051 - src.models.query_routing - INFO - Language: english (en) → Model: Nova
+2025-08-16 21:29:42,051 - src.models.climate_pipeline - INFO - Router OUT → model=Nova, support=nova, needs_translation=False
+2025-08-16 21:29:42,051 - src.models.climate_pipeline - INFO - Router OUT → english_query='What are the local impacts of climate change in Toronto?'
+2025-08-16 21:29:42,051 - src.models.climate_pipeline - INFO - Router OUT → processed_query='What are the local impacts of climate change in Toronto?'
+2025-08-16 21:29:42,051 - src.models.climate_pipeline - INFO - ✓ Routed to Nova model
+2025-08-16 21:29:42,051 - src.models.climate_pipeline - INFO - Timing: routing=0.2ms
+2025-08-16 21:29:42,051 - src.models.climate_pipeline - INFO - Net debug → original_query len=56, utf8_bytes=56
+2025-08-16 21:29:42,051 - src.models.climate_pipeline - INFO - Net debug → english_query len=56, utf8_bytes=56
+2025-08-16 21:29:42,051 - src.models.climate_pipeline - INFO - Step 2: Cache Check
+2025-08-16 21:29:42,051 - src.models.redis_cache - INFO - Initializing Redis connection to localhost:6379 (SSL: False)
+2025-08-16 21:29:42,056 - src.models.redis_cache - INFO - ✓ Redis connection test successful to localhost
+2025-08-16 21:29:42,056 - src.models.redis_cache - INFO - ✓ Redis cache initialized for localhost
+2025-08-16 21:29:42,057 - src.models.climate_pipeline - INFO - ✓ Cache hit for english - returning cached response
+2025-08-16 21:29:42,058 - src.webui.api.routers.chat - INFO - Query processed successfully: id=req_1755394182013 time=0.016s model=nova faithfulness=0.950
+2025-08-16 21:29:42,059 - src.webui.api.main - INFO - REQUEST POST /api/v1/chat/query status=200 time=0.045s id=req_1755394182013 ip=127.0.0.1
+INFO:     127.0.0.1:59405 - "POST /api/v1/chat/query HTTP/1.1" 200 OK

@@ -3,8 +3,13 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
-  title: 'ClimateTalk',
+  title: 'Multilingual Climate chatbot',
   description: 'An AI-powered chatbot for climate change information.',
+  authors: [{ name: 'Luis Ticas', url: 'https://www.linkedin.com/in/luisticas' }],
+  icons: {
+    icon: '/favicon.ico',
+    apple: [{ url: '/Logo.png', sizes: '180x180' }],
+  }
 };
 
 export default function RootLayout({
