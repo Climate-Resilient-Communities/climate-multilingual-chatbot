@@ -10,7 +10,9 @@ import { apiClient, type FeedbackRequest } from "@/lib/api";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CitationsPopover, type Source } from "./citations-popover";
+import { CitationsSheet } from "./citations-sheet";
 import { ExportButton } from "./export-button";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
     Dialog,
     DialogContent,
@@ -41,7 +43,10 @@ export function ChatMessage({ message, onRetry }: ChatMessageProps) {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [feedbackComment, setFeedbackComment] = useState('');
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
-  const { toast } = useToast();
+  const { toast } = useToast()
+  const isMobile = useIsMobile()
+  const sources = message.sources ?? [];
+  const hasSources = message.sources && message.sources.length > 0;;
 
   const isUser = message.role === 'user';
 
@@ -184,13 +189,15 @@ export function ChatMessage({ message, onRetry }: ChatMessageProps) {
                     <span className="text-xs">Retry</span>
                 </Button>
                 
-                {message.sources && message.sources.length > 0 && <ExportButton message={message} />}
+                {hasSources && <ExportButton message={message} />}
 
-                {message.sources && message.sources.length > 0 && (
-                    <CitationsPopover sources={message.sources} />
-                )}
-                
-                {(!message.sources || message.sources.length === 0) && <ExportButton message={message} />}
+          {hasSources && (
+            isMobile
+              ? <CitationsSheet sources={message.sources!} />
+              : <CitationsPopover sources={message.sources!} />
+           )}
+
+          {!hasSources && <ExportButton message={message} />}
             </div>
         )}
       </div>

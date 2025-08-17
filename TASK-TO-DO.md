@@ -36,16 +36,16 @@
 - **Completion Criteria**: ✅ Smart language detection working as designed
 
 ### **Task 2: Climate Emergency Guardrails - Too Strict**
-- **Status**: 📋 PENDING
+- **Status**: 📋 COMPLETED
 - **Issue**: Users asking "help im in a climate emergency" get told to call 911 instead of helpful resources
 - **Root Cause**: Input guardrail being too restrictive on emergency climate situations
 - **Files to Modify**: `/src/models/input_guardrail.py`
 - **Solution**: Add climate emergency keywords and appropriate response routing
 - **Test Cases**: 
-  - "help im in a flooding emergency what can I do?"
-  - "climate emergency advice needed"
-  - "im in a climate emergency"
-- **Completion Criteria**: Climate emergency queries route to helpful resources, not 911
+  - ✅"help im in a flooding emergency what can I do?"
+  - ✅"climate emergency advice needed"
+  - ✅"im in a climate emergency"
+- **Completion Criteria**:✅ Climate emergency queries route to helpful resources, not 911
 
 ### **Task 3: Remove Success Popup Messages**
 - **Status**: 📋 PENDING
@@ -107,16 +107,6 @@
 - **Files to Create/Modify**: URL validation service, citation component
 - **Test Plan**: Test with broken URLs, verify fallback behavior
 - **Completion Criteria**: Broken links show notification and PDF alternative
-
-### **Task 8: Tab Branding, Favicon and Title**
-	-	**Status**: 📋 PENDING
-	-	**Feature**: Update browser tab to use our logo and the title “Multilingual Climate chatbot”
-	-	**Requirements**:
-		-	Replace current favicon with our logo
-	  -	Set tab title to “Multilingual Climate chatbot” on all routes
-	-		**Files to Create/Modify**: favicon files in public/, app head/layout metadata, simple site.webmanifest
-	-	**Test Plan**: Open the app and navigate pages, confirm new icon and title appear everywhere
-	-	**Completion Criteria**: All pages show our logo as the tab icon and the title “Multilingual Climate chatbot”
 
 
 ---

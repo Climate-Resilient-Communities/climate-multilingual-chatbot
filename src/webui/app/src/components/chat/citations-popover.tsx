@@ -86,7 +86,7 @@ export function CitationsPopover({ sources }: CitationsPopoverProps) {
           <span className="text-xs">Sources</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[28rem]" align="start">
+      <PopoverContent className="w-96" align="center">
         <div className="space-y-2">
           <h4 className="font-semibold">Citations</h4>
           <ScrollArea className="h-72">
