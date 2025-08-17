@@ -38,7 +38,7 @@ CANNED_MAP = {
     "emergency": {
         "enabled": True,
         "type": "emergency",
-        "text": "If this is an emergency, please contact local authorities immediately (for example, 911 in Canada or the US, or your local emergency number).",
+        "text": "If this is a life-threatening emergency, please contact local authorities immediately (for example, 911 in Canada or the US, or your local emergency number). For climate-related emergencies like flooding, wildfires, or extreme weather, I can help you find preparation and response resources.",
     },
 }
 EMPTY_CANNED = {"enabled": False, "type": None, "text": None}
@@ -209,12 +209,13 @@ IMPORTANT: Detect the actual language of the user query considering conversation
    - Greeting: hello, hi, how are you, good morning/afternoon/evening, hey, greetings.
    - Goodbye: bye, goodbye, see you, farewell, take care.
    - Thanks: thank you, thanks, appreciate it, grateful.
-   - Emergency: urgent help needed, immediate assistance required.
+   - Emergency: life-threatening situations requiring immediate medical or emergency services (injury, medical crisis, imminent danger).
    - Instruction: the user asks how to use the chatbot or how it works.
      Treat short, generic questions like "how do i use this", "how does this work", "how to use this",
      "how to get started", "help", "support" as instruction about the chatbot unless the query clearly
      names an external tool (e.g., "Excel", "Photoshop").
    4) IMPORTANT: If the query contains climate-related terms in any language (for example: 气候/氣候/climate, 变暖/warming, 冬天/winter, 雪/snow, 加拿大/Canada, 影响/impacts, 排放/emissions, 洪水/flooding, 热浪/heat wave), classify as "on-topic" unless clearly harmful.
+   CLIMATE EMERGENCIES: Queries about climate emergencies, flooding emergencies, wildfire help, extreme weather preparation, or climate disaster response should be classified as "on-topic", NOT "emergency". Only classify as "emergency" if it's a life-threatening medical situation requiring immediate 911 response.
   5) Short follow-ups and context: If the query is a short, generic follow-up (e.g., "are you sure?", "really?", "why?", "how so?", "what do you mean?"), infer the topic from the last messages in history.
       - If the recent conversation is climate-related, classify as "on-topic" and rewrite to a standalone, explicit English question that references the inferred topic.
       - Prefer neutral wording (e.g., "effects of climate change") unless the history explicitly mentions a place/season/sector/hazard. Do NOT invent new geography or seasons.
@@ -235,6 +236,18 @@ IMPORTANT: Detect the actual language of the user query considering conversation
 
  [EXAMPLES]
  - [on topic examples:Urban resilience, health inequities, mental health, home maintenance, flood/wildfire management, climate adaptation, paleoclimate, waste management, occupational heat stress, energy transition, renewable energy, food storage, emergency preparedness/household supplies, fires, flooding, climate anxiety]
+ - User Query: "help im in a climate emergency"
+   language: "en"
+   classification: "on-topic"
+   rewrite_en: "What should I do during a climate emergency?"
+ - User Query: "flooding emergency what can I do"
+   language: "en"
+   classification: "on-topic"
+   rewrite_en: "What should I do during a flooding emergency?"
+ - User Query: "im having a heart attack"
+   language: "en"
+   classification: "emergency"
+   rewrite_en: null
  - User Query: "气候 变化 对 加拿大 冬天 的 影响"
    language: "zh"
    classification: "on-topic"

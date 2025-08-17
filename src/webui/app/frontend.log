@@ -1,0 +1,99 @@
+
+> nextn@0.1.0 dev
+> next dev --turbopack -p 9002
+
+   ▲ Next.js 15.3.3 (Turbopack)
+   - Local:        http://localhost:9002
+   - Network:      http://127.0.0.2:9002
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 1060ms
+ ○ Compiling / ...
+ ✓ Compiled / in 2.7s
+ GET / 200 in 3009ms
+ GET / 200 in 195ms
+ GET / 200 in 68ms
+ GET / 200 in 1694ms
+ ○ Compiling /favicon.ico ...
+ ✓ Compiled /favicon.ico in 1016ms
+ GET /favicon.ico?favicon.56766c03.ico 200 in 1315ms
+ GET / 200 in 209ms
+ GET / 200 in 114ms
+ GET / 200 in 304ms
+ ✓ Compiled in 599ms
+ ✓ Compiled in 257ms
+ GET / 200 in 387ms
+ GET / 200 in 1778ms
+ GET /favicon.ico?favicon.56766c03.ico 200 in 589ms
+ ✓ Compiled in 1996ms
+ ○ Compiling /_not-found/page ...
+ ✓ Compiled /_not-found/page in 1059ms
+ POST /api/v1/chat/query 404 in 1112ms
+ GET / 200 in 1343ms
+ GET /favicon.ico?favicon.56766c03.ico 200 in 373ms
+ ✓ Compiled in 102ms
+ ✓ Compiled in 95ms
+API_BASE configured as: http://localhost:8000
+ GET / 200 in 482ms
+ ✓ Compiled in 150ms
+ ✓ Compiled in 108ms
+ ✓ Compiled in 113ms
+ ✓ Compiled in 198ms
+ ✓ Compiled in 101ms
+ ✓ Compiled in 317ms
+ GET / 200 in 773ms
+ GET /favicon.ico?favicon.56766c03.ico 200 in 1234ms
+ GET / 200 in 1052ms
+ GET /favicon.ico?favicon.56766c03.ico 200 in 290ms
+ GET / 200 in 208ms
+ GET /favicon.ico?favicon.56766c03.ico 200 in 270ms
+ GET / 200 in 879ms
+ GET /favicon.ico?favicon.56766c03.ico 200 in 313ms
+ GET / 200 in 760ms
+ GET /favicon.ico?favicon.56766c03.ico 200 in 388ms
+ ✓ Compiled in 416ms
+ ✓ Compiled in 256ms
+ ⨯ ./src/app/page.tsx:101:111
+Parsing ecmascript source code failed
+[0m [90m  99 |[39m         [36mconst[39m commonPhrasesByLanguage [33m=[39m {[0m
+[0m [90m 100 |[39m           [32m'es'[39m[33m:[39m [[32m'hola'[39m[33m,[39m [32m'gracias'[39m[33m,[39m [32m'hasta luego'[39m[33m,[39m [32m'hasta la vista'[39m[33m,[39m [32m'buenas noches'[39m[33m,[39m [32m'buenos días'[39m[33m,[39m [32m'buenas tardes'[39m[33m,[39m [32m'por favor'[39m[33m,[39m [32m'de nada'[39m[33m,[39m [32m'lo siento'[39m[33m,[39m [32m'perdón'[39m[33m,[39m [32m'disculpe'[39m[33m,[39m [32m'ya me voy'[39m[33m,[39m [32m'nos vemos'[39m[33m,[39m [32m'adiós'[39m[33m,[39m [32m'chao'[39m[33m,[39m [32m'cómo estás'[39m[33m,[39m [32m'como estas'[39m[33m,[39m [32m'qué tal'[39m[33m,[39m [32m'que tal'[39m[33m,[39m [32m'muy bien'[39m[33m,[39m [32m'está bien'[39m[33m,[39m [32m'esta bien'[39m][33m,[39m[0m
+[0m[31m[1m>[22m[39m[90m 101 |[39m           [32m'fr'[39m[33m:[39m [[32m'bonjour'[39m[33m,[39m [32m'salut'[39m[33m,[39m [32m'merci'[39m[33m,[39m [32m'au revoir'[39m[33m,[39m [32m'à bientôt'[39m[33m,[39m [32m'bonne nuit'[39m[33m,[39m [32m'bonne soirée'[39m[33m,[39m [32m's\\'[39mil vous plaît[32m', '[39mde rien[32m', '[39mdésolé[32m', '[39mpardon[32m', '[39mexcusez[33m-[39mmoi[32m', '[39mcomment allez[33m-[39mvous[32m', '[39mcomment ça va[32m', '[39mça va[32m', '[39mtrès bien[32m', '[39mça marche[32m'],[39m[0m
+[0m [90m     |[39m                                                                                                               [31m[1m^[22m[39m[31m[1m^[22m[39m[0m
+[0m [90m 102 |[39m           [32m'de'[39m[33m:[39m [[32m'hallo'[39m[33m,[39m [32m'guten tag'[39m[33m,[39m [32m'danke'[39m[33m,[39m [32m'auf wiedersehen'[39m[33m,[39m [32m'tschüss'[39m[33m,[39m [32m'gute nacht'[39m[33m,[39m [32m'bitte'[39m[33m,[39m [32m'entschuldigung'[39m[33m,[39m [32m'wie geht es dir'[39m[33m,[39m [32m'wie gehts'[39m[33m,[39m [32m'gut'[39m[33m,[39m [32m'sehr gut'[39m][33m,[39m[0m
+[0m [90m 103 |[39m           [32m'it'[39m[33m:[39m [[32m'ciao'[39m[33m,[39m [32m'buongiorno'[39m[33m,[39m [32m'grazie'[39m[33m,[39m [32m'arrivederci'[39m[33m,[39m [32m'buonanotte'[39m[33m,[39m [32m'prego'[39m[33m,[39m [32m'scusa'[39m[33m,[39m [32m'come stai'[39m[33m,[39m [32m'come va'[39m[33m,[39m [32m'bene'[39m[33m,[39m [32m'molto bene'[39m][33m,[39m[0m
+[0m [90m 104 |[39m           [32m'pt'[39m[33m:[39m [[32m'olá'[39m[33m,[39m [32m'oi'[39m[33m,[39m [32m'obrigado'[39m[33m,[39m [32m'obrigada'[39m[33m,[39m [32m'tchau'[39m[33m,[39m [32m'até logo'[39m[33m,[39m [32m'boa noite'[39m[33m,[39m [32m'por favor'[39m[33m,[39m [32m'desculpa'[39m[33m,[39m [32m'como está'[39m[33m,[39m [32m'como vai'[39m[33m,[39m [32m'bem'[39m[33m,[39m [32m'muito bem'[39m][33m,[39m[0m
+
+Expected ',', got 'il'
+
+
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 3.7s
+ GET / 500 in 5597ms
+ GET /favicon.ico 500 in 429ms
+ ✓ Compiled in 274ms
+ ✓ Compiled / in 98ms
+ GET / 200 in 447ms
+ GET /favicon.ico?favicon.56766c03.ico 200 in 234ms
+ GET / 200 in 186ms
+ GET /favicon.ico?favicon.56766c03.ico 200 in 237ms
+ ✓ Compiled in 255ms
+ ✓ Compiled in 207ms
+ GET / 200 in 381ms
+ GET /favicon.ico?favicon.56766c03.ico 200 in 294ms
+ GET / 200 in 1040ms
+ GET /favicon.ico?favicon.56766c03.ico 200 in 450ms
+ GET / 200 in 112ms
+ GET /favicon.ico?favicon.56766c03.ico 200 in 229ms
+ GET / 200 in 205ms
+ GET /favicon.ico?favicon.56766c03.ico 200 in 228ms
+ GET / 200 in 82ms
+ GET /favicon.ico?favicon.56766c03.ico 200 in 259ms
+ GET / 200 in 3440ms
+ GET /favicon.ico?favicon.56766c03.ico 200 in 673ms
+ GET / 200 in 439ms
+ GET / 200 in 359ms
+ GET /favicon.ico?favicon.56766c03.ico 200 in 250ms
+ GET / 200 in 380ms
+ GET /favicon.ico?favicon.56766c03.ico 200 in 273ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 243ms

@@ -40,12 +40,13 @@ import { cn } from "@/lib/utils";
 
 type AppHeaderProps = {
   onNewChat?: () => void;
+  selectedLanguage: string;
+  onLanguageChange: (language: string) => void;
 };
 
-export function AppHeader({ onNewChat }: AppHeaderProps) {
+export function AppHeader({ onNewChat, selectedLanguage, onLanguageChange }: AppHeaderProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [langPopoverOpen, setLangPopoverOpen] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState("en");
 
   const speculativeLanguages = languagesData.speculative_supported_languages_nova_proxy.languages;
   const cohereLanguages = languagesData.cohere_command_a_languages.languages;
@@ -133,7 +134,7 @@ export function AppHeader({ onNewChat }: AppHeaderProps) {
                                     onSelect={(currentValue) => {
                                         const selected = sortedLanguages.find(lang => lang.label.toLowerCase() === currentValue.toLowerCase());
                                         if (selected) {
-                                            setSelectedLanguage(selected.value)
+                                            onLanguageChange(selected.value)
                                         }
                                         setLangPopoverOpen(false)
                                     }}

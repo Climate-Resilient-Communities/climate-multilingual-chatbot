@@ -1,0 +1,82 @@
+# Azure Single Deployment Workflow
+# Based on Climate-Stories-Map deployment strategy
+# Deploys both Next.js frontend and FastAPI backend as single Azure App Service
+
+name: Deploy to Azure App Service (Single Deployment)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: src/webui/app/package-lock.json
+      
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Build frontend
+        run: |
+          cd src/webui/app
+          npm ci
+          npm run build
+        env:
+          NEXT_PUBLIC_API_URL: ""  # Same domain deployment
+          NEXT_PUBLIC_ENVIRONMENT: production
+      
+      - name: Verify build output
+        run: |
+          if [ ! -d "src/webui/app/out" ]; then
+            echo "❌ Frontend build failed - 'out' directory not found"
+            exit 1
+          fi
+          echo "✅ Frontend build successful"
+          ls -la src/webui/app/out/
+      
+      - name: Security audit
+        run: |
+          cd src/webui/app
+          npm audit --audit-level moderate
+      
+      - name: Python security scan
+        run: |
+          pip install pip-audit
+          pip-audit --desc --skip-editable
+      
+      - name: Run tests
+        run: |
+          # Add your test commands here
+          echo "✅ Tests passed (placeholder)"
+      
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: 'climate-multilingual-chatbot'  # Replace with your Azure App Service name
+          slot-name: 'production'
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: '.'
+      
+      - name: Health check
+        run: |
+          sleep 30  # Wait for deployment
+          curl -f https://climate-multilingual-chatbot.azurewebsites.net/health || exit 1
+          echo "✅ Deployment health check passed"

@@ -83,45 +83,45 @@ _EMB_CACHE = EmbeddingCache(max_size=int(os.getenv("EMBED_CACHE_MAX", "4000")))
 def get_query_embeddings(query: str, embed_model) -> tuple:
     """
     Get dense and sparse embeddings for a query.
-    
+
     Performance Note: The XLMRobertaTokenizerFast warning suggests using tokenizer.__call__()
-    instead of encode()+pad() for better performance. This is an internal optimization 
+    instead of encode()+pad() for better performance. This is an internal optimization
     in the BGE-M3 model that could improve speed by ~10-20%.
-    
+
     To potentially reduce the warning frequency, we ensure optimal input format.
     """
     import time
     t_start = time.perf_counter()
     logger.info(f"Query embedding IN: query_len={len(query)} chars, query_repr='{query[:100]}...'")
-    
+
     # Suppress XLMRobertaTokenizerFast warnings during embedding
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)
         warnings.filterwarnings("ignore", message=".*XLMRobertaTokenizerFast.*")
         warnings.filterwarnings("ignore", message=".*fast tokenizer.*")
-        
+
         # Ensure query is properly formatted for optimal tokenization
         # Try multiple approaches to handle the array ambiguity bug in BGE-M3
         embeddings = None
         last_error = None
-        
+
         try:
-        if isinstance(query, str) and query.strip():
-            # Use list format which is more efficient for batch processing
-            embeddings = embed_model.encode(
-                [query.strip()], 
-                return_dense=True, 
-                return_sparse=True, 
-                return_colbert_vecs=False
-            )
-        else:
-            # Fallback for edge cases
-            embeddings = embed_model.encode(
-                [query] if isinstance(query, str) else query,
-                return_dense=True, 
-                return_sparse=True, 
-                return_colbert_vecs=False
-            )
+            if isinstance(query, str) and query.strip():
+                # Use list format which is more efficient for batch processing
+                embeddings = embed_model.encode(
+                    [query.strip()],
+                    return_dense=True,
+                    return_sparse=True,
+                    return_colbert_vecs=False
+                )
+            else:
+                # Fallback for edge cases
+                embeddings = embed_model.encode(
+                    [query] if isinstance(query, str) else query,
+                    return_dense=True,
+                    return_sparse=True,
+                    return_colbert_vecs=False
+                )
         except Exception as e:
             last_error = e
             logger.warning(f"BGE-M3 encoding failed: {str(e)[:100]}")
@@ -131,7 +131,7 @@ def get_query_embeddings(query: str, embed_model) -> tuple:
                 try:
                     embeddings = embed_model.encode(
                         [str(query).strip()],  # Force string conversion
-                        return_dense=True, 
+                        return_dense=True,
                         return_sparse=False,  # Disable sparse to avoid the bug
                         return_colbert_vecs=False
                     )
@@ -144,42 +144,42 @@ def get_query_embeddings(query: str, embed_model) -> tuple:
                     raise last_error
             else:
                 raise
-    
+
     elapsed_ms = int((time.perf_counter() - t_start) * 1000)
-    
+
     # Safe extraction of dimensions without triggering array boolean evaluation
     dense_vecs = embeddings.get('dense_vecs')
     dense_dim = len(dense_vecs[0]) if dense_vecs is not None and len(dense_vecs) > 0 else 0
-    
+
     # Fix lexical_weights access - it's a list of dicts, not dicts with 'indices'
     lw = embeddings.get('lexical_weights')
     if isinstance(lw, list) and lw and isinstance(lw[0], dict):
         sparse_tokens = len(lw[0])  # number of token ids in the first query
     else:
         sparse_tokens = 0
-        
+
     logger.info(f"dep=query_embed op=encode ms={elapsed_ms} dense_dim={dense_dim} sparse_tokens={sparse_tokens}")
-    
+
     query_dense_embeddings = embeddings['dense_vecs']
     query_sparse_embeddings_lst = embeddings['lexical_weights']
-    
+
     query_sparse_embeddings = []
     for sparse_embedding in query_sparse_embeddings_lst:
         sparse_dict = {}
         sparse_dict['indices'] = [int(index) for index in list(sparse_embedding.keys())]
         sparse_dict['values'] = [float(v) for v in list(sparse_embedding.values())]
         query_sparse_embeddings.append(sparse_dict)
-    
+
     if isinstance(query_dense_embeddings, np.ndarray):
         query_dense_embeddings = query_dense_embeddings.astype(float)
-    
+
     return query_dense_embeddings, query_sparse_embeddings
 
 def weight_by_alpha(sparse_embedding: Dict, dense_embedding: List[float], alpha: float) -> tuple:
     """Weight the sparse and dense embeddings."""
     if alpha < 0 or alpha > 1:
         raise ValueError("Alpha must be between 0 and 1")
-        
+
     hsparse = {
         'indices': sparse_embedding['indices'],
         'values': [float(v * (1 - alpha)) for v in sparse_embedding['values']]
@@ -187,11 +187,11 @@ def weight_by_alpha(sparse_embedding: Dict, dense_embedding: List[float], alpha:
     hdense = [float(v * alpha) for v in dense_embedding]
     return hsparse, hdense
 
-def issue_hybrid_query(index, sparse_embedding: Dict, dense_embedding: List[float], 
+def issue_hybrid_query(index, sparse_embedding: Dict, dense_embedding: List[float],
                       alpha: float, top_k: int, metadata_filter: Optional[Dict] = None):
     """Execute hybrid search query on Pinecone index."""
     scaled_sparse, scaled_dense = weight_by_alpha(sparse_embedding, dense_embedding, alpha)
-    
+
     kwargs = {
         'vector': scaled_dense,
         'sparse_vector': scaled_sparse,
@@ -222,7 +222,7 @@ def issue_hybrid_query(index, sparse_embedding: Dict, dense_embedding: List[floa
                 )
         except Exception:
             pass
-    return result
+        return result
     except Exception as e:
         elapsed_ms = int((time.time() - start) * 1000)
         try:
@@ -236,23 +236,23 @@ def get_hybrid_results(index, query: str, embed_model, alpha: float, top_k: int,
     """Get hybrid search results."""
     import time
     t_total = time.perf_counter()
-    
+
     query_dense_embeddings, query_sparse_embeddings = get_query_embeddings(query, embed_model)
-    
+
     t_query = time.perf_counter()
     result = issue_hybrid_query(
-        index, 
-        query_sparse_embeddings[0], 
-        query_dense_embeddings[0], 
-        alpha, 
+        index,
+        query_sparse_embeddings[0],
+        query_dense_embeddings[0],
+        alpha,
         top_k,
         metadata_filter=metadata_filter,
     )
-    
+
     query_ms = int((time.perf_counter() - t_query) * 1000)
     total_ms = int((time.perf_counter() - t_total) * 1000)
     logger.info(f"dep=hybrid_search embed_ms={total_ms - query_ms} query_ms={query_ms} total_ms={total_ms}")
-    
+
     return result
 
 
@@ -475,13 +475,13 @@ def _mmr_select_indices(query_vec: np.ndarray, doc_vecs: np.ndarray, lambda_para
 async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top_k=8):
     """
     Get documents with optimized query embedding caching to avoid redundant encode() calls.
-    
+
     Production Issue: Previously made 5+ separate embedding calls per query due to:
     - Initial hybrid search
-    - Fallback without metadata filter  
+    - Fallback without metadata filter
     - Refill operations
     - Secondary hybrid searches
-    
+
     Fix: Cache query embeddings at the start and reuse throughout the function.
     """
     try:
@@ -489,29 +489,29 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
         # This prevents 5+ redundant embedding calls seen in production
         logger.info(f"🔄 Pre-computing query embeddings to avoid redundant encode() calls")
         query_dense_embeddings, query_sparse_embeddings = get_query_embeddings(query, embed_model)
-        
+
         def get_hybrid_results_cached(index, alpha: float, top_k: int, metadata_filter: Optional[Dict] = None):
             """Use cached query embeddings instead of re-encoding."""
             import time
             t_total = time.perf_counter()
-            
+
             t_query = time.perf_counter()
             result = issue_hybrid_query(
-                index, 
-                query_sparse_embeddings[0], 
+                index,
+                query_sparse_embeddings[0],
                 query_dense_embeddings[0],
                 alpha,
                 top_k,
                 metadata_filter
             )
-            
+
             query_ms = int((time.perf_counter() - t_query) * 1000)
             total_ms = int((time.perf_counter() - t_total) * 1000)
             logger.info(f"dep=hybrid_search embed_ms=0 query_ms={query_ms} total_ms={total_ms}")  # embed_ms=0 since cached
-            
+
             return result
         from langsmith import trace
-        
+
         # Main retrieval trace
         with trace(name="hybrid_search"):
             logger.debug(f"Starting hybrid search for query: {query}")
@@ -530,16 +530,16 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
 
             overfetch = int(RETRIEVAL_CONFIG.get("overfetch", max(top_k, 8)))
             hybrid_results = get_hybrid_results_cached(
-                index, 
+                index,
                 alpha=alpha,
                 top_k=int(overfetch),
                 metadata_filter=meta_filter,
             )
             logger.debug(f"Retrieved {len(hybrid_results.matches)} matches from hybrid search")
-            
+
             # Process search results into document format
             docs = process_search_results(hybrid_results)
-            
+
             # Fallback: if server-side lang filter returned 0 docs, retry without filter
             filter_fallback_used = False
             if not docs and meta_filter:
@@ -554,7 +554,7 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
             if not docs:
                 logger.warning("No documents with content found")
                 return []
-                
+
             # Apply domain boosts and soft boosts before gating (small positive nudges)
             try:
                 docs = _apply_domain_boosts(
@@ -568,9 +568,9 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
 
             # Audience blocklist (title + first 512 chars + domain)
             docs, blocked_base, blocked_text_only_base = _apply_audience_blocklist(docs)
-                
+
             logger.debug(f"Processed {len(docs)} documents")
-            
+
         # Optional pre-filter by Pinecone score (if configured)
         try:
             min_pinecone_score = RETRIEVAL_CONFIG.get("min_pinecone_score")
@@ -776,11 +776,11 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
                 min(len(pre_final), max(final_max_docs, 10)),
                 cohere_client,
             )
-            
+
             if not reranked_docs:
                 logger.warning("No documents after reranking")
                 return []
-                
+
             # Percentile-based floor per query (clamped) with quota and guaranteed backfill
             scored = [(d, float(d.get('score', 0.0))) for d in reranked_docs]
             scores_arr = np.array([s for _, s in scored], dtype=float)
@@ -928,7 +928,7 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
                     pass
 
         return final_docs
-            
+
     except Exception as e:
         logger.error(f"Error in get_documents: {str(e)}")
         raise
@@ -936,10 +936,10 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
 def clean_markdown_content(content: str) -> str:
     """Clean markdown formatting from content."""
     import re
-    
+
     # Remove markdown table header and separator rows
     content = re.sub(r'\|[- |]+\|', '', content)
-    
+
     # Extract meaningful text from table rows
     table_texts = []
     for line in content.split('\n'):
@@ -950,15 +950,15 @@ def clean_markdown_content(content: str) -> str:
             meaningful_cells = [cell for cell in cells if cell and not cell.isspace()]
             if meaningful_cells:
                 table_texts.append(' '.join(meaningful_cells))
-    
+
     # If we found table text, join it together
     if table_texts:
         content = ' '.join(table_texts)
-    
+
     # Remove multiple newlines and spaces
     content = re.sub(r'\n+', ' ', content)
     content = re.sub(r'\s+', ' ', content)
-    
+
     # Clean up specific characters
     content = (content.replace('\\n', ' ')
               .replace('\\"', '"')
@@ -966,7 +966,7 @@ def clean_markdown_content(content: str) -> str:
               .replace('\\_{', '_')
               .replace('\\', '')  # Remove remaining backslashes
               .strip())
-    
+
     return content
 
 def process_search_results(search_results) -> List[Dict]:
@@ -975,33 +975,33 @@ def process_search_results(search_results) -> List[Dict]:
     """
     processed_docs = []
     seen_titles = set()  # For deduplication
-    
+
     for match in search_results.matches:
         try:
             # Extract metadata
             title = match.metadata.get('title', 'No Title')
-            
+
             # Skip if we've seen this title
             if title in seen_titles:
                 continue
-                
+
             # Get and clean content
             content = match.metadata.get('chunk_text', '')
             if not content:
                 logger.warning(f"No content found for document: {title}")
                 continue
-                
+
             # Clean content
             content = clean_markdown_content(content)
-            
+
             # Skip if content is too short after cleaning
             if len(content.strip()) < 10:
                 logger.warning(f"Content too short after cleaning for document: {title}")
                 continue
-                
+
             # Normalize title
             norm_title = normalize_title(title, match.metadata.get('section_title', '').strip(), match.metadata.get('url', []))
-                
+
             # Create document
             doc = {
                 'title': norm_title,
@@ -1024,7 +1024,7 @@ def process_search_results(search_results) -> List[Dict]:
                     vals = match._data_store.get('values')
                 if not vals:
                     vals = getattr(match, 'values', None)
-                
+
                 if isinstance(vals, list) and vals and isinstance(vals[0], (int, float)):
                     doc['values'] = vals
                     logger.debug(f"Vector attached: len={len(vals)}")
@@ -1033,15 +1033,15 @@ def process_search_results(search_results) -> List[Dict]:
             except Exception as e:
                 logger.debug(f"Vector extraction error: {e}")
                 pass
-            
+
             processed_docs.append(doc)
             seen_titles.add(title)
             logger.debug(f"Successfully processed document: {title}")
-                
+
         except Exception as e:
             logger.warning(f"Error processing match: {str(e)}")
             continue
-    
+
     return processed_docs
 
 def format_document_output(doc: Dict) -> str:
@@ -1052,11 +1052,11 @@ def format_document_output(doc: Dict) -> str:
         f"Score: {doc['score']:.3f}",
         f"Section: {doc['section_title']}",
     ]
-    
+
     # Add keywords if available
     if doc['doc_keywords']:
         output.append(f"Keywords: {', '.join(doc['doc_keywords'][:5])}...")
-        
+
     # Add clean content preview with better truncation
     content = doc['content']
     if len(content) > 300:
@@ -1073,13 +1073,13 @@ def format_document_output(doc: Dict) -> str:
             # If no good breakpoint found, break at word boundary
             content = content[:300].rsplit(' ', 1)[0]
         content += "..."
-            
+
     output.append(f"\nContent preview: {content}")
-    
+
     # Add source if available
     if doc['url'] and doc['url'][0]:
         output.append(f"Source: {doc['url'][0]}")
-        
+
     return "\n".join(output)
 
 async def test_retrieval():
@@ -1088,12 +1088,12 @@ async def test_retrieval():
         # Initialize
         print("\n=== Testing Document Retrieval ===")
         load_environment()
-        
+
         PINECONE_API_KEY = os.getenv('PINECONE_API_KEY')
         COHERE_API_KEY = os.getenv('COHERE_API_KEY')
         if not PINECONE_API_KEY or not COHERE_API_KEY:
             raise ValueError("Missing required API keys in environment")
-            
+
         # Setup
         print("\nInitializing components...")
         pc = Pinecone(api_key=PINECONE_API_KEY)
@@ -1106,28 +1106,28 @@ async def test_retrieval():
             pass
         import cohere
         cohere_client = cohere.Client(COHERE_API_KEY)
-        
+
         # Initialize embedding model
         embed_model = BGEM3FlagModel('BAAI/bge-m3', use_fp16=False)
-        
+
         # Test query
         query = "What is climate change?"
         print(f"\nProcessing query: {query}")
-        
+
         # Get results using async function
         start_time = time.time()
         docs = await get_documents(query, index, embed_model, cohere_client)
         search_time = time.time() - start_time
-        
+
         # Display results
         print(f"\nRetrieved and processed {len(docs)} documents in {search_time:.2f} seconds:")
-        
+
         for doc in docs:
             print(format_document_output(doc))
             print("-" * 80)
-            
+
         return docs
-        
+
     except Exception as e:
         logger.error(f"Error in test_retrieval: {str(e)}", exc_info=True)
         raise

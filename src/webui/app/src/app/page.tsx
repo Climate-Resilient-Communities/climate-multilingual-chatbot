@@ -14,7 +14,8 @@ import { ChatWindow } from "@/components/chat/chat-window";
 import { ConsentDialog } from "@/components/chat/consent-dialog";
 import { type Message } from "@/components/chat/chat-message";
 import { type Source } from "@/components/chat/citations-popover";
-import { apiClient, type ChatRequest, type CitationDict } from "@/lib/api";
+import { apiClient, type ChatRequest, type CitationDict, type LanguageDetectionRequest } from "@/lib/api";
+import languagesData from "@/app/languages.json";
 
 export default function Home() {
   const [inputValue, setInputValue] = useState("");
@@ -87,6 +88,116 @@ export default function Home() {
     });
 
     try {
+      // Smart language detection: only when default is English AND user writes in different language
+      let finalLanguage = selectedLanguage;
+      
+      if (selectedLanguage === 'en') {
+        let detectedLanguage = null;
+        let confidence = 0;
+        
+        // First check: Common phrase detection for short messages across all languages
+        const commonPhrasesByLanguage = {
+          'es': ['hola', 'gracias', 'hasta luego', 'hasta la vista', 'buenas noches', 'buenos días', 'buenas tardes', 'por favor', 'de nada', 'lo siento', 'perdón', 'disculpe', 'ya me voy', 'nos vemos', 'adiós', 'chao', 'cómo estás', 'como estas', 'qué tal', 'que tal', 'muy bien', 'está bien', 'esta bien'],
+          'fr': ['bonjour', 'salut', 'merci', 'au revoir', 'à bientôt', 'bonne nuit', 'bonne soirée', "s'il vous plaît", 'de rien', 'désolé', 'pardon', 'excusez-moi', 'comment allez-vous', 'comment ça va', 'ça va', 'très bien', 'ça marche'],
+          'de': ['hallo', 'guten tag', 'danke', 'auf wiedersehen', 'tschüss', 'gute nacht', 'bitte', 'entschuldigung', 'wie geht es dir', 'wie gehts', 'gut', 'sehr gut'],
+          'it': ['ciao', 'buongiorno', 'grazie', 'arrivederci', 'buonanotte', 'prego', 'scusa', 'come stai', 'come va', 'bene', 'molto bene'],
+          'pt': ['olá', 'oi', 'obrigado', 'obrigada', 'tchau', 'até logo', 'boa noite', 'por favor', 'desculpa', 'como está', 'como vai', 'bem', 'muito bem'],
+          'zh': ['你好', '谢谢', '再见', '晚安', '请', '对不起', '你怎么样', '很好'],
+          'ja': ['こんにちは', 'ありがとう', 'さようなら', 'すみません', 'お元気ですか', 'はい'],
+          'ko': ['안녕하세요', '감사합니다', '안녕히 가세요', '죄송합니다', '어떻게 지내세요', '좋습니다'],
+          'ru': ['привет', 'спасибо', 'до свидания', 'пожалуйста', 'извините', 'как дела', 'хорошо'],
+          'ar': ['مرحبا', 'شكرا', 'مع السلامة', 'من فضلك', 'آسف', 'كيف حالك', 'بخير'],
+          'hi': ['नमस्ते', 'धन्यवाद', 'अलविदा', 'कृपया', 'माफ करें', 'आप कैसे हैं', 'अच्छा'],
+          'nl': ['hallo', 'dank je', 'tot ziens', 'alsjeblieft', 'sorry', 'hoe gaat het', 'goed'],
+          'sv': ['hej', 'tack', 'hej då', 'tack så mycket', 'ursäkta', 'hur mår du', 'bra'],
+          'da': ['hej', 'tak', 'farvel', 'undskyld', 'hvordan har du det', 'godt'],
+          'no': ['hei', 'takk', 'ha det', 'unnskyld', 'hvordan har du det', 'bra'],
+          'fi': ['hei', 'kiitos', 'näkemiin', 'anteeksi', 'mitä kuuluu', 'hyvää'],
+          'pl': ['cześć', 'dziękuję', 'do widzenia', 'przepraszam', 'jak się masz', 'dobrze'],
+          'tr': ['merhaba', 'teşekkürler', 'güle güle', 'özür dilerim', 'nasılsın', 'iyi'],
+          'he': ['שלום', 'תודה', 'להתראות', 'סליחה', 'איך אתה', 'טוב'],
+          'th': ['สวัสดี', 'ขอบคุณ', 'ลาก่อน', 'ขอโทษ', 'สบายดีไหม', 'ดี'],
+          'vi': ['xin chào', 'cảm ơn', 'tạm biệt', 'xin lỗi', 'bạn khỏe không', 'tốt'],
+          'uk': ['привіт', 'дякую', 'до побачення', 'вибачте', 'як справи', 'добре'],
+          'bg': ['здравей', 'благодаря', 'довиждане', 'извинете', 'как сте', 'добре'],
+          'cs': ['ahoj', 'děkuji', 'na shledanou', 'promiňte', 'jak se máte', 'dobře'],
+          'sk': ['ahoj', 'ďakujem', 'dovidenia', 'prepáčte', 'ako sa máte', 'dobre'],
+          'hr': ['bok', 'hvala', 'doviđenja', 'oprostite', 'kako ste', 'dobro'],
+          'sr': ['здраво', 'хвала', 'довиђења', 'извините', 'како сте', 'добро'],
+          'sl': ['zdravo', 'hvala', 'nasvidenje', 'oprostite', 'kako ste', 'dobro'],
+          'ro': ['salut', 'mulțumesc', 'la revedere', 'scuzați-mă', 'ce mai faceți', 'bine'],
+          'hu': ['szia', 'köszönöm', 'viszlát', 'elnézést', 'hogy vagy', 'jól']
+        };
+        
+        const queryLower = query.toLowerCase();
+        
+        // Check all languages for common phrases
+        for (const [langCode, phrases] of Object.entries(commonPhrasesByLanguage)) {
+          const hasPhrase = phrases.some(phrase => queryLower.includes(phrase));
+          if (hasPhrase) {
+            detectedLanguage = langCode;
+            confidence = 0.9; // High confidence for known phrases
+            break;
+          }
+        }
+        
+        if (!detectedLanguage) {
+          // Second check: Use backend detection for longer/complex text
+          try {
+            const languageDetectionRequest: LanguageDetectionRequest = {
+              query: query
+            };
+            
+            const detectionResult = await apiClient.detectLanguage(languageDetectionRequest);
+            detectedLanguage = detectionResult.detected_language;
+            confidence = detectionResult.confidence;
+          } catch (detectionError) {
+            console.log('Language detection failed, using English:', detectionError);
+          }
+        }
+        
+        // If detected language is different from English and has good confidence
+        if (detectedLanguage && detectedLanguage !== 'en' && confidence > 0.7) {
+          // Auto-update the language dropdown
+          setSelectedLanguage(detectedLanguage);
+          finalLanguage = detectedLanguage;
+          
+          // Show a subtle notification about language detection
+          const languageName = languagesData.speculative_supported_languages_nova_proxy.languages[detectedLanguage] || detectedLanguage;
+          toast({
+            title: "Language detected",
+            description: `Automatically switched to ${languageName}. You can change this in the dropdown if needed.`,
+            duration: 3000,
+          });
+        } else if (detectedLanguage && detectedLanguage !== 'en' && confidence <= 0.7) {
+          // Low confidence detection - stay in English but show helpful message
+          const errorMessageId = `language_help_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          setMessages((prev) => [...prev, { 
+            role: "assistant", 
+            content: "Hmm, we can't detect your language. To get started, please select your language from the menu and hit the 'Retry' button.",
+            id: errorMessageId
+          }]);
+          setLoadingMessage(null);
+          return; // Exit early to avoid making the API call
+        } else if (!detectedLanguage || detectedLanguage === 'unknown') {
+          // Backend couldn't detect language at all - check if query looks non-English
+          const hasNonLatinChars = /[^\u0000-\u007F]/.test(query);
+          const isShortQuery = query.trim().split(/\s+/).length <= 3;
+          
+          if (hasNonLatinChars || (isShortQuery && !query.toLowerCase().match(/\b(hello|hi|hey|what|how|is|the|and|of|to|in|for|with|on|at|from|by|about|into|through|during|before|after|above|below|up|down|out|off|over|under|again|further|then|once)\b/))) {
+            // Likely non-English query that couldn't be detected
+            const errorMessageId = `language_help_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            setMessages((prev) => [...prev, { 
+              role: "assistant", 
+              content: "Hmm, we can't detect your language. To get started, please select your language from the menu and hit the 'Retry' button.",
+              id: errorMessageId
+            }]);
+            setLoadingMessage(null);
+            return; // Exit early to avoid making the API call
+          }
+        }
+      }
+
       // Convert message format for API
       const conversationHistory = messages.map(msg => ({
         role: msg.role,
@@ -95,7 +206,7 @@ export default function Home() {
 
       const chatRequest: ChatRequest = {
         query,
-        language: selectedLanguage,
+        language: finalLanguage,
         conversation_history: conversationHistory,
         stream: false
       };
