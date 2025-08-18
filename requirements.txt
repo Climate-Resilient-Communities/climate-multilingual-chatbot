@@ -8,7 +8,7 @@ python-multipart==0.0.6
 
 # LangChain and LangSmith
 langchain==0.3.11
-langchain-core==0.3.24
+langchain-core==0.3.27
 langchain-text-splitters==0.3.2
 langsmith==0.2.6
 
@@ -18,12 +18,12 @@ botocore==1.35.95
 langchain-aws==0.2.9
 
 # Cohere
-cohere==5.9.2
+cohere==5.12.0
 langchain-cohere==0.4.5
 
 # Vector Database and Embeddings
 pinecone-client==5.0.1
-langchain-pinecone==0.1.3
+langchain-pinecone==0.2.0
 
 # Hugging Face Transformers and Embeddings
 transformers==4.44.2
