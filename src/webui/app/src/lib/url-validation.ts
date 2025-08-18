@@ -49,6 +49,13 @@ class UrlValidationCache {
   clear(): void {
     this.cache.clear();
   }
+
+  getStats(): { size: number; urls: string[] } {
+    return {
+      size: this.cache.size,
+      urls: Array.from(this.cache.keys())
+    };
+  }
 }
 
 const validationCache = new UrlValidationCache();
@@ -294,8 +301,5 @@ export function clearValidationCache(): void {
  * Get cache statistics (useful for debugging)
  */
 export function getCacheStats(): { size: number; urls: string[] } {
-  return {
-    size: validationCache.cache.size,
-    urls: Array.from(validationCache.cache.keys())
-  };
+  return validationCache.getStats();
 }

@@ -2,15 +2,16 @@ import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
-  // output: 'export',    // Commented out for development testing
-  // distDir: 'out',      // Commented out for development testing
+  output: 'export',    // Static export for production
+  distDir: 'out',      // Static build directory
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,  // Enable TypeScript checking in production
   },
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false, // Enable ESLint checking in production
   },
   images: {
+    unoptimized: true,  // Required for static export
     remotePatterns: [
       {
         protocol: 'https',

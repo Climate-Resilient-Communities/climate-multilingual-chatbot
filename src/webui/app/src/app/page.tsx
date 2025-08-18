@@ -189,7 +189,7 @@ export default function Home() {
           finalLanguage = detectedLanguage;
           
           // Show a subtle notification about language detection
-          const languageName = languagesData.speculative_supported_languages_nova_proxy.languages[detectedLanguage] || detectedLanguage;
+          const languageName = (languagesData.speculative_supported_languages_nova_proxy.languages as any)[detectedLanguage] || detectedLanguage;
           toast({
             title: "Language detected",
             description: `Automatically switched to ${languageName}. You can change this in the dropdown if needed.`,
