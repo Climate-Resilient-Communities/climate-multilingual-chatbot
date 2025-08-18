@@ -22,7 +22,7 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: src/webui/app/package-lock.json
+          cache-dependency-path: src/webui/app/package.json
       
       - name: Setup Python 3.11
         uses: actions/setup-python@v4
