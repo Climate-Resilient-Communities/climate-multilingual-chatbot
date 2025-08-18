@@ -51,6 +51,8 @@ jobs:
           fi
           echo "✅ Frontend build successful"
           ls -la src/webui/app/out/
+          echo "📁 Frontend files that will be deployed:"
+          find src/webui/app/out -name "*.html" -o -name "*.js" -o -name "*.css" | head -10
       
       - name: Security audit
         run: |
