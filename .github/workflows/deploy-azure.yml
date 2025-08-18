@@ -37,7 +37,7 @@ jobs:
       - name: Build frontend
         run: |
           cd src/webui/app
-          npm ci
+          npm install
           npm run build
           cd ../../..
         env:
