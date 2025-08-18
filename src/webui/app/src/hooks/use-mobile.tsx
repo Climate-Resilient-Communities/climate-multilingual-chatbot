@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 const MOBILE_BREAKPOINT = 768; // Corresponds to md: breakpoint in Tailwind
 
 export function useIsMobile() {
-  const [isMobile, setIsMobile] = useState<boolean | undefined>(undefined);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
 
   useEffect(() => {
     const checkDevice = () => {

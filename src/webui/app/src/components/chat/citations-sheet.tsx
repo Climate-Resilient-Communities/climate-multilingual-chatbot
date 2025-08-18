@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
 import { FileText } from "lucide-react";
-import { type Source } from "@/components/chat/chat-message";
+import { type Source } from "@/components/chat/citations-popover";
 
 type CitationsSheetProps = {
   sources: Source[];
