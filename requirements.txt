@@ -6,9 +6,9 @@ fastapi==0.104.1
 uvicorn[standard]==0.24.0
 python-multipart==0.0.6
 
-# LangChain and LangSmith
+# LangChain and LangSmith - compatible versions
 langchain==0.3.11
-langchain-core==0.3.27
+langchain-core==0.3.37
 langchain-text-splitters==0.3.2
 langsmith==0.2.6
 
@@ -23,7 +23,7 @@ langchain-cohere==0.4.5
 
 # Vector Database and Embeddings
 pinecone-client==5.0.1
-langchain-pinecone==0.2.3
+langchain-pinecone==0.2.11
 
 # Hugging Face Transformers and Embeddings
 transformers==4.44.2
