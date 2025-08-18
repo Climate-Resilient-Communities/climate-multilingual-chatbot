@@ -23,7 +23,7 @@ langchain-cohere==0.4.5
 
 # Vector Database and Embeddings
 pinecone-client==5.0.1
-langchain-pinecone==0.2.0
+langchain-pinecone==0.2.3
 
 # Hugging Face Transformers and Embeddings
 transformers==4.44.2
