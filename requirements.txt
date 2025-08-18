@@ -8,7 +8,7 @@ python-multipart==0.0.6
 
 # LangChain and LangSmith
 langchain==0.3.11
-langchain-core==0.3.21
+langchain-core==0.3.24
 langchain-text-splitters==0.3.2
 langsmith==0.2.6
 
