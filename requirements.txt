@@ -19,7 +19,7 @@ langchain-aws==0.2.9
 
 # Cohere
 cohere==5.9.2
-langchain-cohere==0.1.9
+langchain-cohere==0.4.5
 
 # Vector Database and Embeddings
 pinecone-client==5.0.1
