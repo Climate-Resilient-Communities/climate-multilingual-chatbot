@@ -73,7 +73,7 @@ jobs:
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v2
         with:
-          app-name: 'climate-multilingual-chatbot'  # Replace with your Azure App Service name
+          app-name: 'ClimateReslianceAPP'
           slot-name: 'production'
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: '.'  # Includes built frontend in src/webui/app/out/
@@ -81,5 +81,5 @@ jobs:
       - name: Health check
         run: |
           sleep 30  # Wait for deployment
-          curl -f https://climate-multilingual-chatbot.azurewebsites.net/health || exit 1
+          curl -f https://climatereslianceapp.azurewebsites.net/health || exit 1
           echo "✅ Deployment health check passed"
