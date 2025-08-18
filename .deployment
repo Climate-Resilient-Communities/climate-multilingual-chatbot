@@ -1,0 +1,4 @@
+[config]
+SCM_DO_BUILD_DURING_DEPLOYMENT=true
+SCM_BUILD_FRONTEND=true
+PRE_BUILD_SCRIPT_PATH=azure_build_script.sh
