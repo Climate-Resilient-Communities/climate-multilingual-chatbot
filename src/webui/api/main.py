@@ -307,6 +307,39 @@ app.include_router(languages.router, prefix="/api/v1", tags=["languages"])
 app.include_router(feedback.router, prefix="/api/v1", tags=["feedback"])
 app.include_router(streaming.router, prefix="/api/v1", tags=["streaming"])
 
+# Serve static assets (favicon, logos, etc.) before catch-all route
+@app.get("/favicon.ico")
+async def get_favicon():
+    """Serve favicon.ico"""
+    favicon_path = os.path.join(os.path.dirname(__file__), "..", "app", "out", "favicon.ico")
+    if os.path.exists(favicon_path):
+        return FileResponse(favicon_path, media_type="image/x-icon")
+    return JSONResponse(status_code=404, content={"detail": "Favicon not found"})
+
+@app.get("/Logo.png")
+async def get_logo():
+    """Serve Logo.png"""
+    logo_path = os.path.join(os.path.dirname(__file__), "..", "app", "out", "Logo.png")
+    if os.path.exists(logo_path):
+        return FileResponse(logo_path, media_type="image/png")
+    return JSONResponse(status_code=404, content={"detail": "Logo not found"})
+
+@app.get("/tree.ico")
+async def get_tree_icon():
+    """Serve tree.ico"""
+    tree_path = os.path.join(os.path.dirname(__file__), "..", "app", "out", "tree.ico")
+    if os.path.exists(tree_path):
+        return FileResponse(tree_path, media_type="image/x-icon")
+    return JSONResponse(status_code=404, content={"detail": "Tree icon not found"})
+
+@app.get("/wallpaper.svg")
+async def get_wallpaper():
+    """Serve wallpaper.svg"""
+    wallpaper_path = os.path.join(os.path.dirname(__file__), "..", "app", "out", "wallpaper.svg")
+    if os.path.exists(wallpaper_path):
+        return FileResponse(wallpaper_path, media_type="image/svg+xml")
+    return JSONResponse(status_code=404, content={"detail": "Wallpaper not found"})
+
 # Serve Next.js frontend for all non-API routes (single deployment)
 @app.get("/{full_path:path}")
 async def serve_react_app(full_path: str):

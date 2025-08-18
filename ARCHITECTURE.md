@@ -1,13 +1,13 @@
 ## System Architecture
 
-The diagram below reflects the current architecture after recent refactors (consent modal overlay, LLM JSON query rewriter, canned responses, Pinecone retrieval with BGE-M3, Cohere rerank/faithfulness, Azure blob logging, and multilingual support).
+The diagram below reflects the current production architecture with FastAPI backend, Next.js frontend, intelligent model routing, comprehensive multilingual support, and advanced safety filtering.
 
 ```mermaid
 flowchart TD
-  U["User"] --> UI["Streamlit UI\n`src/webui/app_nova.py`\n- Consent modal (@st.dialog)\n- Sidebar (dark) + chat history icon\n- Feedback (Google Form)"]
+  U["User"] --> UI["Next.js Frontend\n`src/webui/app/`\n- Static export build\n- TypeScript + Tailwind CSS\n- Real-time SSE streaming\n- Export functionality"]
 
-  UI --> MN["MultilingualClimateChatbot\n`src/main_nova.py`"]
-  MN --> CP["ClimateQueryPipeline\n`src/models/climate_pipeline.py`"]
+  UI --> API["FastAPI Backend\n`src/webui/api/main.py`\n- Serves both API + static files\n- CORS protection\n- Health monitoring"]
+  API --> CP["ClimateQueryPipeline\n`src/models/climate_pipeline.py`"]
 
   CP --> QR["Query Rewriter (LLM JSON)\n`src/models/query_rewriter.py`\n- Detects: greeting, goodbye, thanks, emergency, instruction, on/off-topic/harmful\n- Outputs: classification, rewrite_en, ask_how_to_use, how_it_works"]
 
@@ -38,25 +38,41 @@ flowchart TD
   UIRET --> UI
 
   subgraph Support & Config
-    ENV["Environment Loader\n`src/utils/env_loader.py`\n`src/data/config/azure_config.py`"]
-    LANGS["Languages mapping\n`src/utils/languages.json` + `src/main_nova.py`"]
-    LOGS["Azure Blob Logging (optional)"]
+    ENV["Environment Loader\n`src/utils/env_loader.py`\n`src/data/config/config.py`"]
+    LANGS["Languages mapping\n`src/utils/languages.json`"]
+    CACHE["Redis Cache\n`src/models/redis_cache.py`\n- Skip cache functionality\n- Performance optimization"]
+    LOGS["System Monitoring\n`src/utils/system_monitor.py`"]
   end
 
-  ENV --> MN
-  LANGS --> MN
-  UI -. feedback/metrics .-> LOGS
-  RET -. diagnostics (optional) .-> LOGS
+  ENV --> API
+  LANGS --> CP
+  CACHE --> CP
+  API -. metrics/monitoring .-> LOGS
+  RET -. diagnostics .-> LOGS
 ```
 
-Notes
-- Canned intents (greeting/goodbye/thanks/emergency) bypass retrieval and generation, returning quickly with translated canned text.
-- Instruction queries short-circuit to a fixed help text.
-- Off-topic/harmful are handled per pipeline checks.
-- Local JSONL logs are disabled by default; Azure blob logging remains available when configured.
+## Architecture Notes
 
-### Command‑A Language Routing
-- Command‑A languages are routed to use Command‑A for translation (both to English and back to the user’s language). Retrieval, rerank, and response generation remain the same.
-- The current Command‑A language set is defined in `src/utils/languages.json` and mirrored in `src/main_nova.py`.
+### Production Deployment
+- **Single Deployment Model**: FastAPI serves both API endpoints and Next.js static files
+- **Static Export**: Next.js builds to static files for optimal performance
+- **Port 8000**: All traffic (frontend + API) goes through FastAPI on port 8000
+
+### Intelligent Features
+- **Canned Responses**: greeting/goodbye/thanks/emergency bypass retrieval for fast responses
+- **Safety Filtering**: Off-topic/harmful queries return helpful guidance messages
+- **Cache Bypass**: Retry functionality skips cache for fresh responses
+- **Manual Language Selection**: Users can anchor language selection to prevent auto-detection
+
+### Model Routing
+- **Command‑A (22 languages)**: Arabic, Bengali, Chinese, Filipino, French, Gujarati, Korean, Persian, Russian, Tamil, Urdu, Vietnamese, Polish, Turkish, Dutch, Czech, Indonesian, Ukrainian, Romanian, Greek, Hindi, Hebrew
+- **Nova (6 languages)**: English, Spanish, Japanese, German, Swedish, Danish
+- **Automatic Detection**: System detects user language and routes to appropriate model
+
+### Performance Optimizations
+- **Redis Caching**: Improves response times with intelligent bypass
+- **Static Assets**: Optimized builds with compression
+- **Streaming Responses**: Server-sent events for real-time user experience
+- **Language Detection**: <100ms response time for language identification
 
 
