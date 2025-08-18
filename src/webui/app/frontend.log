@@ -1,6 +1,6 @@
 
 > nextn@0.1.0 dev
-> next dev --turbopack -p 9002
+> next dev --turbopack -p 9002 --turbopack -p 9002
 
    ▲ Next.js 15.3.3 (Turbopack)
    - Local:        http://localhost:9002
@@ -8,455 +8,47 @@
    - Environments: .env.local
 
  ✓ Starting...
- ✓ Ready in 1060ms
+ ✓ Ready in 1694ms
  ○ Compiling / ...
- ✓ Compiled / in 2.7s
- GET / 200 in 3009ms
- GET / 200 in 195ms
- GET / 200 in 68ms
- GET / 200 in 1694ms
+ ✓ Compiled / in 9.7s
+ GET / 200 in 10420ms
+ GET / 200 in 651ms
  ○ Compiling /favicon.ico ...
- ✓ Compiled /favicon.ico in 1016ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 1315ms
- GET / 200 in 209ms
- GET / 200 in 114ms
- GET / 200 in 304ms
- ✓ Compiled in 599ms
- ✓ Compiled in 257ms
- GET / 200 in 387ms
- GET / 200 in 1778ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 589ms
- ✓ Compiled in 1996ms
- ○ Compiling /_not-found/page ...
- ✓ Compiled /_not-found/page in 1059ms
- POST /api/v1/chat/query 404 in 1112ms
- GET / 200 in 1343ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 373ms
- ✓ Compiled in 102ms
- ✓ Compiled in 95ms
-API_BASE configured as: http://localhost:8000
- GET / 200 in 482ms
- ✓ Compiled in 150ms
- ✓ Compiled in 108ms
- ✓ Compiled in 113ms
- ✓ Compiled in 198ms
- ✓ Compiled in 101ms
- ✓ Compiled in 317ms
- GET / 200 in 773ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 1234ms
- GET / 200 in 1052ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 290ms
- GET / 200 in 208ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 270ms
- GET / 200 in 879ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 313ms
- GET / 200 in 760ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 388ms
- ✓ Compiled in 416ms
- ✓ Compiled in 256ms
- ⨯ ./src/app/page.tsx:101:111
-Parsing ecmascript source code failed
-[0m [90m  99 |[39m         [36mconst[39m commonPhrasesByLanguage [33m=[39m {[0m
-[0m [90m 100 |[39m           [32m'es'[39m[33m:[39m [[32m'hola'[39m[33m,[39m [32m'gracias'[39m[33m,[39m [32m'hasta luego'[39m[33m,[39m [32m'hasta la vista'[39m[33m,[39m [32m'buenas noches'[39m[33m,[39m [32m'buenos días'[39m[33m,[39m [32m'buenas tardes'[39m[33m,[39m [32m'por favor'[39m[33m,[39m [32m'de nada'[39m[33m,[39m [32m'lo siento'[39m[33m,[39m [32m'perdón'[39m[33m,[39m [32m'disculpe'[39m[33m,[39m [32m'ya me voy'[39m[33m,[39m [32m'nos vemos'[39m[33m,[39m [32m'adiós'[39m[33m,[39m [32m'chao'[39m[33m,[39m [32m'cómo estás'[39m[33m,[39m [32m'como estas'[39m[33m,[39m [32m'qué tal'[39m[33m,[39m [32m'que tal'[39m[33m,[39m [32m'muy bien'[39m[33m,[39m [32m'está bien'[39m[33m,[39m [32m'esta bien'[39m][33m,[39m[0m
-[0m[31m[1m>[22m[39m[90m 101 |[39m           [32m'fr'[39m[33m:[39m [[32m'bonjour'[39m[33m,[39m [32m'salut'[39m[33m,[39m [32m'merci'[39m[33m,[39m [32m'au revoir'[39m[33m,[39m [32m'à bientôt'[39m[33m,[39m [32m'bonne nuit'[39m[33m,[39m [32m'bonne soirée'[39m[33m,[39m [32m's\\'[39mil vous plaît[32m', '[39mde rien[32m', '[39mdésolé[32m', '[39mpardon[32m', '[39mexcusez[33m-[39mmoi[32m', '[39mcomment allez[33m-[39mvous[32m', '[39mcomment ça va[32m', '[39mça va[32m', '[39mtrès bien[32m', '[39mça marche[32m'],[39m[0m
-[0m [90m     |[39m                                                                                                               [31m[1m^[22m[39m[31m[1m^[22m[39m[0m
-[0m [90m 102 |[39m           [32m'de'[39m[33m:[39m [[32m'hallo'[39m[33m,[39m [32m'guten tag'[39m[33m,[39m [32m'danke'[39m[33m,[39m [32m'auf wiedersehen'[39m[33m,[39m [32m'tschüss'[39m[33m,[39m [32m'gute nacht'[39m[33m,[39m [32m'bitte'[39m[33m,[39m [32m'entschuldigung'[39m[33m,[39m [32m'wie geht es dir'[39m[33m,[39m [32m'wie gehts'[39m[33m,[39m [32m'gut'[39m[33m,[39m [32m'sehr gut'[39m][33m,[39m[0m
-[0m [90m 103 |[39m           [32m'it'[39m[33m:[39m [[32m'ciao'[39m[33m,[39m [32m'buongiorno'[39m[33m,[39m [32m'grazie'[39m[33m,[39m [32m'arrivederci'[39m[33m,[39m [32m'buonanotte'[39m[33m,[39m [32m'prego'[39m[33m,[39m [32m'scusa'[39m[33m,[39m [32m'come stai'[39m[33m,[39m [32m'come va'[39m[33m,[39m [32m'bene'[39m[33m,[39m [32m'molto bene'[39m][33m,[39m[0m
-[0m [90m 104 |[39m           [32m'pt'[39m[33m:[39m [[32m'olá'[39m[33m,[39m [32m'oi'[39m[33m,[39m [32m'obrigado'[39m[33m,[39m [32m'obrigada'[39m[33m,[39m [32m'tchau'[39m[33m,[39m [32m'até logo'[39m[33m,[39m [32m'boa noite'[39m[33m,[39m [32m'por favor'[39m[33m,[39m [32m'desculpa'[39m[33m,[39m [32m'como está'[39m[33m,[39m [32m'como vai'[39m[33m,[39m [32m'bem'[39m[33m,[39m [32m'muito bem'[39m][33m,[39m[0m
-
-Expected ',', got 'il'
-
-
- ○ Compiling /_error ...
- ✓ Compiled /_error in 3.7s
- GET / 500 in 5597ms
- GET /favicon.ico 500 in 429ms
- ✓ Compiled in 274ms
- ✓ Compiled / in 98ms
- GET / 200 in 447ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 234ms
- GET / 200 in 186ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 237ms
- ✓ Compiled in 255ms
- ✓ Compiled in 207ms
- GET / 200 in 381ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 294ms
- GET / 200 in 1040ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 450ms
- GET / 200 in 112ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 229ms
- GET / 200 in 205ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 228ms
- GET / 200 in 82ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 259ms
- GET / 200 in 3440ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 673ms
- GET / 200 in 439ms
- GET / 200 in 359ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 250ms
- GET / 200 in 380ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 273ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 243ms
- ✓ Compiled in 280ms
- ✓ Compiled in 620ms
- ✓ Compiled in 61ms
- GET / 200 in 2479ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 2347ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 887ms
- ✓ Compiled in 457ms
- ✓ Compiled in 414ms
- ✓ Compiled in 212ms
- ✓ Compiled in 384ms
- ✓ Compiled in 229ms
- ✓ Compiled in 515ms
- ✓ Compiled in 643ms
- ✓ Compiled in 1654ms
+ ✓ Compiled /favicon.ico in 3.3s
+ GET /favicon.ico 200 in 3804ms
+ ✓ Compiled in 2.4s
+ ✓ Compiled in 841ms
  ⚠ Fast Refresh had to perform a full reload due to a runtime error.
- GET / 200 in 1134ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 2446ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 1822ms
- ✓ Compiled in 423ms
- ✓ Compiled in 1152ms
- ⚠ Fast Refresh had to perform a full reload due to a runtime error.
- GET / 200 in 764ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 2473ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 656ms
- ✓ Compiled in 354ms
- ⚠ Fast Refresh had to perform a full reload due to a runtime error.
- GET / 200 in 475ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 2398ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 728ms
- GET / 200 in 673ms
- ✓ Compiled in 353ms
- ✓ Compiled / in 45ms
- GET / 200 in 255ms
- GET / 200 in 268ms
- GET / 200 in 237ms
- GET / 200 in 54ms
- ✓ Compiled /_not-found/page in 163ms
- GET /Logo.png 404 in 285ms
- GET /Logo.png 404 in 280ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 429ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 226ms
- GET / 200 in 1157ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 782ms
- GET / 200 in 203ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 275ms
- ✓ Compiled in 312ms
- ✓ Compiled / in 51ms
- GET / 200 in 331ms
- GET / 200 in 177ms
- GET / 200 in 152ms
- GET / 200 in 98ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 341ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 346ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 377ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 313ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 233ms
- ✓ Compiled in 369ms
- ✓ Compiled / in 131ms
- GET / 200 in 473ms
- GET / 200 in 337ms
- GET / 200 in 360ms
- GET / 200 in 192ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 417ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 424ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 428ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 272ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 270ms
- ✓ Compiled in 409ms
- ✓ Compiled / in 93ms
- GET / 200 in 422ms
- GET / 200 in 481ms
- GET / 200 in 625ms
- GET / 200 in 254ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 472ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 456ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 459ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 295ms
- ✓ Compiled in 284ms
- ✓ Compiled / in 63ms
- GET / 200 in 309ms
- GET / 200 in 225ms
- GET / 200 in 210ms
- GET / 200 in 154ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 409ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 420ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 417ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 574ms
- ✓ Compiled in 441ms
- ✓ Compiled / in 111ms
- GET / 200 in 374ms
- GET / 200 in 195ms
- GET / 200 in 230ms
- GET / 200 in 943ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 904ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 947ms
- ✓ Compiled in 240ms
- ✓ Compiled / in 92ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 654ms
- GET / 200 in 420ms
- GET / 200 in 161ms
- GET / 200 in 143ms
- GET / 200 in 59ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 338ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 342ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 376ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 347ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 338ms
- ○ Compiling /_not-found/page ...
- ✓ Compiled /_not-found/page in 1022ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 1309ms
- GET / 200 in 2048ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 3784ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 2731ms
- ✓ Compiled in 436ms
- ✓ Compiled / in 159ms
- GET / 200 in 345ms
- GET / 200 in 394ms
- GET / 200 in 246ms
- GET / 200 in 238ms
- ✓ Compiled /_not-found/page in 143ms
- GET /tree.ico 404 in 407ms
- GET /tree.ico 404 in 411ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 583ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 593ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 401ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 395ms
- GET / 200 in 2174ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 2431ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 1626ms
- GET / 200 in 1893ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 2985ms
- GET /tree.ico 404 in 1037ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 318ms
- GET / 200 in 255ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 312ms
- GET / 200 in 544ms
- GET /tree.ico 404 in 238ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 365ms
- GET / 200 in 221ms
- GET /apple-touch-icon-precomposed.png 404 in 86ms
- GET /apple-touch-icon.png 404 in 65ms
- GET /favicon.ico 200 in 238ms
- GET / 200 in 83ms
- GET /apple-touch-icon-precomposed.png 404 in 109ms
- GET /apple-touch-icon.png 404 in 76ms
- GET /favicon.ico 200 in 249ms
- ✓ Compiled in 288ms
- ✓ Compiled / in 129ms
- GET / 200 in 508ms
- GET / 200 in 526ms
- GET / 200 in 527ms
- GET / 200 in 546ms
- GET / 200 in 372ms
- GET / 200 in 342ms
- GET / 200 in 352ms
- GET / 200 in 340ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 606ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 674ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 636ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 670ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 643ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 646ms
- GET / 200 in 319ms
- ✓ Compiled /_not-found/page in 35ms
- GET /apple-touch-icon-precomposed.png 404 in 285ms
- GET /apple-touch-icon.png 404 in 91ms
- GET / 200 in 739ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 1470ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 1031ms
- GET / 200 in 222ms
- GET / 200 in 144ms
- ✓ Compiled in 493ms
- ✓ Compiled / in 122ms
- GET / 200 in 438ms
- GET / 200 in 482ms
- GET / 200 in 515ms
- GET / 200 in 558ms
- GET / 200 in 344ms
- GET / 200 in 464ms
- GET / 200 in 539ms
- GET / 200 in 630ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 6878ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 2396ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 2427ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 2173ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 2425ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 2427ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 2428ms
- GET / 200 in 2658ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 1264ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 688ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 381ms
- ✓ Compiled /_not-found/page in 405ms
- GET /favicon.ico 200 in 1471ms
- GET /favicon.ico?favicon.56766c03.ico 200 in 1293ms
- GET /apple-touch-icon-precomposed.png 404 in 1692ms
- GET /apple-touch-icon.png 404 in 1414ms
- GET /apple-touch-icon.png 404 in 1652ms
- GET / 200 in 747ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 1778ms
- GET /_next/static/src/index.ts 404 in 224ms
- GET /_next/static/src/utilities.ts 404 in 317ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 673ms
- GET /_next/static/src/utilities.ts 404 in 149ms
- GET /_next/static/src/index.ts 404 in 216ms
- ✓ Compiled in 5.9s
- ○ Compiling / ...
- ⨯ ./src/app/favicon.ico.mjs
-Reading source code for parsing failed
-An unexpected error happened while trying to read the source code to parse: Input image not found
-
-Debug info:
-- Execution of <StructuredImageFileSource as Asset>::content failed
-- Execution of get_meta_data failed
-- Input image not found
-
-
- ⨯ ./src/app/favicon.ico.mjs
-Reading source code for parsing failed
-An unexpected error happened while trying to read the source code to parse: Input image not found
-
-Debug info:
-- Execution of <StructuredImageFileSource as Asset>::content failed
-- Execution of get_meta_data failed
-- Input image not found
-
-
- ✓ Compiled / in 760ms
- ⨯ ./src/app/favicon.ico.mjs
-Reading source code for parsing failed
-An unexpected error happened while trying to read the source code to parse: Input image not found
-
-Debug info:
-- Execution of <StructuredImageFileSource as Asset>::content failed
-- Execution of get_meta_data failed
-- Input image not found
-
-
- ⨯ ./src/app/favicon.ico.mjs
-Reading source code for parsing failed
-An unexpected error happened while trying to read the source code to parse: Input image not found
-
-Debug info:
-- Execution of <StructuredImageFileSource as Asset>::content failed
-- Execution of get_meta_data failed
-- Input image not found
-
-
- ⨯ ./src/app/favicon.ico.mjs
-Reading source code for parsing failed
-An unexpected error happened while trying to read the source code to parse: Input image not found
-
-Debug info:
-- Execution of <StructuredImageFileSource as Asset>::content failed
-- Execution of get_meta_data failed
-- Input image not found
-
-
- ⨯ ./src/app/favicon.ico.mjs
-Reading source code for parsing failed
-An unexpected error happened while trying to read the source code to parse: Input image not found
-
-Debug info:
-- Execution of <StructuredImageFileSource as Asset>::content failed
-- Execution of get_meta_data failed
-- Input image not found
-
-
- GET / 500 in 1080ms
- GET / 500 in 1096ms
- GET / 500 in 5051ms
- GET / 500 in 2719ms
- GET / 500 in 5067ms
- GET / 500 in 5178ms
- ○ Compiling /_not-found/page ...
- ✓ Compiled /_not-found/page in 1804ms
- GET /.well-known/appspecific/com.chrome.devtools.json 500 in 2055ms
- GET /.well-known/appspecific/com.chrome.devtools.json 500 in 2082ms
- ⨯ ./src/app/favicon.ico.mjs
-Reading source code for parsing failed
-An unexpected error happened while trying to read the source code to parse: Input image not found
-
-Debug info:
-- Execution of <StructuredImageFileSource as Asset>::content failed
-- Execution of get_meta_data failed
-- Input image not found
-
-
- GET / 500 in 214ms
- ⨯ ./src/app/favicon.ico.mjs
-Reading source code for parsing failed
-An unexpected error happened while trying to read the source code to parse: Input image not found
-
-Debug info:
-- Execution of <StructuredImageFileSource as Asset>::content failed
-- Execution of get_meta_data failed
-- Input image not found
-
-
- GET / 500 in 133ms
- ⨯ ./src/app/favicon.ico.mjs
-Reading source code for parsing failed
-An unexpected error happened while trying to read the source code to parse: Input image not found
-
-Debug info:
-- Execution of <StructuredImageFileSource as Asset>::content failed
-- Execution of get_meta_data failed
-- Input image not found
-
-
- GET / 500 in 190ms
- ⚠ Fast Refresh had to perform a full reload when ./node_modules/next/dist/shared/lib/router/router.js changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
- ⚠ Fast Refresh had to perform a full reload due to a runtime error.
- ⚠ Fast Refresh had to perform a full reload when ./node_modules/next/dist/shared/lib/router/router.js changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
- ⚠ Fast Refresh had to perform a full reload due to a runtime error.
- ⚠ Fast Refresh had to perform a full reload when ./node_modules/next/dist/shared/lib/router/router.js changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
- ✓ Compiled in 1537ms
- ✓ Compiled / in 186ms
- ⚠ Fast Refresh had to perform a full reload when ./node_modules/next/dist/shared/lib/router/router.js changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
- GET / 200 in 952ms
- GET / 200 in 924ms
- GET / 200 in 957ms
- ✓ Compiled /_not-found/page in 442ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 1391ms
- GET / 200 in 695ms
- GET /favicon.ico?favicon.a34f7d76.ico 200 in 1292ms
- GET /favicon.ico?favicon.a34f7d76.ico 200 in 324ms
- GET /favicon.ico?favicon.a34f7d76.ico 200 in 340ms
- ✓ Compiled in 505ms
- ✓ Compiled / in 170ms
- GET / 200 in 287ms
- GET / 200 in 285ms
- GET / 200 in 300ms
- GET / 200 in 212ms
- GET / 200 in 82ms
- GET / 200 in 58ms
- GET / 200 in 81ms
- GET /favicon.ico?favicon.a34f7d76.ico 200 in 286ms
- GET / 200 in 111ms
- ✓ Compiled in 382ms
- ✓ Compiled / in 178ms
- GET / 200 in 717ms
- GET / 200 in 729ms
- GET / 200 in 735ms
- GET / 200 in 727ms
- GET / 200 in 196ms
- GET / 200 in 232ms
- GET / 200 in 240ms
- GET / 200 in 83ms
- GET /favicon.ico?favicon.a34f7d76.ico 200 in 341ms
- ✓ Compiled in 160ms
- ✓ Compiled / in 116ms
- GET / 200 in 285ms
- GET / 200 in 289ms
- GET / 200 in 270ms
- GET / 200 in 213ms
- GET / 200 in 70ms
- GET / 200 in 112ms
- GET / 200 in 130ms
- GET / 200 in 201ms
- GET /favicon.ico?favicon.a34f7d76.ico 200 in 401ms
- GET / 200 in 451ms
- GET /favicon.ico?favicon.a34f7d76.ico 200 in 283ms
+ GET /favicon.ico?favicon.a34f7d76.ico 200 in 1656ms
+ GET /favicon.ico 200 in 1666ms
+ GET / 200 in 1947ms
+ GET /favicon.ico 200 in 95ms
+ GET /favicon.ico?favicon.a34f7d76.ico 200 in 612ms
+ GET /favicon.ico 200 in 446ms
+ ✓ Compiled in 570ms
+ ✓ Compiled in 3.4s
+ ✓ Compiled in 734ms
+ ✓ Compiled in 998ms
+ ✓ Compiled in 291ms
+ ✓ Compiled in 454ms
+ ✓ Compiled in 1100ms
+ ✓ Compiled in 473ms
+ ✓ Compiled in 2.2s
+ ✓ Compiled in 463ms
+ ✓ Compiled in 1594ms
+ GET / 200 in 787ms
+ GET / 200 in 1498ms
+ GET /favicon.ico 200 in 679ms
+ GET / 200 in 2363ms
+ GET /favicon.ico 200 in 407ms
+ GET / 200 in 2031ms
+ GET /favicon.ico 200 in 311ms
+ GET / 200 in 1588ms
+ GET /favicon.ico 200 in 353ms
+ GET / 200 in 2661ms
+ GET /favicon.ico 200 in 467ms
+ GET / 200 in 814ms
+ GET /favicon.ico 200 in 301ms
+ GET / 200 in 2730ms
+ GET /favicon.ico 200 in 645ms
+[?25h

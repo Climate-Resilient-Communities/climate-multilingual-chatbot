@@ -30,12 +30,16 @@ export type Message = {
   content: string;
   id?: string; // Add optional ID for feedback tracking
   sources?: Source[]; // Add optional sources for citations
+  retrieval_source?: string; // Add optional retrieval source for canned responses
 };
 
 type ChatMessageProps = {
   message: Message;
   onRetry?: () => void; // Add retry callback
 };
+
+// DISABLED: ValidatedLink was causing false positives due to CORS restrictions
+// Reverted to simple link component without validation
 
 export function ChatMessage({ message, onRetry }: ChatMessageProps) {
   const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
@@ -85,10 +89,7 @@ export function ChatMessage({ message, onRetry }: ChatMessageProps) {
       const response = await apiClient.submitFeedback(feedbackRequest);
       
       if (response.success) {
-        toast({
-          title: "Feedback submitted",
-          description: `Thank you for your ${feedbackType === 'up' ? 'positive' : 'constructive'} feedback!`,
-        });
+        // Success popup removed - feedback submitted silently
         setFeedbackDialogOpen(false);
       } else {
         throw new Error("Failed to submit feedback");
@@ -161,7 +162,7 @@ export function ChatMessage({ message, onRetry }: ChatMessageProps) {
                                 : <code className="block bg-muted p-2 rounded text-xs font-mono text-foreground" {...props} />;
                         },
                         blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-muted-foreground/20 pl-4 italic text-muted-foreground" {...props} />,
-                        a: ({node, ...props}) => <a className="text-primary hover:underline" {...props} />
+                        a: ({node, ...props}) => <a className="text-primary hover:underline" target="_blank" rel="noopener noreferrer" {...props} />
                     }}
                 >
                     {message.content}
@@ -189,7 +190,7 @@ export function ChatMessage({ message, onRetry }: ChatMessageProps) {
                     <span className="text-xs">Retry</span>
                 </Button>
                 
-                {hasSources && <ExportButton message={message} />}
+                {hasSources && message.retrieval_source !== "canned" && <ExportButton message={message} />}
 
           {hasSources && (
             isMobile
@@ -197,7 +198,7 @@ export function ChatMessage({ message, onRetry }: ChatMessageProps) {
               : <CitationsPopover sources={message.sources!} />
            )}
 
-          {!hasSources && <ExportButton message={message} />}
+          {!hasSources && message.retrieval_source !== "canned" && <ExportButton message={message} />}
             </div>
         )}
       </div>

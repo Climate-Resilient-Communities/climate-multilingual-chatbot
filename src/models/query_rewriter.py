@@ -40,6 +40,21 @@ CANNED_MAP = {
         "type": "emergency",
         "text": "If this is a life-threatening emergency, please contact local authorities immediately (for example, 911 in Canada or the US, or your local emergency number). For climate-related emergencies like flooding, wildfires, or extreme weather, I can help you find preparation and response resources.",
     },
+    "off-topic": {
+        "enabled": True,
+        "type": "off-topic",
+        "text": "I'm a climate change assistant and can only help with questions about climate, environment, and sustainability. Please ask me about topics like climate impacts, adaptation, mitigation, renewable energy, or environmental issues.",
+    },
+    "harmful": {
+        "enabled": True,
+        "type": "harmful",
+        "text": "I can't assist with that request. I'm designed to provide helpful information about climate change, environmental issues, and sustainability. Please ask me about climate-related topics instead.",
+    },
+    "language_mismatch": {
+        "enabled": True,
+        "type": "language_mismatch",
+        "text": "Whoops! You wrote in a different language than the one selected. Please choose the language you want me to respond in on the right so we can ensure the best translation for you!",
+    },
 }
 EMPTY_CANNED = {"enabled": False, "type": None, "text": None}
 

@@ -74,12 +74,23 @@ const SourceIcon = ({ url }: { url: string }) => {
 };
 
 export function CitationsPopover({ sources }: CitationsPopoverProps) {
+  // DISABLED: URL validation was causing false positives due to CORS restrictions
+  // const { validatedSources, isValidating } = useUrlValidation(sources, {
+  //   autoValidate: true,
+  //   showNotifications: false,
+  //   validateOnMount: true,
+  //   silentMode: true
+  // });
+
+  // Use original sources without validation to avoid false broken link warnings
+  const displaySources = sources;
+
   return (
     <Popover>
       <PopoverTrigger asChild>
         <Button variant="ghost" className="h-7 gap-2 px-3 text-muted-foreground hover:text-foreground">
             <div className="flex -space-x-2">
-                {sources.slice(0, 5).reverse().map((source, index) => (
+                {displaySources.slice(0, 5).reverse().map((source, index) => (
                     <SourceIcon key={index} url={source.url} />
                 ))}
             </div>
@@ -91,7 +102,7 @@ export function CitationsPopover({ sources }: CitationsPopoverProps) {
           <h4 className="font-semibold">Citations</h4>
           <ScrollArea className="h-72">
             <div className="p-1 flex flex-col">
-                {sources.map((source, index) => {
+                {displaySources.map((source, index) => {
                     const isUrl = isValidHttpUrl(source.url);
                     
                     return (

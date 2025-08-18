@@ -19,15 +19,15 @@ type ChatWindowProps = {
 
 export function ChatWindow({ messages, loadingMessage, onQuestionClick, onRetry }: ChatWindowProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const isLoading = loadingMessage !== null;
 
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTo({
-        top: scrollAreaRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-    }
+    scrollToBottom();
   }, [messages, loadingMessage]);
 
   return (
@@ -65,6 +65,7 @@ export function ChatWindow({ messages, loadingMessage, onQuestionClick, onRetry 
               </div>
             </div>
           )}
+          <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
     </div>
