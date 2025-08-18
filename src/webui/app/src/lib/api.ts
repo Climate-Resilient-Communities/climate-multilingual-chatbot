@@ -15,6 +15,7 @@ export interface ChatRequest {
   language?: string;
   conversation_history?: ChatMessage[];
   stream?: boolean;
+  skip_cache?: boolean;
 }
 
 export interface CitationDict {
@@ -33,6 +34,7 @@ export interface ChatResponse {
   language_used: string;
   model_used?: string;
   request_id: string;
+  retrieval_source?: string;
 }
 
 export interface FeedbackRequest {
@@ -112,6 +114,11 @@ class ApiClient {
         if (errorData.detail && Array.isArray(errorData.detail)) {
           const errorMessages = errorData.detail.map((err: any) => err.msg).join(', ');
           throw new Error(`Validation error: ${errorMessages}`);
+        }
+        
+        // Handle FastAPI detail.error structure (our custom format)
+        if (errorData.detail && errorData.detail.error && errorData.detail.error.message) {
+          throw new Error(errorData.detail.error.message);
         }
         
         // Handle custom API errors

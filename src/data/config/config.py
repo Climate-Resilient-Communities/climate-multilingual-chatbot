@@ -57,8 +57,48 @@ RETRIEVAL_CONFIG = {
         },
     },
     "boosts": {
-        "preferred_domains": ["ipcc", "canada.gc.ca", "ontario.ca", "toronto.ca"],
-        "domain_boost_weight": 0.10,
+        "preferred_domains": [
+            # Federal Canadian sources
+            "canada.gc.ca", "www.canada.ca", "canada.ca",
+            "nrcan.gc.ca", "ec.gc.ca", "climate.canada.ca",
+            
+            # Provincial sources
+            "ontario.ca", "www.ontario.ca", "climatechange.ontario.ca",
+            
+            # GTA municipal sources
+            "toronto.ca", "www.toronto.ca",
+            "peelregion.ca", "www.peelregion.ca",
+            "mississauga.ca", "www.mississauga.ca",
+            "brampton.ca", "www.brampton.ca",
+            "markham.ca", "www.markham.ca",
+            "vaughan.ca", "www.vaughan.ca",
+            "richmond-hill.ca", "www.richmond-hill.ca",
+            "york.ca", "www.york.ca",
+            "durham.ca", "www.durham.ca",
+            "halton.ca", "www.halton.ca",
+            
+            # Canadian research/educational
+            "nrcan.ca", "statcan.gc.ca", "agr.gc.ca",
+            "climatedata.ca", "climateatlas.ca",
+            "cleanairpartnership.org",
+            
+            # International authoritative (lower priority)
+            "ipcc.ch", "unfccc.int"
+        ],
+        "domain_boost_weight": 0.25,  # Increased from 0.10 to 0.25 for stronger Canadian preference
+        
+        # NEW: Location-aware query enhancement
+        "location_boosts": {
+            "canadian_places": {
+                "keywords": [
+                    "canada", "canadian", "ontario", "toronto", "gta", 
+                    "rexdale", "etobicoke", "north york", "scarborough",
+                    "mississauga", "brampton", "markham", "vaughan",
+                    "peel region", "york region", "durham region", "halton region"
+                ],
+                "boost_weight": 0.30,  # Strong boost for location-specific queries
+            }
+        }
     },
     # Diagnostics
     "log_retrieval_diagnostics": True,

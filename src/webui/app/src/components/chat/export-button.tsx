@@ -71,10 +71,7 @@ export function ExportButton({ message }: ExportButtonProps) {
         }
       }
     } else {
-        toast({
-            title: "Share Not Available",
-            description: "Your browser does not support the Web Share API.",
-        });
+        // Share unavailable notification removed - fail silently
     }
   };
 

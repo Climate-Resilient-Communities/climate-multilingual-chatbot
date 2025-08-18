@@ -599,11 +599,25 @@ class ClimateQueryPipeline:
                         logger.warning(
                             f"Language mismatch detected by query rewriter: query is in {detected_name} but {selected_name} was selected"
                         )
-                        return self._create_error_response(
-                            "Whoops! You wrote in a different language than the one you selected. Please choose the language you want me to respond in on the right so we can ensure the best translation for you!",
-                            language_code,
-                            time.time() - start_time,
+                        # Get canned response for language mismatch
+                        from src.models.query_rewriter import CANNED_MAP
+                        canned_response = CANNED_MAP.get('language_mismatch', {})
+                        msg_text = canned_response.get('text', 
+                            "Whoops! You wrote in a different language than the one you selected. Please choose the language you want me to respond in on the right so we can ensure the best translation for you!"
                         )
+                        
+                        return {
+                            "success": True,
+                            "response": msg_text,
+                            "citations": [],
+                            "faithfulness_score": 1.0,
+                            "processing_time": time.time() - start_time,
+                            "language_code": language_code,
+                            "model_used": routing_info['model_name'],
+                            "model_type": model_type,
+                            "retrieval_source": "canned",
+                            "fallback_reason": "language_mismatch_canned",
+                        }
 
                     # Short-circuit canned (translate to selected language if needed)
                     if canned_enabled and canned_text:
@@ -628,13 +642,17 @@ class ClimateQueryPipeline:
                             "fallback_reason": "canned_intent",
                         }
 
-                    # Hard-block harmful. For clearly off-topic, return a gentle guidance message instead of proceeding.
+                    # Return canned responses for off-topic and harmful queries
                     if classification == 'off-topic':
-                        msg_en = (
+                        # Get canned response from query rewriter
+                        from src.models.query_rewriter import CANNED_MAP
+                        canned_response = CANNED_MAP.get('off-topic', {})
+                        msg_en = canned_response.get('text', 
                             "I'm a climate change assistant and can only help with questions about climate, environment, and sustainability. "
                             "Please ask me about topics like climate change causes, effects, or solutions."
                         )
-                        # Translate guard using detected language if available; fall back to selected language
+                        
+                        # Translate using detected language if available; fall back to selected language
                         final_msg = msg_en
                         try:
                             target_code = detected_lang if detected_lang and detected_lang != 'unknown' else language_code
@@ -655,17 +673,62 @@ class ClimateQueryPipeline:
                                 final_msg = await self.nova_model.translate(msg_en, 'english', target_name)
                         except Exception:
                             final_msg = msg_en
-                        return self._create_error_response(
-                            final_msg,
-                            language_code,
-                            time.time() - start_time
-                        )
+                        
+                        return {
+                            "success": True,
+                            "response": final_msg,
+                            "citations": [],
+                            "faithfulness_score": 1.0,
+                            "processing_time": time.time() - start_time,
+                            "language_code": language_code,
+                            "model_used": routing_info['model_name'],
+                            "model_type": model_type,
+                            "retrieval_source": "canned",
+                            "fallback_reason": "off_topic_canned",
+                        }
+                    
                     if classification == 'harmful':
-                        return self._create_error_response(
-                            "I can't assist with that request. Please ask me questions about climate change, environmental issues, or sustainability.",
-                            language_code,
-                            time.time() - start_time
+                        # Get canned response from query rewriter
+                        from src.models.query_rewriter import CANNED_MAP
+                        canned_response = CANNED_MAP.get('harmful', {})
+                        msg_en = canned_response.get('text', 
+                            "I can't assist with that request. Please ask me questions about climate change, environmental issues, or sustainability."
                         )
+                        
+                        # Translate using detected language if available; fall back to selected language
+                        final_msg = msg_en
+                        try:
+                            target_code = detected_lang if detected_lang and detected_lang != 'unknown' else language_code
+                            if target_code != 'en':
+                                code_to_name = {
+                                    'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
+                                    'it': 'Italian', 'pt': 'Portuguese', 'nl': 'Dutch', 'ru': 'Russian',
+                                    'zh': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean', 'ar': 'Arabic',
+                                    'hi': 'Hindi', 'bn': 'Bengali', 'ur': 'Urdu', 'ta': 'Tamil',
+                                    'gu': 'Gujarati', 'fa': 'Persian', 'vi': 'Vietnamese', 'th': 'Thai',
+                                    'tr': 'Turkish', 'pl': 'Polish', 'cs': 'Czech', 'hu': 'Hungarian',
+                                    'ro': 'Romanian', 'el': 'Greek', 'he': 'Hebrew', 'uk': 'Ukrainian',
+                                    'id': 'Indonesian', 'tl': 'Filipino', 'da': 'Danish', 'sv': 'Swedish',
+                                    'no': 'Norwegian', 'fi': 'Finnish', 'bg': 'Bulgarian', 'sk': 'Slovak',
+                                    'sl': 'Slovenian', 'et': 'Estonian', 'lv': 'Latvian', 'lt': 'Lithuanian'
+                                }
+                                target_name = code_to_name.get(target_code, target_code)
+                                final_msg = await self.nova_model.translate(msg_en, 'english', target_name)
+                        except Exception:
+                            final_msg = msg_en
+                        
+                        return {
+                            "success": True,
+                            "response": final_msg,
+                            "citations": [],
+                            "faithfulness_score": 1.0,
+                            "processing_time": time.time() - start_time,
+                            "language_code": language_code,
+                            "model_used": routing_info['model_name'],
+                            "model_type": model_type,
+                            "retrieval_source": "canned",
+                            "fallback_reason": "harmful_canned",
+                        }
 
                     # Use rewrite if provided
                     rewritten = qr.get("rewrite_en")
@@ -720,16 +783,32 @@ class ClimateQueryPipeline:
                         logger.warning(
                             f"Language mismatch detected by query rewriter: query is in {detected_name} but {selected_name} was selected"
                         )
-                        # Return the exact prior UX message
-                        return self._create_error_response(
-                            "Whoops! You wrote in a different language than the one you selected. Please choose the language you want me to respond in on the right so we can ensure the best translation for you!",
-                            language_code,
-                            time.time() - start_time,
+                        # Get canned response for language mismatch (legacy path)
+                        from src.models.query_rewriter import CANNED_MAP
+                        canned_response = CANNED_MAP.get('language_mismatch', {})
+                        msg_text = canned_response.get('text', 
+                            "Whoops! You wrote in a different language than the one you selected. Please choose the language you want me to respond in on the right so we can ensure the best translation for you!"
                         )
+                        
+                        return {
+                            "success": True,
+                            "response": msg_text,
+                            "citations": [],
+                            "faithfulness_score": 1.0,
+                            "processing_time": time.time() - start_time,
+                            "language_code": language_code,
+                            "model_used": "legacy_rewriter",
+                            "model_type": "legacy",
+                            "retrieval_source": "canned",
+                            "fallback_reason": "language_mismatch_canned_legacy",
+                        }
 
-                    # Hard-block for off-topic and harmful in legacy path as well
+                    # Return canned responses for off-topic and harmful in legacy path as well
                     if classification == 'off-topic':
-                        msg_en = (
+                        # Get canned response from query rewriter
+                        from src.models.query_rewriter import CANNED_MAP
+                        canned_response = CANNED_MAP.get('off-topic', {})
+                        msg_en = canned_response.get('text', 
                             "I'm a climate change assistant and can only help with questions about climate, environment, and sustainability. "
                             "Please ask me about topics like climate change causes, effects, or solutions."
                         )
@@ -739,17 +818,46 @@ class ClimateQueryPipeline:
                                 final_msg = await self.nova_model.translate(msg_en, 'english', language_name)
                             except Exception:
                                 final_msg = msg_en
-                        return self._create_error_response(
-                            final_msg,
-                            language_code,
-                            time.time() - start_time
-                        )
+                        
+                        return {
+                            "success": True,
+                            "response": final_msg,
+                            "citations": [],
+                            "faithfulness_score": 1.0,
+                            "processing_time": time.time() - start_time,
+                            "language_code": language_code,
+                            "model_used": "legacy_rewriter",
+                            "model_type": "legacy",
+                            "retrieval_source": "canned",
+                            "fallback_reason": "off_topic_canned_legacy",
+                        }
+                    
                     if classification == 'harmful':
-                        return self._create_error_response(
-                            "I can't assist with that request. Please ask me questions about climate change, environmental issues, or sustainability.",
-                            language_code,
-                            time.time() - start_time
+                        # Get canned response from query rewriter
+                        from src.models.query_rewriter import CANNED_MAP
+                        canned_response = CANNED_MAP.get('harmful', {})
+                        msg_en = canned_response.get('text', 
+                            "I can't assist with that request. Please ask me questions about climate change, environmental issues, or sustainability."
                         )
+                        final_msg = msg_en
+                        if language_code != 'en':
+                            try:
+                                final_msg = await self.nova_model.translate(msg_en, 'english', language_name)
+                            except Exception:
+                                final_msg = msg_en
+                        
+                        return {
+                            "success": True,
+                            "response": final_msg,
+                            "citations": [],
+                            "faithfulness_score": 1.0,
+                            "processing_time": time.time() - start_time,
+                            "language_code": language_code,
+                            "model_used": "legacy_rewriter",
+                            "model_type": "legacy",
+                            "retrieval_source": "canned",
+                            "fallback_reason": "harmful_canned_legacy",
+                        }
 
             except Exception as e:
                 logger.warning(f"Query rewriting failed, using original: {str(e)}")

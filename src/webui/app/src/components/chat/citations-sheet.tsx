@@ -65,12 +65,23 @@ const SourceIcon = ({ url }: { url: string }) => {
 };
 
 export function CitationsSheet({ sources }: CitationsSheetProps) {
+  // DISABLED: URL validation was causing false positives due to CORS restrictions
+  // const { validatedSources, isValidating } = useUrlValidation(sources, {
+  //   autoValidate: true,
+  //   showNotifications: false,
+  //   validateOnMount: true,
+  //   silentMode: true
+  // });
+
+  // Use original sources without validation to avoid false broken link warnings
+  const displaySources = sources;
+
   return (
     <Sheet>
       <SheetTrigger asChild>
         <Button variant="ghost" className="h-7 gap-2 px-3 text-muted-foreground hover:text-foreground">
             <div className="flex -space-x-2">
-                {sources.slice(0, 5).reverse().map((source, index) => (
+                {displaySources.slice(0, 5).reverse().map((source, index) => (
                     <SourceIcon key={index} url={source.url} />
                 ))}
             </div>
@@ -83,16 +94,16 @@ export function CitationsSheet({ sources }: CitationsSheetProps) {
         </SheetHeader>
         <ScrollArea className="h-[calc(100%-4rem)]">
           <div className="p-1 flex flex-col mt-4">
-              {sources.map((source, index) => {
+              {displaySources.map((source, index) => {
                   const isUrl = isValidHttpUrl(source.url);
                   const SourceWrapper = isUrl ? 'a' : 'div';
                   
                   return (
                       <div key={index} className="border-b border-border last:border-b-0">
                           <SourceWrapper 
-                              href={isUrl ? source.url : undefined} 
-                              target={isUrl ? "_blank" : undefined} 
-                              rel={isUrl ? "noopener noreferrer" : undefined} 
+                              href={SourceWrapper === 'a' ? source.url : undefined} 
+                              target={SourceWrapper === 'a' ? "_blank" : undefined} 
+                              rel={SourceWrapper === 'a' ? "noopener noreferrer" : undefined} 
                               className="block p-4 space-y-2 rounded-lg hover:bg-muted/50 group"
                           >
                               <div className="flex items-center gap-3">
@@ -108,7 +119,13 @@ export function CitationsSheet({ sources }: CitationsSheetProps) {
                                       <FileText className="h-4 w-4 text-muted-foreground" />
                                   )}
                                   <div className="text-xs text-muted-foreground">
-                                      {isUrl ? new URL(source.url).hostname.replace('www.', '') : 'PDF Document'}
+                                      {isUrl ? (() => {
+                                          try {
+                                              return new URL(source.url).hostname.replace('www.', '');
+                                          } catch {
+                                              return 'Web Source';
+                                          }
+                                      })() : 'PDF Document'}
                                   </div>
                               </div>
                               <div className="text-sm font-medium text-foreground group-hover:underline">

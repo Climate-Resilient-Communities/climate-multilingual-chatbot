@@ -157,7 +157,7 @@ class MultilingualRouter:
         fr_set = [" le ", " la ", " les ", " des ", " du ", " est ", " que ", " pour ", " avec ", " sur "]
         de_set = [" der ", " die ", " das ", " und ", " ist ", " nicht ", " mit ", " auf "]
         it_set = [" il ", " lo ", " la ", " gli ", " le ", " che ", " per ", " con ", " non ", " è "]
-        pt_set = [" o ", " a ", " os ", " as ", " de ", " do ", " da ", " que ", " para ", " com ", " não "]
+        pt_set = [" os ", " as ", " da ", " que ", " para ", " com ", " não ", " está ", " são ", " tem "]
 
         scores = {
             'en': hits(en_set),

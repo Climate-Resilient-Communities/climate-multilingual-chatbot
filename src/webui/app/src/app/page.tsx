@@ -25,10 +25,17 @@ export default function Home() {
   const [showConsent, setShowConsent] = useState(true);
   // Language selection state
   const [selectedLanguage, setSelectedLanguage] = useState<string>('en');
+  const [userManuallySelectedLanguage, setUserManuallySelectedLanguage] = useState<boolean>(false);
   const { toast } = useToast();
 
   const handleNewChat = () => {
     setMessages([]);
+    setUserManuallySelectedLanguage(false); // Reset manual selection flag for new chat
+  };
+
+  const handleLanguageChange = (language: string) => {
+    setSelectedLanguage(language);
+    setUserManuallySelectedLanguage(true); // Mark that user manually selected language
   };
 
   const convertCitationsToSources = (citations: CitationDict[]): Source[] => {
@@ -47,11 +54,11 @@ export default function Home() {
     if (userMessage && userMessage.role === 'user') {
       // Remove the failed assistant message and retry
       setMessages(prev => prev.slice(0, messageIndex));
-      handleSendMessage(userMessage.content);
+      handleSendMessage(userMessage.content, true); // Pass isRetry=true to prevent duplicate user message
     }
   };
 
-  const handleSendMessage = async (e: FormEvent<HTMLFormElement> | string) => {
+  const handleSendMessage = async (e: FormEvent<HTMLFormElement> | string, isRetry: boolean = false) => {
     const isString = typeof e === 'string';
     if (!isString) {
       e.preventDefault();
@@ -61,8 +68,12 @@ export default function Home() {
     if (!query) return;
 
     setInputValue("");
-    const userMessageId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    setMessages((prev) => [...prev, { role: "user", content: query, id: userMessageId }]);
+    
+    // Only add user message if it's not a retry (retry already has the user message)
+    if (!isRetry) {
+      const userMessageId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      setMessages((prev) => [...prev, { role: "user", content: query, id: userMessageId }]);
+    }
     
     // Start with initial loading state
     setLoadingMessage("Thinking…");
@@ -88,27 +99,27 @@ export default function Home() {
     });
 
     try {
-      // Smart language detection: only when default is English AND user writes in different language
+      // Smart language detection: only when default is English AND user has not manually selected language
       let finalLanguage = selectedLanguage;
       
-      if (selectedLanguage === 'en') {
+      if (selectedLanguage === 'en' && !userManuallySelectedLanguage) {
         let detectedLanguage = null;
         let confidence = 0;
         
         // First check: Common phrase detection for short messages across all languages
         const commonPhrasesByLanguage = {
           'es': ['hola', 'gracias', 'hasta luego', 'hasta la vista', 'buenas noches', 'buenos días', 'buenas tardes', 'por favor', 'de nada', 'lo siento', 'perdón', 'disculpe', 'ya me voy', 'nos vemos', 'adiós', 'chao', 'cómo estás', 'como estas', 'qué tal', 'que tal', 'muy bien', 'está bien', 'esta bien'],
-          'fr': ['bonjour', 'salut', 'merci', 'au revoir', 'à bientôt', 'bonne nuit', 'bonne soirée', "s'il vous plaît", 'de rien', 'désolé', 'pardon', 'excusez-moi', 'comment allez-vous', 'comment ça va', 'ça va', 'très bien', 'ça marche'],
-          'de': ['hallo', 'guten tag', 'danke', 'auf wiedersehen', 'tschüss', 'gute nacht', 'bitte', 'entschuldigung', 'wie geht es dir', 'wie gehts', 'gut', 'sehr gut'],
-          'it': ['ciao', 'buongiorno', 'grazie', 'arrivederci', 'buonanotte', 'prego', 'scusa', 'come stai', 'come va', 'bene', 'molto bene'],
-          'pt': ['olá', 'oi', 'obrigado', 'obrigada', 'tchau', 'até logo', 'boa noite', 'por favor', 'desculpa', 'como está', 'como vai', 'bem', 'muito bem'],
+          'fr': ['bonjour', 'salut', 'merci', 'au revoir', 'à bientôt', 'bonne nuit', 'bonne soirée', 's\'il vous plaît', 'de rien', 'désolé', 'pardon', 'excusez-moi', 'comment allez-vous', 'comment ça va', 'ça va', 'très bien', 'ça marche'],
+          'de': ['hallo', 'guten tag', 'danke', 'auf wiedersehen', 'tschüss', 'gute nacht', 'bitte', 'entschuldigung', 'wie geht es dir', 'wie gehts', 'sehr gut'],
+          'it': ['ciao', 'buongiorno', 'grazie', 'arrivederci', 'buonanotte', 'prego', 'scusa', 'come stai', 'come va', 'molto bene'],
+          'pt': ['olá', 'obrigado', 'obrigada', 'tchau', 'até logo', 'boa noite', 'por favor', 'desculpa', 'como está', 'como vai', 'muito bem'],
           'zh': ['你好', '谢谢', '再见', '晚安', '请', '对不起', '你怎么样', '很好'],
           'ja': ['こんにちは', 'ありがとう', 'さようなら', 'すみません', 'お元気ですか', 'はい'],
           'ko': ['안녕하세요', '감사합니다', '안녕히 가세요', '죄송합니다', '어떻게 지내세요', '좋습니다'],
           'ru': ['привет', 'спасибо', 'до свидания', 'пожалуйста', 'извините', 'как дела', 'хорошо'],
           'ar': ['مرحبا', 'شكرا', 'مع السلامة', 'من فضلك', 'آسف', 'كيف حالك', 'بخير'],
           'hi': ['नमस्ते', 'धन्यवाद', 'अलविदा', 'कृपया', 'माफ करें', 'आप कैसे हैं', 'अच्छा'],
-          'nl': ['hallo', 'dank je', 'tot ziens', 'alsjeblieft', 'sorry', 'hoe gaat het', 'goed'],
+          'nl': ['hallo', 'dank je', 'tot ziens', 'alsjeblieft', 'sorry', 'hoe gaat het'],
           'sv': ['hej', 'tack', 'hej då', 'tack så mycket', 'ursäkta', 'hur mår du', 'bra'],
           'da': ['hej', 'tak', 'farvel', 'undskyld', 'hvordan har du det', 'godt'],
           'no': ['hei', 'takk', 'ha det', 'unnskyld', 'hvordan har du det', 'bra'],
@@ -131,12 +142,27 @@ export default function Home() {
         
         const queryLower = query.toLowerCase();
         
-        // Check all languages for common phrases
+        // Check all languages for common phrases (with word boundaries to avoid false positives)
         for (const [langCode, phrases] of Object.entries(commonPhrasesByLanguage)) {
-          const hasPhrase = phrases.some(phrase => queryLower.includes(phrase));
-          if (hasPhrase) {
+          const matchedPhrases = phrases.filter(phrase => {
+            // Use word boundaries to avoid matching 'oi' in 'doing' or 'por' in 'important'
+            const regex = new RegExp(`\\b${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+            return regex.test(queryLower);
+          });
+          
+          if (matchedPhrases.length > 0) {
             detectedLanguage = langCode;
-            confidence = 0.9; // High confidence for known phrases
+            // Require multiple phrase matches OR longer phrases for higher confidence
+            // Be more strict with very short phrases to avoid false positives
+            const hasMultipleMatches = matchedPhrases.length > 1;
+            const hasLongPhrase = matchedPhrases.some(phrase => phrase.length > 4);
+            const hasVeryShortPhrase = matchedPhrases.some(phrase => phrase.length <= 3);
+            
+            if (hasVeryShortPhrase && !hasMultipleMatches && !hasLongPhrase) {
+              confidence = 0.3; // Very low confidence for single short phrases
+            } else {
+              confidence = (hasMultipleMatches || hasLongPhrase) ? 0.9 : 0.6;
+            }
             break;
           }
         }
@@ -208,7 +234,8 @@ export default function Home() {
         query,
         language: finalLanguage,
         conversation_history: conversationHistory,
-        stream: false
+        stream: false,
+        skip_cache: isRetry // Skip cache when retrying
       };
       
       const response = await apiClient.sendChatQuery(chatRequest);
@@ -227,14 +254,11 @@ export default function Home() {
           role: "assistant", 
           content: response.response, // Keep original response without appended citations
           id: assistantMessageId,
-          sources: sources // Add sources separately for citations popover
+          sources: sources, // Add sources separately for citations popover
+          retrieval_source: response.retrieval_source // Add retrieval source for canned response detection
         }]);
         
-        // Show success toast with processing info
-        toast({
-          title: "Response generated successfully",
-          description: `Model: ${response.model_used} • Time: ${response.processing_time.toFixed(2)}s • Faithfulness: ${(response.faithfulness_score * 100).toFixed(1)}%`,
-        });
+        // Success toast removed - no popup needed for successful responses
       } else {
         throw new Error("API returned unsuccessful response");
       }
@@ -244,20 +268,32 @@ export default function Home() {
       // Clear any remaining stage timeouts on error
       stageTimeouts.forEach(timeout => clearTimeout(timeout));
       
+      const errorMessage = error instanceof Error ? error.message : "Failed to get response";
+      
+      // Check if this is a user error (off-topic, harmful, language mismatch) vs system error
+      const isUserError = errorMessage.includes("climate change assistant") || 
+                         errorMessage.includes("only help with questions about climate") ||
+                         errorMessage.includes("i can't assist with that request") ||
+                         errorMessage.includes("i can't help with that") ||
+                         errorMessage.includes("language mismatch") ||
+                         errorMessage.includes("different language");
+      
       // Add error message to chat
       const errorMessageId = `error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       setMessages((prev) => [...prev, { 
         role: "assistant", 
-        content: "I'm sorry, I encountered an error while processing your request. Please try again or contact support if the issue persists.",
+        content: isUserError ? errorMessage : "I'm sorry, I encountered an error while processing your request. Please try again or contact support if the issue persists.",
         id: errorMessageId
       }]);
       
-      // Show error toast
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to get response",
-      });
+      // Only show error toast for system errors, not user errors
+      if (!isUserError) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: errorMessage,
+        });
+      }
     } finally {
       setLoadingMessage(null);
     }
@@ -284,7 +320,7 @@ export default function Home() {
       <AppHeader 
         onNewChat={handleNewChat} 
         selectedLanguage={selectedLanguage}
-        onLanguageChange={setSelectedLanguage}
+        onLanguageChange={handleLanguageChange}
       />
       <div className="flex-1 overflow-y-auto">
         <ChatWindow 
@@ -313,7 +349,8 @@ export default function Home() {
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                handleSendMessage(e as any);
+                e.stopPropagation();
+                handleSendMessage(inputValue);
               }
             }}
             placeholder="Ask about climate change..."

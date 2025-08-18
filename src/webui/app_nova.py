@@ -89,7 +89,7 @@ CHAT_LOG_DIR_ENV = os.environ.get("CHAT_LOG_DIR", "").strip()
 if CHAT_LOG_DIR_ENV:
     LOG_DIR = Path(CHAT_LOG_DIR_ENV).expanduser().resolve()
 else:
-LOG_DIR = Path.home() / ".streamlit/logs"
+    LOG_DIR = Path.home() / ".streamlit/logs"
 try:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
 except Exception:

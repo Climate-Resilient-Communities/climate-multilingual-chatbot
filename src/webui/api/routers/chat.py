@@ -34,6 +34,7 @@ class ChatRequest(BaseModel):
         default=[], description="Previous conversation messages"
     )
     stream: bool = Field(default=False, description="Enable streaming response")
+    skip_cache: bool = Field(default=False, description="Skip cache for retry requests")
 
     @validator('query')
     def validate_query(cls, v):
@@ -56,12 +57,14 @@ class ChatResponse(BaseModel):
     language_used: str = "en"
     model_used: Optional[str] = None
     request_id: str
+    retrieval_source: Optional[str] = None
 
 class ErrorResponse(BaseModel):
     error: Dict[str, Any]
 
 # Import dependencies from main
 from ..main import get_pipeline, get_conversation_parser, get_router, get_cache
+from ..utils.link_validator import validate_and_fix_inline_links
 
 @router.post("/chat/query", response_model=ChatResponse)
 async def process_chat_query(
@@ -139,7 +142,8 @@ async def process_chat_query(
                     pipeline.process_query(
                         query=request.query,
                         language_name=language_name,
-                        conversation_history=standardized_history
+                        conversation_history=standardized_history,
+                        skip_cache=request.skip_cache
                     ),
                     timeout=60.0  # 60 second timeout to prevent hangs
                 )
@@ -177,15 +181,26 @@ async def process_chat_query(
                 else:
                     citations = []
                 
+                # Validate and fix inline links in the response text
+                raw_response = result.get('response', '')
+                try:
+                    validated_response, link_validation_report = await validate_and_fix_inline_links(raw_response)
+                    if link_validation_report.get('fixed', 0) > 0:
+                        logger.info(f"Fixed {link_validation_report['fixed']} broken inline links in response")
+                except Exception as e:
+                    logger.error(f"Link validation failed: {str(e)}")
+                    validated_response = raw_response  # Use original response if validation fails
+                
                 response = ChatResponse(
                     success=True,
-                    response=result.get('response', ''),
+                    response=validated_response,
                     citations=citations,
                     faithfulness_score=result.get('faithfulness_score', 0.0),
                     processing_time=processing_time,
                     language_used=detected_language,
                     model_used=model_used,
-                    request_id=request_id
+                    request_id=request_id,
+                    retrieval_source=result.get('retrieval_source')
                 )
                 
                 logger.info(
@@ -197,15 +212,48 @@ async def process_chat_query(
                 return response
             else:
                 # Pipeline returned error
-                error_msg = result.get('message', 'Pipeline processing failed')
+                error_msg = result.get('response', result.get('message', 'Pipeline processing failed'))
                 logger.error(f"Pipeline error: id={request_id} error={error_msg}")
                 
+                # Check if this is a user error (not server error)
+                is_language_mismatch = any(phrase in error_msg.lower() for phrase in [
+                    "language mismatch", "different language", "wrote in a different language",
+                    "choose the language", "language you selected"
+                ])
+                
+                # Check if this is an off-topic query (also user error)
+                is_off_topic = any(phrase in error_msg.lower() for phrase in [
+                    "climate change assistant", "only help with questions about climate",
+                    "climate, environment, and sustainability", "off-topic", "not related to climate"
+                ])
+                
+                # Check if this is a harmful query (also user error)
+                is_harmful = any(phrase in error_msg.lower() for phrase in [
+                    "i can't assist with that request", "i can't help with that",
+                    "i cannot assist with that", "i cannot help with that",
+                    "harmful", "inappropriate", "unsafe request"
+                ])
+                
+                # Use appropriate status code
+                is_user_error = is_language_mismatch or is_off_topic or is_harmful
+                status_code = 400 if is_user_error else 500
+                error_type = "user_error" if is_user_error else "processing_error"
+                
+                if is_language_mismatch:
+                    error_code = "LANGUAGE_MISMATCH"
+                elif is_off_topic:
+                    error_code = "OFF_TOPIC_QUERY"
+                elif is_harmful:
+                    error_code = "HARMFUL_QUERY"
+                else:
+                    error_code = "PIPELINE_ERROR"
+                
                 raise HTTPException(
-                    status_code=500,
+                    status_code=status_code,
                     detail={
                         "error": {
-                            "code": "PIPELINE_ERROR",
-                            "type": "processing_error",
+                            "code": error_code,
+                            "type": error_type,
                             "message": error_msg,
                             "retryable": True,
                             "request_id": request_id
@@ -213,6 +261,9 @@ async def process_chat_query(
                     }
                 )
                 
+        except HTTPException:
+            # Re-raise HTTP exceptions (like our 400 off-topic errors)
+            raise
         except Exception as e:
             logger.error(f"Pipeline processing failed: id={request_id} error={str(e)}")
             raise HTTPException(
