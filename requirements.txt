@@ -51,7 +51,7 @@ pydantic-settings==2.4.0
 
 # Async Support
 asyncio-throttle==1.0.2
-aiofiles==23.2.0
+aiofiles>=23.2.1
 
 # Logging and Monitoring
 structlog==23.2.0
