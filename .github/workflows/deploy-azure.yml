@@ -36,9 +36,7 @@ jobs:
       
       - name: Install Python dependencies
         run: |
-          pip install --upgrade pip
-          pip install --no-cache-dir -r requirements.txt
-          echo "✅ Python dependencies installed successfully"
+          pip install -r requirements.txt
       
       - name: Build frontend
         run: |
@@ -109,41 +107,28 @@ jobs:
 
       - name: Set startup command
         run: |
-          az webapp config set --name ClimateReslianceAPP --resource-group ${{ secrets.AZURE_RESOURCE_GROUP || 'Embeddings' }} --startup-file "bash startup.sh"
+          az webapp config set --name ClimateReslianceAPP --resource-group ${{ secrets.AZURE_RESOURCE_GROUP || 'Embeddings' }} --startup-file "python -m uvicorn src.webui.api.main:app --host 0.0.0.0 --port \$PORT"
 
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
-        timeout-minutes: 15
         with:
           app-name: 'ClimateReslianceAPP'
           slot-name: 'Production'
           package: '.'  # Includes built frontend in src/webui/app/out/
       
-      - name: Wait for deployment to settle
-        run: |
-          echo "Waiting for deployment to complete..."
-          sleep 30
-          
-      - name: Check deployment status
-        run: |
-          echo "Checking deployment status..."
-          az webapp show --name ClimateReslianceAPP --resource-group ${{ secrets.AZURE_RESOURCE_GROUP || 'Embeddings' }} --query "{state: state, defaultHostName: defaultHostName, lastModifiedTimeUtc: lastModifiedTimeUtc}" -o table
-      
       - name: Check Azure logs
         run: |
           echo "Checking Azure application logs..."
-          az webapp log download --name ClimateReslianceAPP --resource-group ${{ secrets.AZURE_RESOURCE_GROUP || 'Embeddings' }} --log-file deployment.zip || true
-          echo "Checking deployment status..."
-          az webapp show --name ClimateReslianceAPP --resource-group ${{ secrets.AZURE_RESOURCE_GROUP || 'Embeddings' }} --query "state" -o tsv || true
+          az webapp log tail --name ClimateReslianceAPP --resource-group ${{ secrets.AZURE_RESOURCE_GROUP || 'Embeddings' }} --timeout 30 || true
           
       - name: Health check
         run: |
           sleep 60  # Wait longer for startup
           echo "Testing health endpoint..."
           curl -v https://climatereslianceapp.azurewebsites.net/health || {
-            echo "Health check failed, checking app status..."
-            az webapp show --name ClimateReslianceAPP --resource-group ${{ secrets.AZURE_RESOURCE_GROUP || 'Embeddings' }} --query "{state: state, defaultHostName: defaultHostName}" -o table || true
+            echo "Health check failed, checking logs again..."
+            az webapp log tail --name ClimateReslianceAPP --resource-group ${{ secrets.AZURE_RESOURCE_GROUP || 'Embeddings' }} --timeout 10 || true
             exit 1
           }
           echo "✅ Deployment health check passed"
