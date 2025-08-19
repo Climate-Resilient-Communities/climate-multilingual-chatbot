@@ -12,6 +12,10 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    environment: Production
+    permissions:
+      id-token: write #This is required for requesting the JWT
+      contents: read #This is required for actions/checkout
     
     steps:
       - name: Checkout repository
@@ -70,12 +74,19 @@ jobs:
           # Add your test commands here
           echo "✅ Tests passed (placeholder)"
       
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_C88C5B8A53EF4A6E9639D7263CE11B61 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_9EA5040123E54E10820774983CA8A1DE }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_01736233FB964F9E8CA8B87442A5DF1D }}
+
       - name: Deploy to Azure App Service
-        uses: azure/webapps-deploy@v2
+        uses: azure/webapps-deploy@v3
+        id: deploy-to-webapp
         with:
           app-name: 'ClimateReslianceAPP'
-          slot-name: 'production'
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          slot-name: 'Production'
           package: '.'  # Includes built frontend in src/webui/app/out/
       
       - name: Health check
