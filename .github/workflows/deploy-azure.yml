@@ -112,6 +112,18 @@ jobs:
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP || 'Embeddings' }} \
             --startup-file "bash startup.sh"
 
+      - name: Verify deployment package
+        run: |
+          echo "📦 Verifying deployment package contents..."
+          echo "✅ FastAPI main.py:"
+          [ -f "src/webui/api/main.py" ] && echo "  Found" || echo "  ❌ Missing"
+          echo "✅ Requirements.txt:"
+          [ -f "requirements.txt" ] && echo "  Found" || echo "  ❌ Missing"
+          echo "✅ Startup script:"
+          [ -f "startup.sh" ] && echo "  Found" || echo "  ❌ Missing"
+          echo "✅ Frontend build:"
+          [ -d "src/webui/app/out" ] && echo "  Found" || echo "  ❌ Missing"
+          
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
