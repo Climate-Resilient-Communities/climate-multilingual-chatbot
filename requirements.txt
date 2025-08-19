@@ -8,16 +8,16 @@ starlette==0.47.2
 pydantic==2.10.6
 pydantic-settings==2.8.0
 
-# LangChain and LangSmith - compatible versions
-langchain>=0.3.0,<0.4.0
-langchain-core>=0.3.63,<0.4.0
-langchain-text-splitters>=0.3.0,<0.4.0
-langchain-community>=0.3.0,<0.4.0
-langsmith>=0.3.0,<0.4.0
+# LangChain and LangSmith - conflict-free versions
+langchain==0.3.25
+langchain-core==0.3.74
+langchain-text-splitters==0.3.8
+langchain-community==0.3.25
+langsmith==0.3.45
 
 # Pinecone + LangChain
 pinecone-client==5.0.1
-langchain-pinecone>=0.2.0,<0.3.0
+langchain-pinecone==0.2.8
 pinecone==7.3.0
 pinecone-plugin-inference==1.1.0
 pinecone-plugin-interface==0.0.7
@@ -44,7 +44,7 @@ safetensors==0.5.2
 httpx==0.28.1
 httpcore==1.0.7
 requests==2.32.3
-tavily-python==0.2.9
+tavily-python==0.7.11
 
 # Data Processing
 pandas==2.2.3
