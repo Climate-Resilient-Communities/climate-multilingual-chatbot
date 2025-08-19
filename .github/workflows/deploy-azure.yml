@@ -81,6 +81,18 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_9EA5040123E54E10820774983CA8A1DE }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_01736233FB964F9E8CA8B87442A5DF1D }}
 
+      - name: Configure Azure App Service Node.js version
+        uses: azure/appservice-settings@v1
+        with:
+          app-name: 'ClimateReslianceAPP'
+          app-settings-json: |
+            [
+              {
+                "name": "WEBSITE_NODE_DEFAULT_VERSION",
+                "value": "~20"
+              }
+            ]
+
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
