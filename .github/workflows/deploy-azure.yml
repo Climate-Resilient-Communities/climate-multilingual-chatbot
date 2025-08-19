@@ -98,7 +98,16 @@ jobs:
               {
                 "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
                 "value": "false"
+              },
+              {
+                "name": "PYTHONPATH",
+                "value": "/home/site/wwwroot"
               }
+            ]
+
+      - name: Set startup command
+        run: |
+          az webapp config set --name ClimateReslianceAPP --resource-group ${{ secrets.AZURE_RESOURCE_GROUP || 'Embeddings' }} --startup-file "python -m uvicorn src.webui.api.main:app --host 0.0.0.0 --port $PORT"
             ]
 
       - name: Deploy to Azure App Service
@@ -109,8 +118,18 @@ jobs:
           slot-name: 'Production'
           package: '.'  # Includes built frontend in src/webui/app/out/
       
+      - name: Check Azure logs
+        run: |
+          echo "Checking Azure application logs..."
+          az webapp log tail --name ClimateReslianceAPP --resource-group ${{ secrets.AZURE_RESOURCE_GROUP || 'Embeddings' }} --timeout 30 || true
+          
       - name: Health check
         run: |
-          sleep 30  # Wait for deployment
-          curl -f https://climatereslianceapp.azurewebsites.net/health || exit 1
+          sleep 60  # Wait longer for startup
+          echo "Testing health endpoint..."
+          curl -v https://climatereslianceapp.azurewebsites.net/health || {
+            echo "Health check failed, checking logs again..."
+            az webapp log tail --name ClimateReslianceAPP --resource-group ${{ secrets.AZURE_RESOURCE_GROUP || 'Embeddings' }} --timeout 10 || true
+            exit 1
+          }
           echo "✅ Deployment health check passed"
