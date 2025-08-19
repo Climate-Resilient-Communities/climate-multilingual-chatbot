@@ -9,12 +9,18 @@ pydantic==2.10.6
 pydantic-settings==2.8.0
 
 # LangChain and LangSmith - working versions
-langchain>=0.3.0,<0.4.0
+langchain==0.3.19
 langchain-core==0.3.37
 langchain-text-splitters==0.3.6
-langchain-community>=0.3.0,<0.4.0
+langchain-community==0.3.18
 langsmith==0.3.10
-langchain-pinecone>=0.2.3,<0.3.0
+
+# Pinecone + LangChain
+pinecone-client==5.0.1
+langchain-pinecone==0.2.11
+pinecone==7.3.0
+pinecone-plugin-inference==1.1.0
+pinecone-plugin-interface==0.0.7
 
 # AWS Bedrock - working versions
 boto3==1.36.23
@@ -25,12 +31,6 @@ aiobotocore==2.20.0
 # Cohere
 cohere==5.13.12
 langchain-cohere==0.4.2
-
-# Pinecone + LangChain
-pinecone-client==5.0.1
-pinecone==7.3.0
-pinecone-plugin-inference==1.1.0
-pinecone-plugin-interface==0.0.7
 
 # Hugging Face Transformers and Embeddings
 transformers==4.44.2
@@ -58,8 +58,7 @@ python-dotenv==1.0.1
 
 # Async deps
 aiofiles==24.1.0
-aiohttp>=3.9.2,<4.0.0
-aiobotocore==2.20.0
+aiohttp==3.11.12
 aioitertools==0.12.0
 
 # Logging and Monitoring
