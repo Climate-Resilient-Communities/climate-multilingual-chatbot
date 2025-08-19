@@ -12,10 +12,10 @@ if command -v node &> /dev/null; then
     # Extract major version number (e.g., v14.19.2 -> 14)
     NODE_MAJOR=$(echo $NODE_VERSION | sed 's/v\([0-9]*\).*/\1/')
     
-    if [ "$NODE_MAJOR" -lt 18 ]; then
-        echo "❌ Node.js $NODE_VERSION is too old. Required: >= 18.0.0"
+    if [ "$NODE_MAJOR" -lt 20 ]; then
+        echo "❌ Node.js $NODE_VERSION is too old. Required: >= 20.0.0 for Next.js 15.3.3"
         echo "🔧 Azure is using an outdated Node.js version."
-        echo "💡 This may require updating Azure App Service Node.js runtime."
+        echo "💡 Please update Azure App Service to Node.js 20 in Configuration > General Settings"
         exit 1
     fi
 else
