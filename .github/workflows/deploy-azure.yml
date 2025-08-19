@@ -90,6 +90,14 @@ jobs:
               {
                 "name": "WEBSITE_NODE_DEFAULT_VERSION",
                 "value": "~20"
+              },
+              {
+                "name": "PRE_BUILD_COMMAND",
+                "value": "curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs"
+              },
+              {
+                "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
+                "value": "false"
               }
             ]
 
