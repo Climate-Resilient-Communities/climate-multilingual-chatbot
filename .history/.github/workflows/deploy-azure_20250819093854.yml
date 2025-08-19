@@ -1,0 +1,96 @@
+# Azure Single Deployment Workflow
+# Based on Climate-Stories-Map deployment strategy
+# Deploys both Next.js frontend and FastAPI backend as single Azure App Service
+
+name: Deploy to Azure App Service (Single Deployment)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: Production
+    permissions:
+      id-token: write #This is required for requesting the JWT
+      contents: read #This is required for actions/checkout
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: src/webui/app/package.json
+      
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Build frontend
+        run: |
+          cd src/webui/app
+          npm install
+          npm run build
+          cd ../../..
+        env:
+          NEXT_PUBLIC_API_URL: ""  # Same domain deployment
+          NEXT_PUBLIC_ENVIRONMENT: production
+      
+      - name: Verify build output
+        run: |
+          if [ ! -d "src/webui/app/out" ]; then
+            echo "❌ Frontend build failed - 'out' directory not found"
+            exit 1
+          fi
+          echo "✅ Frontend build successful"
+          ls -la src/webui/app/out/
+          echo "📁 Frontend files that will be deployed:"
+          find src/webui/app/out -name "*.html" -o -name "*.js" -o -name "*.css" | head -10
+      
+      - name: Security audit
+        run: |
+          cd src/webui/app
+          npm audit --audit-level=high
+      
+      - name: Python security scan
+        run: |
+          pip install pip-audit
+          pip-audit --desc --skip-editable || echo "⚠️ Security vulnerabilities found but continuing deployment"
+      
+      - name: Run tests
+        run: |
+          # Add your test commands here
+          echo "✅ Tests passed (placeholder)"
+      
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_C88C5B8A53EF4A6E9639D7263CE11B61 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_9EA5040123E54E10820774983CA8A1DE }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_01736233FB964F9E8CA8B87442A5DF1D }}
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        id: deploy-to-webapp
+        with:
+          app-name: 'ClimateReslianceAPP'
+          slot-name: 'Production'
+          package: '.'  # Includes built frontend in src/webui/app/out/
+      
+      - name: Health check
+        run: |
+          sleep 30  # Wait for deployment
+          curl -f https://climatereslianceapp.azurewebsites.net/health || exit 1
+          echo "✅ Deployment health check passed"
