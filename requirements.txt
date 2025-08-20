@@ -16,7 +16,6 @@ langchain-community==0.3.25
 langsmith==0.3.45
 
 # Pinecone + LangChain
-pinecone-client==5.0.1
 langchain-pinecone==0.2.8
 pinecone==7.3.0
 
