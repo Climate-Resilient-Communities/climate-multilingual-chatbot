@@ -36,7 +36,8 @@ jobs:
       
       - name: Install Python dependencies
         run: |
-          pip install -r requirements.txt
+          pip install --upgrade pip
+          pip install --only-binary=all -r requirements.txt
       
       - name: Build frontend
         run: |
@@ -81,49 +82,10 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_9EA5040123E54E10820774983CA8A1DE }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_01736233FB964F9E8CA8B87442A5DF1D }}
 
-      - name: Configure Azure App Service Node.js version
-        uses: azure/appservice-settings@v1
-        with:
-          app-name: 'ClimateReslianceAPP'
-          app-settings-json: |
-            [
-              {
-                "name": "WEBSITE_NODE_DEFAULT_VERSION",
-                "value": "~20"
-              },
-              {
-                "name": "PRE_BUILD_COMMAND",
-                "value": "curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs"
-              },
-              {
-                "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
-                "value": "false"
-              },
-              {
-                "name": "PYTHONPATH",
-                "value": "/home/site/wwwroot"
-              }
-            ]
-
       - name: Set startup command
         run: |
-          az webapp config set \
-            --name ClimateReslianceAPP \
-            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP || 'Embeddings' }} \
-            --startup-file "bash startup.sh"
+          az webapp config set --name ClimateReslianceAPP --resource-group ${{ secrets.AZURE_RESOURCE_GROUP || 'Embeddings' }} --startup-file "pip install --only-binary=all -r requirements.txt && python -m uvicorn src.webui.api.main:app --host 0.0.0.0 --port \$PORT"
 
-      - name: Verify deployment package
-        run: |
-          echo "📦 Verifying deployment package contents..."
-          echo "✅ FastAPI main.py:"
-          [ -f "src/webui/api/main.py" ] && echo "  Found" || echo "  ❌ Missing"
-          echo "✅ Requirements.txt:"
-          [ -f "requirements.txt" ] && echo "  Found" || echo "  ❌ Missing"
-          echo "✅ Startup script:"
-          [ -f "startup.sh" ] && echo "  Found" || echo "  ❌ Missing"
-          echo "✅ Frontend build:"
-          [ -d "src/webui/app/out" ] && echo "  Found" || echo "  ❌ Missing"
-          
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
