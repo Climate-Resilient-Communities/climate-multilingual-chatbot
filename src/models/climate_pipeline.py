@@ -43,6 +43,9 @@ class ClimateQueryPipeline:
             self.router = MultilingualRouter()
             self.response_generator = UnifiedResponseGenerator()
             self.redis_client = self._initialize_redis()
+            
+            # Initialize and store the cache instance for reuse
+            self.cache = self._initialize_cache()
 
             # Models for translation (lightweight clients)
             self.nova_model = BedrockModel()
@@ -111,12 +114,23 @@ class ClimateQueryPipeline:
             logger.warning(f"Prewarm encountered an error: {str(e)}")
 
     def _initialize_redis(self):
-        """Initialize Redis cache."""
+        """Initialize Redis cache - will be replaced by the dedicated cache instance."""
+        # This method is now mainly for backwards compatibility
+        # The actual cache will be stored in self.cache
         try:
-            cache = ClimateCache()
-            return cache.redis_client if hasattr(cache, 'redis_client') else None
+            return True  # Signal that Redis should be available
         except Exception as e:
             logger.warning(f"Redis initialization failed: {str(e)}")
+            return None
+
+    def _initialize_cache(self):
+        """Initialize and return a reusable cache instance."""
+        try:
+            cache = ClimateCache()
+            logger.info("✓ Redis cache instance initialized for reuse")
+            return cache
+        except Exception as e:
+            logger.warning(f"Cache initialization failed: {str(e)}")
             return None
 
     def _initialize_embedding_model(self):
@@ -217,11 +231,17 @@ class ClimateQueryPipeline:
                     "snippet": (r.get("content", "")[:200] + "...") if r.get("content") else "",
                 })
 
-            # Generate via unified generator using Nova path
+            # Generate via unified generator - check for Command A override
+            fallback_model_type = "nova"
+            force_command_a = os.getenv('FORCE_COMMAND_A_RESPONSES', '').lower() in ('true', '1', 'yes')
+            if force_command_a:
+                fallback_model_type = "cohere"
+                logger.info("⚠️  Fallback: Overriding Nova → Command A (via FORCE_COMMAND_A_RESPONSES)")
+                
             response, citations = await self.response_generator.generate_response(
                 query=english_query,
                 documents=docs_for_fallback,
-                model_type="nova",
+                model_type=fallback_model_type,
                 language_code="en",
                 conversation_history=None,
             )
@@ -427,7 +447,14 @@ class ClimateQueryPipeline:
 
             routing_info = route_result['routing_info']
             model_type = routing_info['model_type']
-
+            
+            # Check for Command A override (force all responses to use Command A)
+            force_command_a = os.getenv('FORCE_COMMAND_A_RESPONSES', '').lower() in ('true', '1', 'yes')
+            if force_command_a and model_type != 'cohere':
+                logger.info(f"⚠️  Overriding model selection: {routing_info['model_name']} → Command A (via FORCE_COMMAND_A_RESPONSES)")
+                model_type = 'cohere'
+                routing_info['model_name'] = 'Command A'
+            
             logger.info(f"✓ Routed to {routing_info['model_name']} model")
             route_ms = (time.time() - _route_start) * 1000
             logger.info(f"Timing: routing={route_ms:.1f}ms")
@@ -487,10 +514,10 @@ class ClimateQueryPipeline:
             # This ensures Filipino queries get Filipino responses from cache
             cache_key = self._make_cache_key(language_code, model_type, normalized)
 
-            if self.redis_client and not skip_cache:
+            if self.cache and not skip_cache:
                 try:
-                    cache = ClimateCache()
-                    cached_result = await cache.get(cache_key)
+                    # Use the reusable cache instance
+                    cached_result = await self.cache.get(cache_key) if self.cache else None
 
                     if cached_result:
                         logger.info(f"✓ Cache hit for {language_name} - returning cached response")
@@ -1057,12 +1084,10 @@ class ClimateQueryPipeline:
             }
 
             # STEP 10: CACHE THE RESULT IN THE CORRECT LANGUAGE
-            if self.redis_client:
+            if self.cache:
                 try:
-                    cache = ClimateCache()
-
                     # Cache the response in the requested language
-                    await cache.set(cache_key, result)
+                    await self.cache.set(cache_key, result)
                     logger.info(f"✓ Response cached in {language_name}")
 
                     # Also cache the English version if different
@@ -1071,14 +1096,15 @@ class ClimateQueryPipeline:
                         english_result = result.copy()
                         english_result['response'] = original_english_response
                         english_result['language_code'] = 'en'
-                        await cache.set(english_cache_key, english_result)
+                        await self.cache.set(english_cache_key, english_result)
                         logger.info("✓ English version also cached")
 
                     # Maintain recent queries list
                     try:
-                        entry = f"{cache_key}|{normalized}|{language_code}"
-                        await asyncio.to_thread(self.redis_client.lpush, "q:recent", entry)
-                        await asyncio.to_thread(self.redis_client.ltrim, "q:recent", 0, 99)
+                        if self.cache and hasattr(self.cache, 'add_to_list'):
+                            entry = f"{cache_key}|{normalized}|{language_code}"
+                            await self.cache.add_to_list("q:recent", entry)
+                            # Trim to keep only last 100 entries - implement via Redis commands if needed
                     except Exception as list_err:
                         logger.debug(f"Recent list update skipped: {list_err}")
 
@@ -1159,7 +1185,10 @@ class ClimateQueryPipeline:
         FIX: Only match queries in the same language.
         """
         try:
-            recent_entries = await asyncio.to_thread(self.redis_client.lrange, "q:recent", 0, 49)
+            if not self.cache:
+                return None
+                
+            recent_entries = await self.cache.get_list("q:recent", 0, 49)
             if not recent_entries:
                 return None
 
@@ -1168,7 +1197,9 @@ class ClimateQueryPipeline:
 
             for entry in recent_entries:
                 try:
-                    parts = entry.decode('utf-8').split("|") # Decode bytes to string
+                    # Handle both string and bytes entries
+                    entry_str = entry.decode('utf-8') if isinstance(entry, bytes) else entry
+                    parts = entry_str.split("|")
                     if len(parts) >= 3:
                         key, norm, lang = parts[0], parts[1], parts[2]
                     else:
@@ -1197,10 +1228,10 @@ class ClimateQueryPipeline:
                     best = {"score": sim, "key": key}
 
             if best["key"] and best["score"] >= threshold:
-                cache = ClimateCache()
-                cached = await cache.get(best["key"])
-                if cached:
-                    return {"result": cached, "score": best["score"]}
+                if self.cache:
+                    cached = await self.cache.get(best["key"])
+                    if cached:
+                        return {"result": cached, "score": best["score"]}
 
         except Exception as e:
             logger.debug(f"Fuzzy cache match skipped: {e}")
@@ -1232,14 +1263,17 @@ class ClimateQueryPipeline:
                 logger.error(f"Error closing Cohere client: {str(e)}")
 
         # Close Redis connection
-        if self.redis_client and not getattr(self.redis_client, '_closed', False):
+        if self.cache:
             try:
-                cache = ClimateCache()
-                if hasattr(cache, 'close'):
-                    await cache.close()
-                elif hasattr(self.redis_client, 'close'):
-                    self.redis_client.close()
-                logger.info("✓ Redis client closed")
+                await self.cache.close()
+                logger.info("✓ Redis cache closed")
+            except Exception as e:
+                cleanup_errors.append(f"Redis cleanup error: {str(e)}")
+                logger.error(f"Error closing Redis connection: {str(e)}")
+        elif self.redis_client:
+            try:
+                # Legacy cleanup - redis_client is now just a flag
+                logger.info("✓ Redis client (legacy) noted")
             except Exception as e:
                 cleanup_errors.append(f"Redis cleanup error: {str(e)}")
                 logger.error(f"Error closing Redis connection: {str(e)}")
