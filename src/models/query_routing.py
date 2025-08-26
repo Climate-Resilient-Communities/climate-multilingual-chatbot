@@ -121,13 +121,26 @@ class MultilingualRouter:
         if not text:
             return 'unknown'
         t = f" {text.lower()} "
-        # Fast path for common English short tokens (greetings/thanks/goodbye)
+        # Fast path for common greetings and phrases by language
         english_short_tokens = [
             " hello ", " hi ", " hey ", " thanks ", " thank you ", " goodbye ", " bye "
         ]
+        spanish_short_tokens = [
+            " hola ", " buenos ", " buenas ", " gracias ", " adiós ", " cómo ", " como "
+        ]
+        french_short_tokens = [
+            " bonjour ", " salut ", " merci ", " au revoir ", " comment "
+        ]
+        
         for token in english_short_tokens:
             if token in t:
                 return 'en'
+        for token in spanish_short_tokens:
+            if token in t:
+                return 'es'
+        for token in french_short_tokens:
+            if token in t:
+                return 'fr'
         # Script-based quick checks
         if re.search(r"[\u4e00-\u9fff]", t):
             return 'zh'
@@ -153,7 +166,8 @@ class MultilingualRouter:
             return sum(1 for w in s if w in t)
 
         en_set = [" the ", " and ", " what ", " is ", " of ", " to ", " in "]
-        es_set = [" el ", " la ", " los ", " las ", " de ", " del ", " que ", " por ", " para ", " es ", " qué "]
+        # Stopword scoring for formal text
+        es_set = [" el ", " la ", " los ", " las ", " de ", " del ", " que ", " por ", " para ", " es ", " qué ", " con ", " en ", " se ", " un ", " una "]
         fr_set = [" le ", " la ", " les ", " des ", " du ", " est ", " que ", " pour ", " avec ", " sur "]
         de_set = [" der ", " die ", " das ", " und ", " ist ", " nicht ", " mit ", " auf "]
         it_set = [" il ", " lo ", " la ", " gli ", " le ", " che ", " per ", " con ", " non ", " è "]

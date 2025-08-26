@@ -30,6 +30,7 @@ export default function Home() {
 
   const handleNewChat = () => {
     setMessages([]);
+    setSelectedLanguage('en'); // Always reset language to English for new chat
     setUserManuallySelectedLanguage(false); // Reset manual selection flag for new chat
   };
 
@@ -102,52 +103,65 @@ export default function Home() {
       // Smart language detection: only when default is English AND user has not manually selected language
       let finalLanguage = selectedLanguage;
       
+      console.log(`🔍 Language detection check: selectedLanguage=${selectedLanguage}, userManuallySelectedLanguage=${userManuallySelectedLanguage}`);
+      
       if (selectedLanguage === 'en' && !userManuallySelectedLanguage) {
+        console.log(`🔍 Starting language detection for query: "${query}"`);
         let detectedLanguage = null;
         let confidence = 0;
         
         // First check: Common phrase detection for short messages across all languages
         const commonPhrasesByLanguage = {
-          'es': ['hola', 'gracias', 'hasta luego', 'hasta la vista', 'buenas noches', 'buenos días', 'buenas tardes', 'por favor', 'de nada', 'lo siento', 'perdón', 'disculpe', 'ya me voy', 'nos vemos', 'adiós', 'chao', 'cómo estás', 'como estas', 'qué tal', 'que tal', 'muy bien', 'está bien', 'esta bien'],
-          'fr': ['bonjour', 'salut', 'merci', 'au revoir', 'à bientôt', 'bonne nuit', 'bonne soirée', 's\'il vous plaît', 'de rien', 'désolé', 'pardon', 'excusez-moi', 'comment allez-vous', 'comment ça va', 'ça va', 'très bien', 'ça marche'],
-          'de': ['hallo', 'guten tag', 'danke', 'auf wiedersehen', 'tschüss', 'gute nacht', 'bitte', 'entschuldigung', 'wie geht es dir', 'wie gehts', 'sehr gut'],
-          'it': ['ciao', 'buongiorno', 'grazie', 'arrivederci', 'buonanotte', 'prego', 'scusa', 'come stai', 'come va', 'molto bene'],
-          'pt': ['olá', 'obrigado', 'obrigada', 'tchau', 'até logo', 'boa noite', 'por favor', 'desculpa', 'como está', 'como vai', 'muito bem'],
-          'zh': ['你好', '谢谢', '再见', '晚安', '请', '对不起', '你怎么样', '很好'],
-          'ja': ['こんにちは', 'ありがとう', 'さようなら', 'すみません', 'お元気ですか', 'はい'],
-          'ko': ['안녕하세요', '감사합니다', '안녕히 가세요', '죄송합니다', '어떻게 지내세요', '좋습니다'],
-          'ru': ['привет', 'спасибо', 'до свидания', 'пожалуйста', 'извините', 'как дела', 'хорошо'],
-          'ar': ['مرحبا', 'شكرا', 'مع السلامة', 'من فضلك', 'آسف', 'كيف حالك', 'بخير'],
-          'hi': ['नमस्ते', 'धन्यवाद', 'अलविदा', 'कृपया', 'माफ करें', 'आप कैसे हैं', 'अच्छा'],
-          'nl': ['hallo', 'dank je', 'tot ziens', 'alsjeblieft', 'sorry', 'hoe gaat het'],
-          'sv': ['hej', 'tack', 'hej då', 'tack så mycket', 'ursäkta', 'hur mår du', 'bra'],
-          'da': ['hej', 'tak', 'farvel', 'undskyld', 'hvordan har du det', 'godt'],
-          'no': ['hei', 'takk', 'ha det', 'unnskyld', 'hvordan har du det', 'bra'],
-          'fi': ['hei', 'kiitos', 'näkemiin', 'anteeksi', 'mitä kuuluu', 'hyvää'],
-          'pl': ['cześć', 'dziękuję', 'do widzenia', 'przepraszam', 'jak się masz', 'dobrze'],
-          'tr': ['merhaba', 'teşekkürler', 'güle güle', 'özür dilerim', 'nasılsın', 'iyi'],
-          'he': ['שלום', 'תודה', 'להתראות', 'סליחה', 'איך אתה', 'טוב'],
-          'th': ['สวัสดี', 'ขอบคุณ', 'ลาก่อน', 'ขอโทษ', 'สบายดีไหม', 'ดี'],
-          'vi': ['xin chào', 'cảm ơn', 'tạm biệt', 'xin lỗi', 'bạn khỏe không', 'tốt'],
-          'uk': ['привіт', 'дякую', 'до побачення', 'вибачте', 'як справи', 'добре'],
-          'bg': ['здравей', 'благодаря', 'довиждане', 'извинете', 'как сте', 'добре'],
-          'cs': ['ahoj', 'děkuji', 'na shledanou', 'promiňte', 'jak se máte', 'dobře'],
-          'sk': ['ahoj', 'ďakujem', 'dovidenia', 'prepáčte', 'ako sa máte', 'dobre'],
-          'hr': ['bok', 'hvala', 'doviđenja', 'oprostite', 'kako ste', 'dobro'],
-          'sr': ['здраво', 'хвала', 'довиђења', 'извините', 'како сте', 'добро'],
-          'sl': ['zdravo', 'hvala', 'nasvidenje', 'oprostite', 'kako ste', 'dobro'],
-          'ro': ['salut', 'mulțumesc', 'la revedere', 'scuzați-mă', 'ce mai faceți', 'bine'],
-          'hu': ['szia', 'köszönöm', 'viszlát', 'elnézést', 'hogy vagy', 'jól']
+          'es': ['hola', 'holis', 'holaa', 'ola', 'oli', 'buenas', 'buenos días', 'buenas tardes', 'buenas noches', 'gracias', 'como estas', 'como', 'hasta luego', 'hasta la vista', 'por favor', 'de nada', 'lo siento', 'perdón', 'disculpe', 'ya me voy', 'nos vemos', 'adiós', 'chao', 'cómo estás', 'como estas', 'qué tal', 'que tal', 'muy bien', 'está bien', 'esta bien'],
+          'fr': ['bonjour', 'bjr', 'salut', 'slt', 'coucou', 'cc', 'merci', 'au revoir', 'à bientôt', 'bonne nuit', 'bonne soirée', 's\'il vous plaît', 'de rien', 'désolé', 'pardon', 'excusez-moi', 'comment allez-vous', 'comment ça va', 'ça va', 'très bien', 'ça marche'],
+          'de': ['hallo', 'halo', 'moin', 'servus', 'guten tag', 'guten morgen', 'morgen', 'danke', 'auf wiedersehen', 'tschüss', 'gute nacht', 'bitte', 'entschuldigung', 'wie geht es dir', 'wie gehts', 'sehr gut'],
+          'it': ['ciao', 'ciaoo', 'ciaooo', 'buongiorno', 'salve', 'ehi', 'grazie', 'arrivederci', 'buonanotte', 'prego', 'scusa', 'come stai', 'come va', 'molto bene'],
+          'pt': ['olá', 'ola', 'oi', 'oiii', 'e aí', 'e ai', 'eae', 'salve', 'obrigado', 'obrigada', 'tchau', 'até logo', 'boa noite', 'por favor', 'desculpa', 'como está', 'como vai', 'muito bem'],
+          'zh': ['你好', '您好', '嗨', '哈喽', '早上好', '谢谢', '再见', '晚安', '请', '对不起', '你怎么样', '很好'],
+          'ja': ['こんにちは', 'おはよう', 'こんばんは', 'はじめまして', 'もしもし', 'ありがとう', 'さようなら', 'すみません', 'お元気ですか', 'はい'],
+          'ko': ['안녕하세요', '안녕', '여보세요', '처음 뵙겠습니다', '감사합니다', '안녕히 가세요', '죄송합니다', '어떻게 지내세요', '좋습니다'],
+          'ru': ['привет', 'приветик', 'здравствуйте', 'здарова', 'добро пожаловать', 'спасибо', 'до свидания', 'пожалуйста', 'извините', 'как дела', 'хорошо'],
+          'ar': ['مرحبا', 'مرحباً', 'أهلاً', 'أهلا', 'السلام عليكم', 'أهلاً وسهلاً', 'شكرا', 'مع السلامة', 'من فضلك', 'آسف', 'كيف حالك', 'بخير'],
+          'hi': ['नमस्ते', 'नमस्कार', 'हैलो', 'आदाब', 'धन्यवाद', 'अलविदा', 'कृपया', 'माफ करें', 'आप कैसे हैं', 'अच्छा'],
+          'nl': ['hallo', 'hoi', 'dag', 'goedemorgen', 'goedemiddag', 'goedenavond', 'dank je', 'tot ziens', 'alsjeblieft', 'sorry', 'hoe gaat het'],
+          'sv': ['hej', 'hejsan', 'tjena', 'god morgon', 'god kväll', 'tack', 'hej då', 'tack så mycket', 'ursäkta', 'hur mår du', 'bra'],
+          'da': ['hej', 'hejsa', 'goddag', 'god morgen', 'god aften', 'tak', 'farvel', 'undskyld', 'hvordan har du det', 'godt'],
+          'no': ['hei', 'heia', 'god morgen', 'god kveld', 'takk', 'ha det', 'unnskyld', 'hvordan har du det', 'bra'],
+          'fi': ['hei', 'moi', 'terve', 'hyvää huomenta', 'hyvää iltaa', 'kiitos', 'näkemiin', 'anteeksi', 'mitä kuuluu', 'hyvää'],
+          'pl': ['cześć', 'witaj', 'dzień dobry', 'dobry wieczór', 'dziękuję', 'do widzenia', 'przepraszam', 'jak się masz', 'dobrze'],
+          'tr': ['merhaba', 'selam', 'selamlar', 'günaydın', 'iyi akşamlar', 'teşekkürler', 'güle güle', 'özür dilerim', 'nasılsın', 'iyi'],
+          'he': ['שלום', 'היי', 'בוקר טוב', 'ערב טוב', 'תודה', 'להתראות', 'סליחה', 'איך אתה', 'טוב'],
+          'th': ['สวัสดี', 'หวัดดี', 'สวัสดีครับ', 'สวัสดีค่ะ', 'ขอบคุณ', 'ลาก่อน', 'ขอโทษ', 'สบายดีไหม', 'ดี'],
+          'vi': ['xin chào', 'chào', 'chào bạn', 'chào anh', 'chào chị', 'cảm ơn', 'tạm biệt', 'xin lỗi', 'bạn khỏe không', 'tốt'],
+          'uk': ['привіт', 'вітаю', 'здравствуйте', 'добрий день', 'добрий ранок', 'дякую', 'до побачення', 'вибачте', 'як справи', 'добре'],
+          'bg': ['здравей', 'здрасти', 'добър ден', 'добро утро', 'добър вечер', 'благодаря', 'довиждане', 'извинете', 'как сте', 'добре'],
+          'cs': ['ahoj', 'čau', 'dobrý den', 'dobré ráno', 'dobrý večer', 'děkuji', 'na shledanou', 'promiňte', 'jak se máte', 'dobře'],
+          'sk': ['ahoj', 'čau', 'dobrý deň', 'dobré ráno', 'dobrý večer', 'ďakujem', 'dovidenia', 'prepáčte', 'ako sa máte', 'dobre'],
+          'hr': ['bok', 'zdravo', 'pozdrav', 'dobro jutro', 'dobra večer', 'hvala', 'doviđenja', 'oprostite', 'kako ste', 'dobro'],
+          'sr': ['здраво', 'ћао', 'поздрав', 'добро јутро', 'добро вече', 'хвала', 'довиђења', 'извините', 'како сте', 'добро'],
+          'sl': ['zdravo', 'živjo', 'pozdravljeni', 'dobro jutro', 'dober večer', 'hvala', 'nasvidenje', 'oprostite', 'kako ste', 'dobro'],
+          'ro': ['salut', 'bună', 'bună ziua', 'bună dimineața', 'bună seara', 'mulțumesc', 'la revedere', 'scuzați-mă', 'ce mai faceți', 'bine'],
+          'hu': ['szia', 'szevasz', 'helló', 'jó napot', 'jó reggelt', 'jó estét', 'köszönöm', 'viszlát', 'elnézést', 'hogy vagy', 'jól']
         };
         
         const queryLower = query.toLowerCase();
+        console.log(`🔍 Query lowercase: "${queryLower}"`);
         
         // Check all languages for common phrases (with word boundaries to avoid false positives)
         for (const [langCode, phrases] of Object.entries(commonPhrasesByLanguage)) {
           const matchedPhrases = phrases.filter(phrase => {
-            // Use word boundaries to avoid matching 'oi' in 'doing' or 'por' in 'important'
-            const regex = new RegExp(`\\b${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-            return regex.test(queryLower);
+            // Use word boundaries for multi-word queries, simple includes for single words
+            const isMultiWord = queryLower.trim().includes(' ');
+            const escapedPhrase = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            
+            if (isMultiWord) {
+              // For multi-word queries, use word boundaries to avoid false positives
+              const regex = new RegExp(`\\b${escapedPhrase}\\b`, 'i');
+              return regex.test(queryLower);
+            } else {
+              // For single words, check if the query exactly matches the phrase
+              return queryLower.trim() === phrase.toLowerCase();
+            }
           });
           
           if (matchedPhrases.length > 0) {
@@ -161,8 +175,10 @@ export default function Home() {
             if (hasVeryShortPhrase && !hasMultipleMatches && !hasLongPhrase) {
               confidence = 0.3; // Very low confidence for single short phrases
             } else {
-              confidence = (hasMultipleMatches || hasLongPhrase) ? 0.9 : 0.6;
+              confidence = (hasMultipleMatches || hasLongPhrase) ? 0.9 : 0.75; // Increased single match confidence
             }
+            
+            console.log(`Language detection: "${query}" -> ${langCode}, confidence: ${confidence}, matched: ${matchedPhrases}`);
             break;
           }
         }
@@ -183,10 +199,13 @@ export default function Home() {
         }
         
         // If detected language is different from English and has good confidence
-        if (detectedLanguage && detectedLanguage !== 'en' && confidence > 0.7) {
+        console.log(`🔍 Final detection check: detectedLanguage=${detectedLanguage}, confidence=${confidence}`);
+        if (detectedLanguage && detectedLanguage !== 'en' && confidence > 0.5) {
           // Auto-update the language dropdown
           setSelectedLanguage(detectedLanguage);
           finalLanguage = detectedLanguage;
+          
+          console.log(`🔍 Language switched to: ${detectedLanguage}`);
           
           // Show a subtle notification about language detection
           const languageName = (languagesData.speculative_supported_languages_nova_proxy.languages as any)[detectedLanguage] || detectedLanguage;
@@ -195,7 +214,11 @@ export default function Home() {
             description: `Automatically switched to ${languageName}. You can change this in the dropdown if needed.`,
             duration: 3000,
           });
-        } else if (detectedLanguage && detectedLanguage !== 'en' && confidence <= 0.7) {
+        } else {
+          console.log(`🔍 No language switch: detectedLanguage=${detectedLanguage}, confidence=${confidence}`);
+        }
+        
+        if (detectedLanguage && detectedLanguage !== 'en' && confidence <= 0.5 && confidence > 0) {
           // Low confidence detection - stay in English but show helpful message
           const errorMessageId = `language_help_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           setMessages((prev) => [...prev, { 
