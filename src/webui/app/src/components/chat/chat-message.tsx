@@ -141,15 +141,15 @@ export function ChatMessage({ message, onRetry }: ChatMessageProps) {
                     : "bg-card text-card-foreground rounded-bl-none border-border"
             )}
         >
-            <div className="prose prose-sm max-w-none dark:prose-invert">
+            <div className={cn("prose prose-sm max-w-none dark:prose-invert", !isUser && "pt-1")}>
                 <ReactMarkdown 
                     remarkPlugins={[remarkGfm]}
                     components={{
                         // Custom component styling to match the chat theme
-                        h1: ({node, ...props}) => <h1 className="text-lg font-bold mb-2 text-foreground" {...props} />,
-                        h2: ({node, ...props}) => <h2 className="text-base font-semibold mb-2 text-foreground" {...props} />,
-                        h3: ({node, ...props}) => <h3 className="text-sm font-medium mb-1 text-foreground" {...props} />,
-                        p: ({node, ...props}) => <p className="mb-2 last:mb-0 text-foreground" {...props} />,
+                        h1: ({node, ...props}) => <h1 className={cn("text-lg font-bold mb-2 text-foreground", !isUser && "mt-1")} {...props} />,
+                        h2: ({node, ...props}) => <h2 className={cn("text-base font-semibold mb-2 text-foreground", !isUser && "mt-1")} {...props} />,
+                        h3: ({node, ...props}) => <h3 className={cn("text-sm font-medium mb-1 text-foreground", !isUser && "mt-1")} {...props} />,
+                        p: ({node, ...props}) => <p className={cn("mb-2 last:mb-0 text-foreground", !isUser && "mt-1 first:mt-1")} {...props} />,
                         ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 text-foreground" {...props} />,
                         ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2 text-foreground" {...props} />,
                         li: ({node, ...props}) => <li className="mb-1 text-foreground" {...props} />,
