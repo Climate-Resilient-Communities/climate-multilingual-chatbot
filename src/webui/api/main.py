@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from typing import Dict, Any
 from collections import defaultdict, deque
 
-from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi import FastAPI, HTTPException, Request, Response, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -212,6 +212,11 @@ async def rate_limit_and_log(request: Request, call_next):
     
     response.headers["X-Request-ID"] = request_id
     return response
+
+@app.head("/")
+async def head():
+    """Handle HEAD requests to check server health"""
+    return Response(status_code=200)
 
 # Health check endpoints
 @app.get("/health")
