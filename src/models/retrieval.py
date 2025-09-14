@@ -1098,7 +1098,8 @@ async def test_retrieval():
         print("\nInitializing components...")
         pc = Pinecone(api_key=PINECONE_API_KEY)
         # Reuse Pinecone Index; log the host once
-        index = pc.Index("climate-change-adaptation-index-10-24-prod")
+        index_name = os.getenv("PINECONE_INDEX_NAME", "climate-change-adaptation-index-10-24-prod")
+        index = pc.Index(index_name)
         try:
             host = getattr(index, "host", None) or getattr(index, "_host", "unknown")
             logger.info(f"dep=pinecone host={host} op=init status=OK")

@@ -23,7 +23,7 @@ MODEL_CONFIG = {
 
 # Retrieval configurations
 RETRIEVAL_CONFIG = {
-    "pinecone_index": "climate-change-adaptation-index-10-24-prod",
+    "pinecone_index": os.getenv("PINECONE_INDEX_NAME", "climate-change-adaptation-index-10-24-prod"),
     # Base knobs
     "top_k_retrieve": 15,           # legacy top-k before rerank (kept for compatibility)
     "top_k_rerank": 5,              # cross-encoder final cap

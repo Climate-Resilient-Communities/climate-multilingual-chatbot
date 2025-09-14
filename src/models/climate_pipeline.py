@@ -52,7 +52,7 @@ class ClimateQueryPipeline:
             self.cohere_model = CohereModel()
 
             # Eager heavy initialization for embeddings, index, and Cohere client
-            self.index_name = index_name or "climate-change-adaptation-index-10-24-prod"
+            self.index_name = index_name or os.getenv("PINECONE_INDEX_NAME", "climate-change-adaptation-index-10-24-prod")
             _t0 = time.time()
             self.embed_model = self._initialize_embedding_model()
             logger.info(f"Init: embeddings model ready in {time.time() - _t0:.2f}s")

@@ -55,33 +55,49 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 Starting Climate Chatbot API...")
     
     try:
-        # Initialize core components
+        # Initialize core components with error handling
         logger.info("Initializing pipeline components...")
         
-        # Climate processing pipeline (main component)
-        pipeline = ClimateQueryPipeline()
-        
-        # Start prewarm in background to not block startup
-        asyncio.create_task(background_prewarm())
-        logger.info("✅ Climate pipeline initialized (prewarming in background)")
+        # Climate processing pipeline (main component) - with graceful degradation
+        try:
+            pipeline = ClimateQueryPipeline()
+            # Start prewarm in background to not block startup
+            asyncio.create_task(background_prewarm())
+            logger.info("✅ Climate pipeline initialized (prewarming in background)")
+        except Exception as e:
+            logger.warning(f"⚠️  Climate pipeline initialization failed: {str(e)}")
+            pipeline = None
         
         # Conversation parser for history handling
-        conversation_parser = ConversationParser()
-        logger.info("✅ Conversation parser initialized")
+        try:
+            conversation_parser = ConversationParser()
+            logger.info("✅ Conversation parser initialized")
+        except Exception as e:
+            logger.warning(f"⚠️  Conversation parser initialization failed: {str(e)}")
+            conversation_parser = None
         
         # Language router for model selection
-        router = MultilingualRouter()
-        logger.info("✅ Language router initialized")
+        try:
+            router = MultilingualRouter()
+            logger.info("✅ Language router initialized")
+        except Exception as e:
+            logger.warning(f"⚠️  Language router initialization failed: {str(e)}")
+            router = None
         
         # Redis cache for sessions and feedback
-        cache = ClimateCache()
-        logger.info("✅ Redis cache initialized")
+        try:
+            cache = ClimateCache()
+            logger.info("✅ Redis cache initialized")
+        except Exception as e:
+            logger.warning(f"⚠️  Redis cache initialization failed: {str(e)}")
+            cache = None
         
-        logger.info("🎉 All components initialized successfully!")
+        logger.info("🎉 API startup completed (some components may be in degraded mode)")
         
     except Exception as e:
-        logger.error(f"❌ Failed to initialize components: {str(e)}")
-        raise
+        logger.error(f"❌ Critical startup failure: {str(e)}")
+        # Don't raise - allow API to start in degraded mode
+        logger.warning("⚠️  Starting in degraded mode - some features may not work")
     
     yield
     
@@ -295,17 +311,36 @@ def get_cache() -> ClimateCache:
 # Mount the static files directory for Next.js assets
 frontend_out_dir = os.path.join(os.path.dirname(__file__), "..", "app", "out")
 if os.path.exists(frontend_out_dir):
-    # Mount Next.js static assets
-    app.mount("/_next", StaticFiles(directory=os.path.join(frontend_out_dir, "_next")), name="next-static")
-    logger.info(f"✅ Mounted Next.js static files from {frontend_out_dir}")
+    # Mount Next.js static assets - check if _next directory exists
+    next_static_dir = os.path.join(frontend_out_dir, "_next")
+    if os.path.exists(next_static_dir):
+        app.mount("/_next", StaticFiles(directory=next_static_dir), name="next-static")
+        logger.info(f"✅ Mounted Next.js _next static files from {next_static_dir}")
+    
+    # Mount other static assets that might be in different directories
+    static_dir = os.path.join(frontend_out_dir, "static")
+    if os.path.exists(static_dir):
+        app.mount("/static", StaticFiles(directory=static_dir), name="static-assets")
+        logger.info(f"✅ Mounted static assets from {static_dir}")
+    
+    logger.info(f"✅ Frontend directory found at {frontend_out_dir}")
 
 # Import and include routers
 from .routers import chat, languages, feedback, streaming
+try:
+    from .routers import admin_simple as admin
+    admin_available = True
+    logger.info("✅ Admin router loaded (simplified version)")
+except ImportError as e:
+    logger.warning(f"Admin router disabled due to import error: {e}")
+    admin_available = False
 
 app.include_router(chat.router, prefix="/api/v1", tags=["chat"])
 app.include_router(languages.router, prefix="/api/v1", tags=["languages"])
 app.include_router(feedback.router, prefix="/api/v1", tags=["feedback"])
 app.include_router(streaming.router, prefix="/api/v1", tags=["streaming"])
+if admin_available:
+    app.include_router(admin.router, tags=["admin"])
 
 # Serve static assets (favicon, logos, etc.) before catch-all route
 @app.get("/favicon.ico")
