@@ -1,10 +1,12 @@
 """
 Enhanced feedback system
-Integrates with Redis cache for storing granular feedback data
+Integrates with Redis cache and Google Sheets for storing granular feedback data
 """
 
 import time
 import logging
+import os
+import json
 from typing import List, Optional, Dict, Any
 from uuid import uuid4
 from datetime import datetime
@@ -13,6 +15,10 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel, Field, validator
 
 from src.models.redis_cache import ClimateCache
+
+# Google Sheets imports
+import gspread
+from google.oauth2.service_account import Credentials
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +41,72 @@ THUMBS_DOWN_CATEGORIES = [
     "guard-filter",     # Guard Filter Misclassified
     "other"            # Other
 ]
+
+# Google Sheets helper functions
+def get_google_sheets_client():
+    """Initialize Google Sheets client using service account credentials"""
+    try:
+        # Try to get credentials from environment variable (JSON string)
+        creds_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+        if creds_json:
+            creds_info = json.loads(creds_json)
+            credentials = Credentials.from_service_account_info(
+                creds_info,
+                scopes=['https://www.googleapis.com/auth/spreadsheets']
+            )
+        else:
+            # Fallback to service account file
+            creds_file = os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json")
+            if not os.path.exists(creds_file):
+                logger.warning(f"Google service account file not found: {creds_file}")
+                return None
+            
+            credentials = Credentials.from_service_account_file(
+                creds_file,
+                scopes=['https://www.googleapis.com/auth/spreadsheets']
+            )
+        
+        return gspread.authorize(credentials)
+    except Exception as e:
+        logger.warning(f"Failed to initialize Google Sheets client: {e}")
+        return None
+
+async def append_to_google_sheets(feedback_data: dict):
+    """Append feedback data to Google Sheets"""
+    try:
+        sheets_id = os.getenv("GOOGLE_SHEETS_ID")
+        if not sheets_id:
+            logger.warning("GOOGLE_SHEETS_ID not configured, skipping Sheets storage")
+            return False
+        
+        # Initialize Google Sheets client
+        gc = get_google_sheets_client()
+        if not gc:
+            logger.warning("Google Sheets client not available, skipping Sheets storage")
+            return False
+        
+        sheet = gc.open_by_key(sheets_id)
+        worksheet = sheet.get_worksheet(0)  # Use first worksheet
+        
+        # Prepare row data to append
+        row_data = [
+            feedback_data.get('timestamp', datetime.now().isoformat()),
+            feedback_data.get('feedback_id', ''),
+            feedback_data.get('message_id', ''),
+            feedback_data.get('feedback_type', ''),
+            ', '.join(feedback_data.get('categories', [])),  # Join categories with commas
+            feedback_data.get('comment', '') or '',
+            feedback_data.get('language_code', 'en')
+        ]
+        
+        # Append the row to the sheet
+        worksheet.append_row(row_data)
+        logger.info(f"Successfully appended feedback {feedback_data.get('feedback_id')} to Google Sheets")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to append feedback to Google Sheets: {e}")
+        return False
 
 # Pydantic models
 class FeedbackRequest(BaseModel):
@@ -151,7 +223,7 @@ async def submit_feedback(
             message_feedback_key = f"message_feedback:{request.message_id}"
             await cache.add_to_list(message_feedback_key, feedback_id)
             
-            logger.info(f"Feedback stored successfully: id={feedback_id}")
+            logger.info(f"Feedback stored successfully in Redis: id={feedback_id}")
             
         except Exception as e:
             logger.error(f"Failed to store feedback in cache: {str(e)}")
@@ -167,6 +239,15 @@ async def submit_feedback(
                     }
                 }
             )
+        
+        # Also store in Google Sheets for persistent analytics (non-blocking)
+        try:
+            feedback_dict_for_sheets = feedback_data.dict()
+            feedback_dict_for_sheets['timestamp'] = feedback_dict_for_sheets['timestamp'].isoformat()
+            await append_to_google_sheets(feedback_dict_for_sheets)
+        except Exception as e:
+            # Don't fail the request if Google Sheets fails - just log it
+            logger.warning(f"Failed to store feedback in Google Sheets (non-blocking): {str(e)}")
         
         return FeedbackResponse(
             success=True,
