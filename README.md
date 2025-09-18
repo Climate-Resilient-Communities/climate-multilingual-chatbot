@@ -6,7 +6,7 @@ A comprehensive multilingual climate change assistant powered by Amazon Bedrock 
 
 - **Multilingual Support**: 180+ languages with intelligent model routing
 - **Real-time Chat**: Server-sent events for streaming responses
-- **Smart Caching**: Redis-based caching with bypass functionality  
+- **Smart Caching**: Redis-based caching with bypass functionality
 - **Citation System**: Comprehensive source attribution with link validation
 - **Safety Filters**: Advanced off-topic and harmful content filtering
 - **Export Functionality**: Save conversations in multiple formats
@@ -54,10 +54,10 @@ npm install
 cd ../../..
 
 # Start development servers (run in separate terminals)
-# Terminal 1 - Backend API:
+# Backend:
 uvicorn src.webui.api.main:app --host 0.0.0.0 --port 8000 --reload
 
-# Terminal 2 - Frontend (development mode):
+# Frontend (development mode):
 cd src/webui/app && npm run dev
 
 # Terminal 3 - Admin API (optional):
@@ -71,13 +71,14 @@ For full functionality including analytics and cost tracking:
 1. **Setup Environment Variables** (see Configuration section below)
 2. **Configure Google Sheets** (see Admin Dashboard Setup)
 3. **Run All Services**:
+
    ```bash
    # Start main application
    uvicorn src.webui.api.main:app --host 0.0.0.0 --port 8000 --reload
-   
+
    # Start admin API (in another terminal)
    python admin_api_server.py
-   
+
    # Start frontend development server (in another terminal)
    cd src/webui/app && npm run dev
    ```
@@ -108,17 +109,7 @@ PINECONE_INDEX_NAME=your_index_name
 
 # Redis (optional, uses in-memory fallback)
 REDIS_URL=redis://localhost:6379
-```
 
-### Admin Dashboard Setup
-
-The admin dashboard provides analytics, cost tracking, and user interaction insights. It runs as a standalone API server.
-
-#### 1. Environment Variables for Admin API
-
-Create a `.env` file in the project root with these variables:
-
-```bash
 # Admin Dashboard Authentication
 ADMIN_PASSWORD=your_secure_admin_password
 
@@ -127,114 +118,26 @@ GOOGLE_SHEETS_ID=your_google_sheets_spreadsheet_id
 GOOGLE_SERVICE_ACCOUNT_FILE=credentials.json
 ```
 
-#### 2. Google Service Account Setup
-
-1. **Create a Google Cloud Project**:
-   - Go to [Google Cloud Console](https://console.cloud.google.com/)
-   - Create a new project or select existing one
-
-2. **Enable Google Sheets API**:
-   - Navigate to "APIs & Services" > "Library"
-   - Search for "Google Sheets API" and enable it
-
-3. **Create Service Account**:
-   - Go to "APIs & Services" > "Credentials"
-   - Click "Create Credentials" > "Service Account"
-   - Fill in service account details
-   - Grant "Editor" role for Google Sheets access
-
-4. **Download Credentials**:
-   - In the service accounts list, click on your newly created account
-   - Go to "Keys" tab > "Add Key" > "Create New Key"
-   - Choose JSON format and download
-   - Rename the file to `credentials.json` and place it in the project root
-
-#### 3. Google Sheets Setup
-
-1. **Create Analytics Spreadsheet**:
-   - Create a new Google Sheets document
-   - Copy the spreadsheet ID from the URL: `https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit`
-   - Add this ID to your `.env` file as `GOOGLE_SHEETS_ID`
-
-2. **Share with Service Account**:
-   - Open the spreadsheet
-   - Click "Share" button
-   - Add your service account email (found in `credentials.json` as `client_email`)
-   - Give "Editor" permissions
-
-3. **Setup Sheets Structure**:
-   The admin API will automatically create these sheets:
-   - `Analytics` - User interaction data
-   - `Feedback` - User feedback and ratings
-   - `Costs` - Model usage cost tracking
-
-#### 4. Running the Admin API Server
-
-```bash
-# Start the admin API server (runs on port 3001)
-python admin_api_server.py
-
-# Or run in background
-nohup python admin_api_server.py &
-```
-
-The admin dashboard will be available at:
-- **API Documentation**: http://localhost:3001/docs
-- **Dashboard Interface**: http://localhost:9002/admin/dashboard (when Next.js frontend is running)
-
 #### 5. Admin Dashboard Features
 
 - **🔐 Password Protection**: Secure admin access
 - **📊 Analytics Overview**: Total interactions, daily trends
 - **💰 Cost Tracking**: Real-time cost estimates for AI models
   - Cohere Command-A: ~$5.00 per 1M tokens
-  - Amazon Nova Pro: ~$0.60 per 1M tokens  
+  - Amazon Nova Pro: ~$0.60 per 1M tokens
   - Pinecone Vector Search: ~$0.20 per 1M tokens
 - **📈 Interaction Breakdown**: User engagement metrics
 - **🛡️ Safety Metrics**: Content filtering statistics
 - **💾 Persistent Storage**: Data saved to Google Sheets for long-term analysis
 
-#### 6. Troubleshooting Admin Setup
-
-**Common Issues**:
-
-1. **Google Sheets Permission Error**:
-   ```bash
-   # Ensure service account email has editor access to spreadsheet
-   # Check that GOOGLE_SHEETS_ID matches your spreadsheet URL
-   ```
-
-2. **Credentials File Not Found**:
-   ```bash
-   # Verify credentials.json is in project root
-   # Check GOOGLE_SERVICE_ACCOUNT_FILE path in .env
-   ```
-
-3. **Admin Password Issues**:
-   ```bash
-   # Set a strong ADMIN_PASSWORD in .env file
-   # Restart admin_api_server.py after changes
-   ```
-
-4. **Port Conflicts**:
-   ```bash
-   # Admin API runs on port 3001 by default
-   # Ensure port is available or modify in admin_api_server.py
-   ```
-
-**Testing the Setup**:
-```bash
-# Test API endpoints
-curl http://localhost:3001/health
-curl -X POST http://localhost:3001/analytics/test-increment
-```
-
 ## 📋 Supported Languages
 
 ### Command-A Model (22 languages)
+
 Arabic, Bengali, Chinese, Filipino, French, Gujarati, Korean, Persian, Russian, Tamil, Urdu, Vietnamese, Polish, Turkish, Dutch, Czech, Indonesian, Ukrainian, Romanian, Greek, Hindi, Hebrew
 
-### Nova Model (6 languages)  
+### Nova Model (6 languages)
+
 English, Spanish, Japanese, German, Swedish, Danish
 
 ## 🧪 Testing
@@ -247,8 +150,9 @@ python comprehensive_multilingual_test.py
 ```
 
 **Latest Test Results**: 64.6% overall score
+
 - Language Detection: 87.2% (Excellent)
-- Query Rewriting: 96.6% (Outstanding) 
+- Query Rewriting: 96.6% (Outstanding)
 - Citations: 60.5% (Good)
 - Answer Quality: 57.6% (Acceptable)
 - Safety Filtering: 37.1% (Needs Work)
@@ -264,7 +168,7 @@ python comprehensive_multilingual_test.py
 │   ├── data/config/       # Configuration files
 │   └── utils/             # Shared utilities (including cost_tracker.py)
 ├── admin_api_server.py    # Standalone admin API server
-├── credentials.json       # Google Service Account credentials
+├── credentials.json       # Google Service Account credentials (must add yourself using Google API)
 ├── analytics_data.json    # Local analytics storage (auto-generated)
 ├── build.sh              # Production build script
 ├── STARTUP_GUIDE.md       # Detailed setup instructions
@@ -281,7 +185,7 @@ python comprehensive_multilingual_test.py
 ## 🛡️ Security
 
 - Input validation and sanitization
-- Rate limiting and abuse protection  
+- Rate limiting and abuse protection
 - Content filtering for harmful/off-topic queries
 - URL validation for citations
 - CORS protection
@@ -290,6 +194,7 @@ python comprehensive_multilingual_test.py
 ## 🔄 Deployment
 
 The application uses a **single deployment model**:
+
 1. Next.js builds to static files (`out/` directory)
 2. FastAPI serves both API endpoints and static files
 3. All traffic goes through the FastAPI server on port 8000
