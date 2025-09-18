@@ -90,6 +90,47 @@ async def process_chat_query(
     try:
         logger.info(f"Processing chat query: id={request_id} query_len={len(request.query)} lang={request.language}")
         
+        # Track interaction in Redis for analytics
+        try:
+            today = time.strftime("%Y-%m-%d")
+            interaction_key = f"analytics:interactions:{today}"
+            total_key = "analytics:total_interactions"
+            
+            # Try Redis first, fall back to file-based tracking
+            try:
+                # Increment daily and total counters
+                await cache.redis_client.incr(interaction_key)
+                await cache.redis_client.incr(total_key)
+                await cache.redis_client.expire(interaction_key, 86400 * 30)  # Keep for 30 days
+                logger.debug(f"Tracked interaction in Redis for {today}")
+            except Exception:
+                # Fallback to file-based tracking
+                import os
+                import json
+                
+                analytics_file = "analytics_data.json"
+                try:
+                    if os.path.exists(analytics_file):
+                        with open(analytics_file, 'r') as f:
+                            data = json.load(f)
+                    else:
+                        data = {"total_interactions": 0, "daily": {}}
+                    
+                    data["total_interactions"] = data.get("total_interactions", 0) + 1
+                    if today not in data["daily"]:
+                        data["daily"][today] = 0
+                    data["daily"][today] += 1
+                    
+                    with open(analytics_file, 'w') as f:
+                        json.dump(data, f)
+                    
+                    logger.debug(f"Tracked interaction in file for {today}")
+                except Exception as file_err:
+                    logger.warning(f"Failed to track interaction in file: {file_err}")
+                
+        except Exception as e:
+            logger.warning(f"Failed to track interaction: {e}")
+        
         # Step 1: Parse conversation history
         standardized_history = []
         if request.conversation_history:

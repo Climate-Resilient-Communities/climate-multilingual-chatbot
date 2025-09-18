@@ -8,6 +8,7 @@ import logging
 import time
 from typing import Dict, Any
 from uuid import uuid4
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import StreamingResponse
@@ -151,6 +152,53 @@ async def stream_chat_response(
     Returns real-time progress updates and token-by-token response
     """
     request_id = getattr(http_request.state, 'request_id', str(uuid4()))
+    
+    # Track interaction for analytics
+    try:
+        # Try to import Redis client
+        try:
+            from src.models.redis_cache import get_redis
+            redis_client = get_redis()
+            
+            # Increment total interactions
+            redis_client.incr("analytics:total_interactions")
+            
+            # Increment daily interactions
+            today = datetime.now().strftime("%Y-%m-%d")
+            redis_client.incr(f"analytics:daily:{today}")
+            
+            logger.info("Interaction tracked in Redis")
+            
+        except Exception as redis_error:
+            logger.warning(f"Redis interaction tracking failed, using file fallback: {redis_error}")
+            
+            # File-based fallback
+            import os
+            analytics_file = "analytics_data.json"
+            
+            try:
+                if os.path.exists(analytics_file):
+                    with open(analytics_file, 'r') as f:
+                        data = json.load(f)
+                else:
+                    data = {"total_interactions": 0, "daily": {}}
+                
+                # Increment counters
+                data["total_interactions"] += 1
+                today = datetime.now().strftime("%Y-%m-%d")
+                data["daily"][today] = data["daily"].get(today, 0) + 1
+                
+                # Write back to file
+                with open(analytics_file, 'w') as f:
+                    json.dump(data, f, indent=2)
+                
+                logger.info(f"Interaction tracked in file: {data['total_interactions']} total")
+                
+            except Exception as file_error:
+                logger.error(f"Failed to track interaction: {file_error}")
+                
+    except Exception as e:
+        logger.error(f"Interaction tracking failed: {e}")
     
     logger.info(f"Starting SSE stream: id={request_id} query_len={len(request.query)}")
     

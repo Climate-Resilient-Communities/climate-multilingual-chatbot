@@ -46,9 +46,14 @@ THUMBS_DOWN_CATEGORIES = [
 def get_google_sheets_client():
     """Initialize Google Sheets client using service account credentials"""
     try:
+        logger.info(f"🟡 SHEETS AUTH: Starting Google Sheets client initialization")
+        
         # Try to get credentials from environment variable (JSON string)
         creds_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+        logger.info(f"🟡 SHEETS AUTH: creds_json exists: {bool(creds_json)}")
+        
         if creds_json:
+            logger.info(f"🟡 SHEETS AUTH: Using JSON credentials from environment variable")
             creds_info = json.loads(creds_json)
             credentials = Credentials.from_service_account_info(
                 creds_info,
@@ -57,55 +62,83 @@ def get_google_sheets_client():
         else:
             # Fallback to service account file
             creds_file = os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json")
+            logger.info(f"🟡 SHEETS AUTH: creds_file path: {creds_file}")
+            logger.info(f"🟡 SHEETS AUTH: creds_file exists: {os.path.exists(creds_file)}")
+            
             if not os.path.exists(creds_file):
-                logger.warning(f"Google service account file not found: {creds_file}")
+                logger.warning(f"❌ SHEETS AUTH: Google service account file not found: {creds_file}")
                 return None
             
+            logger.info(f"🟡 SHEETS AUTH: Using credentials file: {creds_file}")
             credentials = Credentials.from_service_account_file(
                 creds_file,
                 scopes=['https://www.googleapis.com/auth/spreadsheets']
             )
         
-        return gspread.authorize(credentials)
+        logger.info(f"✅ SHEETS AUTH: Successfully created credentials")
+        
+        client = gspread.authorize(credentials)
+        logger.info(f"✅ SHEETS AUTH: Successfully authorized gspread client")
+        
+        return client
+        
     except Exception as e:
-        logger.warning(f"Failed to initialize Google Sheets client: {e}")
+        logger.error(f"❌ SHEETS AUTH: Failed to initialize Google Sheets client: {e}")
+        logger.error(f"❌ SHEETS AUTH ERROR TYPE: {type(e).__name__}")
+        import traceback
+        logger.error(f"❌ SHEETS AUTH TRACEBACK: {traceback.format_exc()}")
         return None
 
 async def append_to_google_sheets(feedback_data: dict):
     """Append feedback data to Google Sheets"""
     try:
+        logger.info(f"🟡 SHEETS START: Attempting to append feedback to Google Sheets")
+        logger.info(f"🟡 SHEETS DATA: {feedback_data}")
+        
         sheets_id = os.getenv("GOOGLE_SHEETS_ID")
         if not sheets_id:
-            logger.warning("GOOGLE_SHEETS_ID not configured, skipping Sheets storage")
+            logger.warning("❌ SHEETS CONFIG: GOOGLE_SHEETS_ID not configured, skipping Sheets storage")
             return False
+        
+        logger.info(f"🟡 SHEETS CONFIG: Using sheet ID: {sheets_id}")
         
         # Initialize Google Sheets client
         gc = get_google_sheets_client()
         if not gc:
-            logger.warning("Google Sheets client not available, skipping Sheets storage")
+            logger.warning("❌ SHEETS CLIENT: Google Sheets client not available, skipping Sheets storage")
             return False
         
-        sheet = gc.open_by_key(sheets_id)
-        worksheet = sheet.get_worksheet(0)  # Use first worksheet
+        logger.info(f"✅ SHEETS CLIENT: Successfully created Google Sheets client")
         
-        # Prepare row data to append
+        sheet = gc.open_by_key(sheets_id)
+        logger.info(f"✅ SHEETS OPEN: Successfully opened sheet: {sheet.title}")
+        
+        worksheet = sheet.get_worksheet(0)  # Use first worksheet
+        logger.info(f"✅ SHEETS WORKSHEET: Successfully accessed worksheet: {worksheet.title}")
+        
+        # Prepare row data to append - Map to Google Form columns properly
         row_data = [
-            feedback_data.get('timestamp', datetime.now().isoformat()),
-            feedback_data.get('feedback_id', ''),
-            feedback_data.get('message_id', ''),
-            feedback_data.get('feedback_type', ''),
-            ', '.join(feedback_data.get('categories', [])),  # Join categories with commas
-            feedback_data.get('comment', '') or '',
-            feedback_data.get('language_code', 'en')
+            feedback_data.get('timestamp', datetime.now().isoformat()),  # Timestamp
+            f"👍 Thumbs Up" if feedback_data.get('feedback_type') == 'thumbs_up' else f"👎 Thumbs Down",  # What type of feedback are you sharing?
+            feedback_data.get('language_code', 'en'),  # Which language(s) were you using?
+            feedback_data.get('comment', '') or f"Automated feedback from message {feedback_data.get('message_id', '')}",  # Briefly describe your feedback
+            f"Feedback ID: {feedback_data.get('feedback_id', '')} | Categories: {', '.join(feedback_data.get('categories', []))}",  # If this is a bug...
+            f"Message ID: {feedback_data.get('message_id', '')}",  # Conversation history
+            "Via Chatbot Interface"  # How often do you use the climate chatbot?
         ]
+        
+        logger.info(f"🟡 SHEETS ROW: Preparing to append row: {row_data}")
         
         # Append the row to the sheet
         worksheet.append_row(row_data)
-        logger.info(f"Successfully appended feedback {feedback_data.get('feedback_id')} to Google Sheets")
+        logger.info(f"✅ SHEETS SUCCESS: Successfully appended feedback {feedback_data.get('feedback_id')} to Google Sheets")
         return True
         
     except Exception as e:
-        logger.error(f"Failed to append feedback to Google Sheets: {e}")
+        logger.error(f"❌ SHEETS ERROR: Failed to append feedback to Google Sheets: {e}")
+        logger.error(f"❌ SHEETS ERROR TYPE: {type(e).__name__}")
+        import traceback
+        logger.error(f"❌ SHEETS ERROR TRACEBACK: {traceback.format_exc()}")
         return False
 
 # Pydantic models
@@ -216,6 +249,9 @@ async def submit_feedback(
             feedback_dict = feedback_data.dict()
             feedback_dict['timestamp'] = feedback_dict['timestamp'].isoformat()
             
+            logger.info(f"🔵 FEEDBACK SUBMISSION - Starting Redis storage for feedback_id: {feedback_id}")
+            logger.info(f"🔵 FEEDBACK DATA: {feedback_dict}")
+            
             # Store feedback data
             await cache.store_feedback(feedback_key, feedback_dict)
             
@@ -223,10 +259,10 @@ async def submit_feedback(
             message_feedback_key = f"message_feedback:{request.message_id}"
             await cache.add_to_list(message_feedback_key, feedback_id)
             
-            logger.info(f"Feedback stored successfully in Redis: id={feedback_id}")
+            logger.info(f"✅ REDIS SUCCESS: Feedback stored successfully in Redis: id={feedback_id}")
             
         except Exception as e:
-            logger.error(f"Failed to store feedback in cache: {str(e)}")
+            logger.error(f"❌ REDIS ERROR: Failed to store feedback in cache: {str(e)}")
             raise HTTPException(
                 status_code=500,
                 detail={
@@ -242,12 +278,22 @@ async def submit_feedback(
         
         # Also store in Google Sheets for persistent analytics (non-blocking)
         try:
+            logger.info(f"🟡 GOOGLE SHEETS - Starting Google Sheets storage for feedback_id: {feedback_id}")
             feedback_dict_for_sheets = feedback_data.dict()
             feedback_dict_for_sheets['timestamp'] = feedback_dict_for_sheets['timestamp'].isoformat()
-            await append_to_google_sheets(feedback_dict_for_sheets)
+            
+            sheets_result = await append_to_google_sheets(feedback_dict_for_sheets)
+            if sheets_result:
+                logger.info(f"✅ GOOGLE SHEETS SUCCESS: Feedback stored in Google Sheets: id={feedback_id}")
+            else:
+                logger.warning(f"⚠️ GOOGLE SHEETS WARNING: Failed to store in Google Sheets but continuing: id={feedback_id}")
+                
         except Exception as e:
             # Don't fail the request if Google Sheets fails - just log it
-            logger.warning(f"Failed to store feedback in Google Sheets (non-blocking): {str(e)}")
+            logger.error(f"❌ GOOGLE SHEETS ERROR: Failed to store feedback in Google Sheets (non-blocking): {str(e)}")
+            logger.error(f"❌ GOOGLE SHEETS ERROR DETAILS: feedback_id={feedback_id}, error_type={type(e).__name__}")
+        
+        logger.info(f"🎉 FEEDBACK COMPLETE: Successfully processed feedback submission: id={feedback_id}")
         
         return FeedbackResponse(
             success=True,

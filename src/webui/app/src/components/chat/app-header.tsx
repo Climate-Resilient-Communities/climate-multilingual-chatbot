@@ -257,13 +257,13 @@ export function AppHeader({
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      <Button variant="outline" className="mt-4 w-full">
+                      <Button variant="default" className="mt-4 w-full">
                         Submit Feedback
                       </Button>
                     </a>
                     <Button
-                      variant="secondary"
-                      className="mt-2 w-full"
+                      variant="outline"
+                      className="mt-2 w-full text-xs bg-white text-gray-700 hover:bg-gray-50 border-gray-300"
                       onClick={() => {
                         setSettingsOpen(false);
                         setAdminDashboardOpen(true);

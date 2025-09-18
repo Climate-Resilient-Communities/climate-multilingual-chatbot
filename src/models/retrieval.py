@@ -29,6 +29,13 @@ from urllib.parse import urlparse
 from pinecone import Pinecone
 from FlagEmbedding import BGEM3FlagModel
 from src.models.rerank import rerank_fcn
+
+# Import cost tracking
+try:
+    from src.utils.cost_tracker import get_cost_tracker, ModelType
+except ImportError:
+    get_cost_tracker = None
+    ModelType = None
 from src.models.title_normalizer import normalize_title
 from src.utils.env_loader import load_environment
 from langsmith import traceable
@@ -207,6 +214,26 @@ def issue_hybrid_query(index, sparse_embedding: Dict, dense_embedding: List[floa
     try:
         result = index.query(**kwargs)
         elapsed_ms = int((time.time() - start) * 1000)
+        
+        # Track Pinecone usage (non-async)
+        if get_cost_tracker and ModelType:
+            try:
+                cost_tracker = get_cost_tracker()
+                # Schedule the async call to run in the background
+                asyncio.create_task(cost_tracker.track_model_usage(
+                    model_type=ModelType.PINECONE_OPERATIONS,
+                    vector_operations=1,  # One query operation
+                    processing_time_ms=elapsed_ms,
+                    query_id=None,
+                    language_code=None,
+                    cache_hit=False,
+                    session_id=None,
+                    query_type="vector_search"
+                ))
+                logger.debug(f"Tracked Pinecone query: {elapsed_ms}ms")
+            except Exception as e:
+                logger.warning(f"Failed to track Pinecone usage: {e}")
+        
         try:
             host = getattr(index, "host", None) or getattr(index, "_host", "unknown")
         except Exception:

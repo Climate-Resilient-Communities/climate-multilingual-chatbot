@@ -10,6 +10,13 @@ from concurrent.futures import ThreadPoolExecutor
 import time
 from langsmith import traceable
 
+# Import cost tracking
+try:
+    from src.utils.cost_tracker import get_cost_tracker, ModelType
+except ImportError:
+    get_cost_tracker = None
+    ModelType = None
+
 logger = logging.getLogger(__name__)
 
 # Import system message from the centralized file
@@ -265,6 +272,7 @@ async def _process_documents_and_generate(
         
         # Generate response with Nova, now passing optimized conversation_history
         # Add timeout protection to prevent 5+ minute hangs
+        start_time = time.time()
         response = await asyncio.wait_for(
             model.generate_response(
                 query=query,
@@ -274,6 +282,31 @@ async def _process_documents_and_generate(
             ),
             timeout=45.0  # 45 seconds for main response generation
         )
+        processing_time = time.time() - start_time
+        
+        # Track cost and usage
+        if get_cost_tracker and ModelType:
+            try:
+                # Estimate token usage (rough approximation)
+                input_text = f"{query} {' '.join([doc.get('content', '')[:500] for doc in processed_docs])}"
+                input_tokens = len(input_text) // 4  # Rough estimate
+                output_tokens = len(response) // 4 if isinstance(response, str) else 100
+                
+                cost_tracker = get_cost_tracker()
+                await cost_tracker.track_model_usage(
+                    model_type=ModelType.AWS_NOVA_LITE,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    processing_time_ms=processing_time * 1000,
+                    query_id=None,  # Could add session tracking later
+                    language_code=None,  # Could detect language
+                    cache_hit=False,
+                    session_id=None,
+                    query_type="climate_response"
+                )
+                logger.debug(f"Tracked Nova usage: {input_tokens}+{output_tokens} tokens, {processing_time:.2f}s")
+            except Exception as e:
+                logger.warning(f"Failed to track model usage: {e}")
         
         # Extract citations with full document details
         citations = []

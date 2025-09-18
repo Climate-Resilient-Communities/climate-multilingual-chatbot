@@ -20,6 +20,7 @@ import {
   Users,
   TrendingUp,
   AlertCircle,
+  MessageSquare,
 } from "lucide-react";
 
 interface AnalyticsData {
@@ -36,6 +37,79 @@ interface AnalyticsData {
     worksheet_title: string;
     last_updated: string;
   };
+  manual_feedback: {
+    entries: ManualFeedbackEntry[];
+    count: number;
+  };
+  category_breakdown: {
+    thumbs_up: {
+      instructions: number;
+      comprehensive: number;
+      translation: number;
+      expected: number;
+      other: number;
+    };
+    thumbs_down: {
+      instructions: number;
+      "no-response": number;
+      unrelated: number;
+      translation: number;
+      "guard-filter": number;
+      other: number;
+    };
+  };
+  additional_feedback: AdditionalFeedback[];
+  cost_analytics?: {
+    total_cost: number;
+    total_interactions: number;
+    model_breakdown: {
+      [key: string]: {
+        interactions: number;
+        cost: number;
+        input_tokens: number;
+        output_tokens: number;
+      };
+    };
+    cost_summary: {
+      cohere_cost: number;
+      nova_cost: number;
+      pinecone_cost: number;
+    };
+    recent_interactions: RecentInteraction[];
+    interaction_breakdown: {
+      [key: string]: number;
+    };
+    language_breakdown: {
+      [key: string]: number;
+    };
+  };
+}
+
+interface AdditionalFeedback {
+  timestamp: string;
+  type: "positive" | "negative" | string;
+  comment: string;
+}
+
+interface RecentInteraction {
+  timestamp: string;
+  session_id: string;
+  model: string;
+  language: string;
+  query_type: string;
+  cost: number;
+  processing_time: number;
+  cache_hit: boolean;
+}
+
+interface ManualFeedbackEntry {
+  timestamp: string;
+  feedback_type: string;
+  language: string;
+  description: string;
+  bug_details: string;
+  evidence: string;
+  usage_frequency: string;
 }
 
 function DashboardContent() {
@@ -195,10 +269,10 @@ function DashboardContent() {
                   <CardTitle className="text-sm font-medium">
                     Thumbs Up
                   </CardTitle>
-                  <ThumbsUp className="h-4 w-4 text-green-600" />
+                  <ThumbsUp className="h-4 w-4 text-green-700" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-green-600">
+                  <div className="text-2xl font-bold text-green-800">
                     {data.summary.thumbs_up.toLocaleString()}
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -256,25 +330,55 @@ function DashboardContent() {
                 <CardHeader>
                   <CardTitle>Feedback Breakdown</CardTitle>
                   <CardDescription>
-                    Distribution of user feedback responses
+                    Distribution of user feedback responses with detailed
+                    categories
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <ThumbsUp className="h-4 w-4 text-green-600" />
+                        <ThumbsUp className="h-4 w-4 text-green-700" />
                         <span className="text-sm font-medium">
                           Positive Feedback
                         </span>
                       </div>
                       <div className="text-right">
-                        <Badge variant="secondary" className="text-green-600">
+                        <Badge
+                          variant="secondary"
+                          className="text-green-800 bg-green-100"
+                        >
                           {data.summary.thumbs_up} (
                           {data.summary.positive_percentage}%)
                         </Badge>
                       </div>
                     </div>
+
+                    {/* Positive Feedback Categories */}
+                    {data.category_breakdown &&
+                      Object.keys(data.category_breakdown.thumbs_up).length >
+                        0 && (
+                        <div className="ml-6 space-y-1">
+                          {Object.entries(
+                            data.category_breakdown.thumbs_up
+                          ).map(([category, count]) => (
+                            <div
+                              key={category}
+                              className="flex items-center justify-between text-xs"
+                            >
+                              <span className="text-gray-600 capitalize">
+                                {category}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className="text-green-700 bg-green-50"
+                              >
+                                {count as number}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -284,75 +388,456 @@ function DashboardContent() {
                         </span>
                       </div>
                       <div className="text-right">
-                        <Badge variant="secondary" className="text-red-600">
+                        <Badge
+                          variant="secondary"
+                          className="text-red-600 bg-red-100"
+                        >
                           {data.summary.thumbs_down} (
                           {data.summary.negative_percentage}%)
                         </Badge>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="h-4 w-4 rounded-full bg-gray-400" />
-                        <span className="text-sm font-medium">Unrated</span>
-                      </div>
-                      <div className="text-right">
-                        <Badge variant="outline">
-                          {data.summary.unrated} (
-                          {Math.round(
-                            (data.summary.unrated /
-                              data.summary.total_feedback) *
-                              100
-                          )}
-                          %)
-                        </Badge>
-                      </div>
-                    </div>
+                    {/* Negative Feedback Categories */}
+                    {data.category_breakdown &&
+                      Object.keys(data.category_breakdown.thumbs_down).length >
+                        0 && (
+                        <div className="ml-6 space-y-1">
+                          {Object.entries(
+                            data.category_breakdown.thumbs_down
+                          ).map(([category, count]) => (
+                            <div
+                              key={category}
+                              className="flex items-center justify-between text-xs"
+                            >
+                              <span className="text-gray-600 capitalize">
+                                {category}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className="text-red-600 bg-red-50"
+                              >
+                                {count as number}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                   </div>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Data Source</CardTitle>
-                  <CardDescription>
-                    Google Sheets integration details
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">
-                        Sheets ID
-                      </label>
-                      <p className="text-sm font-mono bg-gray-100 p-2 rounded">
-                        {data.sheet_info.sheets_id}
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">
-                        Worksheet
-                      </label>
-                      <p className="text-sm">
-                        {data.sheet_info.worksheet_title}
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">
-                        Last Updated
-                      </label>
-                      <p className="text-sm">
-                        {new Date(
-                          data.sheet_info.last_updated
-                        ).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              {/* Additional Feedback Comments */}
+              {data.additional_feedback &&
+                data.additional_feedback.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <MessageSquare className="h-5 w-5" />
+                        Recent Comments ({data.additional_feedback.length})
+                      </CardTitle>
+                      <CardDescription>
+                        Latest user feedback with additional details
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3 max-h-80 overflow-y-auto">
+                        {data.additional_feedback
+                          .slice(0, 10)
+                          .map((feedback, index) => (
+                            <div
+                              key={index}
+                              className="border-l-2 border-blue-200 pl-3 py-2"
+                            >
+                              <div className="flex items-center gap-2 mb-1">
+                                {feedback.type === "positive" && (
+                                  <ThumbsUp className="h-3 w-3 text-green-600" />
+                                )}
+                                {feedback.type === "negative" && (
+                                  <ThumbsDown className="h-3 w-3 text-red-600" />
+                                )}
+                                <span className="text-xs text-gray-500">
+                                  {new Date(
+                                    feedback.timestamp
+                                  ).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-700">
+                                {feedback.comment}
+                              </p>
+                            </div>
+                          ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
             </div>
+
+            {/* Manual Feedback Entries Table */}
+            {data.manual_feedback && data.manual_feedback.count > 0 && (
+              <div className="mt-8">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5" />
+                      Manual Form Submissions ({data.manual_feedback.count})
+                    </CardTitle>
+                    <CardDescription>
+                      Detailed feedback submitted through the feedback form
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left p-2 font-medium">Date</th>
+                            <th className="text-left p-2 font-medium">Type</th>
+                            <th className="text-left p-2 font-medium">
+                              Language
+                            </th>
+                            <th className="text-left p-2 font-medium">
+                              Description
+                            </th>
+                            <th className="text-left p-2 font-medium">Usage</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.manual_feedback.entries.map((entry, index) => (
+                            <tr
+                              key={index}
+                              className="border-b hover:bg-gray-50"
+                            >
+                              <td className="p-2">
+                                <div className="text-xs text-gray-500">
+                                  {new Date(
+                                    entry.timestamp
+                                  ).toLocaleDateString()}
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  {new Date(
+                                    entry.timestamp
+                                  ).toLocaleTimeString()}
+                                </div>
+                              </td>
+                              <td className="p-2">
+                                <Badge
+                                  variant={
+                                    entry.feedback_type.includes("Bug")
+                                      ? "destructive"
+                                      : entry.feedback_type.includes(
+                                          "Enhancement"
+                                        )
+                                      ? "default"
+                                      : "secondary"
+                                  }
+                                  className="text-xs"
+                                >
+                                  {entry.feedback_type.includes("Bug")
+                                    ? "🐛 Bug"
+                                    : entry.feedback_type.includes(
+                                        "Enhancement"
+                                      )
+                                    ? "✨ Enhancement"
+                                    : entry.feedback_type.includes("Question")
+                                    ? "❓ Question"
+                                    : "📝 Feedback"}
+                                </Badge>
+                              </td>
+                              <td className="p-2 text-xs">{entry.language}</td>
+                              <td className="p-2">
+                                <div className="max-w-xs">
+                                  <p className="text-xs text-gray-700 line-clamp-2">
+                                    {entry.description}
+                                  </p>
+                                  {entry.bug_details &&
+                                    entry.bug_details !== "Testing" && (
+                                      <p className="text-xs text-gray-500 mt-1 italic">
+                                        Bug:{" "}
+                                        {entry.bug_details.substring(0, 50)}...
+                                      </p>
+                                    )}
+                                </div>
+                              </td>
+                              <td className="p-2">
+                                <Badge variant="outline" className="text-xs">
+                                  {entry.usage_frequency}
+                                </Badge>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Cost Analytics Section */}
+            {data.cost_analytics && (
+              <>
+                {/* Cost Overview Cards */}
+                <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">
+                        Total Cost
+                      </CardTitle>
+                      <div className="h-4 w-4 text-muted-foreground">💰</div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        ${data.cost_analytics.total_cost.toFixed(4)}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        All-time spend
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">
+                        Nova Cost
+                      </CardTitle>
+                      <div className="h-4 w-4 text-muted-foreground">🧠</div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        ${data.cost_analytics.cost_summary.nova_cost.toFixed(4)}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        AWS Bedrock Nova
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">
+                        Pinecone Cost
+                      </CardTitle>
+                      <div className="h-4 w-4 text-muted-foreground">🔍</div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        $
+                        {data.cost_analytics.cost_summary.pinecone_cost.toFixed(
+                          4
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Vector operations
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">
+                        Total Interactions
+                      </CardTitle>
+                      <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {data.cost_analytics.total_interactions.toLocaleString()}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Total queries processed
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Interaction Breakdown and Safety & Sentiment */}
+                <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Interaction Breakdown</CardTitle>
+                      <CardDescription>
+                        Query types and categories
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {Object.entries(
+                          data.cost_analytics.interaction_breakdown
+                        ).map(([type, count]) => (
+                          <div
+                            key={type}
+                            className="flex items-center justify-between"
+                          >
+                            <span className="text-sm font-medium capitalize">
+                              {type.replace("_", " ")}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="secondary">{count}</Badge>
+                              <span className="text-xs text-gray-500">
+                                {data.cost_analytics &&
+                                data.cost_analytics.total_interactions > 0
+                                  ? `${Math.round(
+                                      (count /
+                                        data.cost_analytics
+                                          .total_interactions) *
+                                        100
+                                    )}%`
+                                  : "0%"}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Safety & Sentiment</CardTitle>
+                      <CardDescription>
+                        Content filtering and user satisfaction
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-green-600">
+                            {data.cost_analytics.interaction_breakdown?.[
+                              "on-topic"
+                            ] || 0}
+                          </div>
+                          <div className="text-xs text-gray-500">On-Topic</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-orange-600">
+                            {data.cost_analytics.interaction_breakdown?.[
+                              "off-topic"
+                            ] || 0}
+                          </div>
+                          <div className="text-xs text-gray-500">Off-Topic</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-red-600">
+                            {data.cost_analytics.interaction_breakdown?.[
+                              "harmful"
+                            ] || 0}
+                          </div>
+                          <div className="text-xs text-gray-500">Harmful</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-blue-600">
+                            {(
+                              (data.summary.positive_percentage / 100) *
+                              data.summary.total_feedback
+                            ).toFixed(0)}
+                            %
+                          </div>
+                          <div className="text-xs text-gray-500">Positive</div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Interaction Logs */}
+                {data.cost_analytics.recent_interactions.length > 0 && (
+                  <div className="mt-8">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <BarChart3 className="h-5 w-5" />
+                          Interaction Logs
+                        </CardTitle>
+                        <CardDescription>
+                          Most frequent user queries
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b">
+                                <th className="text-left p-2 font-medium">
+                                  Session ID
+                                </th>
+                                <th className="text-left p-2 font-medium">
+                                  Model
+                                </th>
+                                <th className="text-left p-2 font-medium">
+                                  Query Type
+                                </th>
+                                <th className="text-left p-2 font-medium">
+                                  Language
+                                </th>
+                                <th className="text-left p-2 font-medium">
+                                  Cost
+                                </th>
+                                <th className="text-left p-2 font-medium">
+                                  Time
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {data.cost_analytics.recent_interactions
+                                .slice(0, 10)
+                                .map((interaction, index) => (
+                                  <tr
+                                    key={index}
+                                    className="border-b hover:bg-gray-50"
+                                  >
+                                    <td className="p-2">
+                                      <div className="text-xs font-mono">
+                                        {interaction.session_id?.substring(
+                                          0,
+                                          8
+                                        ) || "N/A"}
+                                      </div>
+                                    </td>
+                                    <td className="p-2">
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs"
+                                      >
+                                        {interaction.model.replace("_", " ")}
+                                      </Badge>
+                                    </td>
+                                    <td className="p-2">
+                                      <span className="text-xs capitalize">
+                                        {interaction.query_type.replace(
+                                          "_",
+                                          " "
+                                        )}
+                                      </span>
+                                    </td>
+                                    <td className="p-2">
+                                      <span className="text-xs">
+                                        {interaction.language || "Unknown"}
+                                      </span>
+                                    </td>
+                                    <td className="p-2">
+                                      <span className="text-xs font-mono">
+                                        ${interaction.cost.toFixed(6)}
+                                      </span>
+                                    </td>
+                                    <td className="p-2">
+                                      <span className="text-xs text-gray-500">
+                                        {new Date(
+                                          interaction.timestamp
+                                        ).toLocaleDateString()}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>
