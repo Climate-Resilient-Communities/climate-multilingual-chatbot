@@ -373,12 +373,10 @@ export function AppHeader({
                       onClick={() => {
                         const password = prompt("Enter admin password:");
                         if (password) {
-                          window.open(
-                            `/admin/dashboard?password=${encodeURIComponent(
-                              password
-                            )}`,
-                            "_blank"
-                          );
+                          // Store password securely in sessionStorage
+                          sessionStorage.setItem('adminToken', password);
+                          // Redirect to dashboard without password in URL
+                          window.open('/admin/dashboard', "_blank");
                         }
                       }}
                     >

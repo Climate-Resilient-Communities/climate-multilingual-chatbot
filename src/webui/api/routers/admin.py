@@ -26,8 +26,18 @@ def verify_admin_password(password: str) -> bool:
         return False
     return password == admin_password
 
-def get_admin_auth(password: str = Query(..., description="Admin password")):
-    """Dependency to verify admin authentication"""
+def get_admin_auth(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)):
+    """Dependency to verify admin authentication using Authorization header"""
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Missing authorization header")
+    
+    if not verify_admin_password(credentials.credentials):
+        raise HTTPException(status_code=401, detail="Invalid admin credentials")
+    return True
+
+# Legacy query parameter auth for backward compatibility
+def get_admin_auth_query(password: str = Query(..., description="Admin password")):
+    """Dependency to verify admin authentication using query parameter (deprecated)"""
     if not verify_admin_password(password):
         raise HTTPException(status_code=401, detail="Invalid admin credentials")
     return True
@@ -58,6 +68,20 @@ def get_google_sheets_client():
     except Exception as e:
         logger.error(f"Failed to initialize Google Sheets client: {e}")
         raise HTTPException(status_code=500, detail="Failed to connect to Google Sheets")
+
+@router.post("/verify")
+async def verify_admin_credentials(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)):
+    """
+    Verify admin credentials
+    Returns success if credentials are valid
+    """
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Missing authorization header")
+    
+    if not verify_admin_password(credentials.credentials):
+        raise HTTPException(status_code=401, detail="Invalid admin credentials")
+    
+    return {"status": "verified", "message": "Admin credentials are valid"}
 
 @router.get("/analytics")
 async def get_analytics(admin_auth: bool = Depends(get_admin_auth)) -> Dict[str, Any]:
@@ -134,3 +158,13 @@ async def get_analytics(admin_auth: bool = Depends(get_admin_auth)) -> Dict[str,
 async def admin_health(admin_auth: bool = Depends(get_admin_auth)) -> Dict[str, str]:
     """Health check for admin endpoints"""
     return {"status": "healthy", "message": "Admin API is operational"}
+
+# Legacy endpoints for backward compatibility (deprecated)
+@router.get("/analytics-legacy")
+async def get_analytics_legacy(admin_auth: bool = Depends(get_admin_auth_query)) -> Dict[str, Any]:
+    """
+    Get analytics data using query parameter authentication (deprecated)
+    Use /analytics with Authorization header instead
+    """
+    # Reuse the main analytics logic
+    return await get_analytics(True)

@@ -29,18 +29,25 @@ load_dotenv()
 
 app = FastAPI(title="Climate Chatbot Admin API", version="1.0.0")
 
+# CORS configuration - environment-driven for security
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:9002,http://127.0.0.1:9002").split(",")
+cors_origins = [origin.strip() for origin in cors_origins]
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for development
+    allow_origins=cors_origins,  # Environment-driven origins
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
 # Admin password from environment
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
-print(ADMIN_PASSWORD)
+if ADMIN_PASSWORD:
+    print("✅ Admin password loaded from environment")
+else:
+    print("⚠️  Warning: ADMIN_PASSWORD not set in environment variables")
 
 # Google Sheets configuration
 GOOGLE_SHEETS_ID = os.getenv("GOOGLE_SHEETS_ID")

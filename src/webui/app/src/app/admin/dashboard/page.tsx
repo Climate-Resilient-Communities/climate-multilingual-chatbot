@@ -117,6 +117,7 @@ function DashboardContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authenticated, setAuthenticated] = useState(false);
+  const [adminToken, setAdminToken] = useState<string | null>(null);
   const searchParams = useSearchParams();
 
   const fetchAnalytics = async (password: string) => {
@@ -124,11 +125,22 @@ function DashboardContent() {
     setError(null);
 
     try {
-      const response = await fetch(
-        `http://localhost:8001/admin/analytics?password=${encodeURIComponent(
-          password
-        )}`
-      );
+      // Try new secure endpoint first with Authorization header
+      let response = await fetch(`/api/v1/admin/analytics`, {
+        headers: {
+          Authorization: `Bearer ${password}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      // Fallback to standalone admin API if main API is not available
+      if (!response.ok && response.status === 404) {
+        response = await fetch(
+          `http://localhost:8001/admin/analytics?password=${encodeURIComponent(
+            password
+          )}`
+        );
+      }
 
       // print the response object for debugging
       console.log("Response:", response);
@@ -146,17 +158,46 @@ function DashboardContent() {
       const analyticsData = await response.json();
       setData(analyticsData);
       setAuthenticated(true);
+      
+      // Store token securely in sessionStorage for subsequent requests
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('adminToken', password);
+        setAdminToken(password);
+        
+        // Clean URL by removing password parameter if present
+        if (searchParams.get("password")) {
+          const url = new URL(window.location.href);
+          url.searchParams.delete("password");
+          window.history.replaceState({}, '', url);
+        }
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "An unknown error occurred"
       );
       setAuthenticated(false);
+      // Clear any stored token on auth failure
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('adminToken');
+        setAdminToken(null);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    // Check for admin token in sessionStorage first (for returning users)
+    if (typeof window !== 'undefined') {
+      const storedToken = sessionStorage.getItem('adminToken');
+      if (storedToken) {
+        setAdminToken(storedToken);
+        fetchAnalytics(storedToken);
+        return;
+      }
+    }
+
+    // Fallback to URL parameter (for initial authentication)
     const password = searchParams.get("password");
     if (password) {
       fetchAnalytics(password);
@@ -164,9 +205,9 @@ function DashboardContent() {
   }, [searchParams]);
 
   const handleRefresh = () => {
-    const password = searchParams.get("password");
-    if (password) {
-      fetchAnalytics(password);
+    const token = adminToken || (typeof window !== 'undefined' ? sessionStorage.getItem('adminToken') : null);
+    if (token) {
+      fetchAnalytics(token);
     }
   };
 
@@ -211,16 +252,34 @@ function DashboardContent() {
                 Real-time feedback insights from Google Sheets
               </p>
             </div>
-            <Button
-              onClick={handleRefresh}
-              disabled={loading}
-              variant="outline"
-            >
-              {loading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              Refresh Data
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleRefresh}
+                disabled={loading}
+                variant="outline"
+              >
+                {loading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Refresh Data
+              </Button>
+              <Button
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    sessionStorage.removeItem('adminToken');
+                    setAdminToken(null);
+                    setAuthenticated(false);
+                    setData(null);
+                    // Redirect to main app or close tab
+                    window.location.href = '/';
+                  }
+                }}
+                variant="outline"
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                Logout
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -700,7 +759,7 @@ function DashboardContent() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-3 gap-4">
                         <div className="text-center">
                           <div className="text-2xl font-bold text-green-600">
                             {data.cost_analytics.interaction_breakdown?.[
@@ -724,16 +783,6 @@ function DashboardContent() {
                             ] || 0}
                           </div>
                           <div className="text-xs text-gray-500">Harmful</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-blue-600">
-                            {(
-                              (data.summary.positive_percentage / 100) *
-                              data.summary.total_feedback
-                            ).toFixed(0)}
-                            %
-                          </div>
-                          <div className="text-xs text-gray-500">Positive</div>
                         </div>
                       </div>
                     </CardContent>

@@ -39,7 +39,7 @@ python admin_api_server.py
 # Main App: http://localhost:8000
 # Admin Dashboard: http://localhost:8000/admin/dashboard
 # API Docs: http://localhost:8000/docs
-# Admin API Docs: http://localhost:3001/docs
+# Admin API Docs: http://localhost:8001/docs
 ```
 
 ### Development Setup
@@ -87,7 +87,7 @@ For full functionality including analytics and cost tracking:
    - **Main Chat**: http://localhost:9002 (dev) or http://localhost:8000 (prod)
    - **Admin Dashboard**: http://localhost:9002/admin/dashboard
    - **API Documentation**: http://localhost:8000/docs
-   - **Admin API**: http://localhost:3001/docs
+   - **Admin API**: http://localhost:8001/docs
 
 ## 🔧 Configuration
 
@@ -109,6 +109,9 @@ PINECONE_INDEX_NAME=your_index_name
 
 # Redis (optional, uses in-memory fallback)
 REDIS_URL=redis://localhost:6379
+
+# CORS Configuration (production)
+CORS_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
 
 # Admin Dashboard Authentication
 ADMIN_PASSWORD=your_secure_admin_password
@@ -184,14 +187,30 @@ python comprehensive_multilingual_test.py
 
 ## 🛡️ Security
 
-- Input validation and sanitization
-- Rate limiting and abuse protection
-- Content filtering for harmful/off-topic queries
-- URL validation for citations
-- CORS protection
-- No sensitive data logging
+- **Secure Admin Authentication**: Uses Authorization headers instead of query parameters for admin access
+- **Environment-based CORS**: CORS origins configured via `CORS_ORIGINS` environment variable
+- **No Hardcoded Secrets**: All passwords and credentials stored in environment variables
+- **Input Validation**: Comprehensive input validation and sanitization
+- **Rate Limiting**: Built-in abuse protection  
+- **Content Filtering**: Advanced filtering for harmful/off-topic queries
+- **URL Validation**: Citation URLs validated for security
+- **Secure Logging**: Sensitive data excluded from application logs
+- **No Client-Side Secrets**: No authentication credentials stored in frontend bundles
 
-## 🔄 Deployment
+### Admin Security
+
+The admin dashboard uses secure authentication:
+
+- **Backend Verification**: Admin credentials verified server-side only
+- **Bearer Token Auth**: Uses `Authorization: Bearer <password>` headers
+- **No URL Exposure**: Admin passwords never appear in URLs or logs
+- **Environment Config**: Admin password set via `ADMIN_PASSWORD` environment variable
+
+```bash
+# Secure admin access example
+curl -H "Authorization: Bearer your_admin_password" \
+     http://localhost:8000/api/v1/admin/analytics
+```## 🔄 Deployment
 
 The application uses a **single deployment model**:
 

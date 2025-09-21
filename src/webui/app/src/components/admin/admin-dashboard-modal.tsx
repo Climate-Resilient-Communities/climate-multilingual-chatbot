@@ -25,18 +25,31 @@ export function AdminDashboardModal({
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const handleAuth = () => {
+  const handleAuth = async () => {
     if (!password.trim()) {
       setError("Please enter a password");
       return;
     }
 
-    // Simple password check - no API call needed
-    if (password === "climate_admin_2024") {
-      setIsAuthenticated(true);
-      setError(null);
-    } else {
-      setError("Invalid password");
+    try {
+      // Verify password with backend API
+      const response = await fetch('/api/v1/admin/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${password}`
+        }
+      });
+
+      if (response.ok) {
+        setIsAuthenticated(true);
+        setError(null);
+      } else {
+        setError("Invalid admin credentials");
+      }
+    } catch (error) {
+      console.error('Authentication error:', error);
+      setError("Authentication failed. Please try again.");
     }
   };
 
