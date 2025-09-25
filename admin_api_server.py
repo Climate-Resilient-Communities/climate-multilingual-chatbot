@@ -15,6 +15,11 @@ import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime
 import json
+import uuid
+import sqlite3
+import threading
+from pathlib import Path
+from collections import defaultdict
 
 # Add src to path for cost tracker import
 sys.path.append('src')
@@ -52,6 +57,116 @@ else:
 # Google Sheets configuration
 GOOGLE_SHEETS_ID = os.getenv("GOOGLE_SHEETS_ID")
 GOOGLE_SERVICE_ACCOUNT_FILE = os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE")
+
+# Database configuration for detailed query tracking
+DB_PATH = "admin_analytics.db"
+db_lock = threading.Lock()
+
+def init_database():
+    """Initialize SQLite database for detailed query tracking"""
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS detailed_queries (
+                id TEXT PRIMARY KEY,
+                timestamp TEXT NOT NULL,
+                session_id TEXT NOT NULL,
+                query_text TEXT NOT NULL,
+                classification TEXT NOT NULL CHECK (classification IN ('on-topic', 'off-topic', 'harmful')),
+                safety_score REAL NOT NULL,
+                language TEXT NOT NULL,
+                model TEXT NOT NULL,
+                response_generated BOOLEAN NOT NULL,
+                blocked_reason TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_classification ON detailed_queries (classification);
+        ''')
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_timestamp ON detailed_queries (timestamp);
+        ''')
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_session ON detailed_queries (session_id);
+        ''')
+        conn.commit()
+        print("✅ Database initialized successfully")
+
+def store_detailed_query(query_data):
+    """Store a detailed query in the database"""
+    with db_lock:
+        try:
+            with sqlite3.connect(DB_PATH) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    INSERT OR REPLACE INTO detailed_queries 
+                    (id, timestamp, session_id, query_text, classification, safety_score, 
+                     language, model, response_generated, blocked_reason)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    query_data.get('id', str(uuid.uuid4())),
+                    query_data['timestamp'],
+                    query_data['session_id'],
+                    query_data['query_text'],
+                    query_data['classification'],
+                    query_data['safety_score'],
+                    query_data['language'],
+                    query_data['model'],
+                    query_data['response_generated'],
+                    query_data.get('blocked_reason')
+                ))
+                conn.commit()
+                return True
+        except Exception as e:
+            print(f"Error storing detailed query: {e}")
+            return False
+
+def get_detailed_queries_by_classification():
+    """Get detailed queries grouped by classification"""
+    with db_lock:
+        try:
+            with sqlite3.connect(DB_PATH) as conn:
+                cursor = conn.cursor()
+                
+                # Get queries by classification
+                result = {
+                    'on_topic': [],
+                    'off_topic': [],
+                    'harmful': []
+                }
+                
+                for classification in ['on-topic', 'off-topic', 'harmful']:
+                    cursor.execute('''
+                        SELECT id, timestamp, session_id, query_text, classification, 
+                               safety_score, language, model, response_generated, blocked_reason
+                        FROM detailed_queries 
+                        WHERE classification = ?
+                        ORDER BY timestamp DESC
+                        LIMIT 10
+                    ''', (classification,))
+                    
+                    queries = []
+                    for row in cursor.fetchall():
+                        queries.append({
+                            'id': row[0],
+                            'timestamp': row[1],
+                            'session_id': row[2],
+                            'query_text': row[3],
+                            'classification': row[4],
+                            'safety_score': row[5],
+                            'language': row[6],
+                            'model': row[7],
+                            'response_generated': bool(row[8]),
+                            'blocked_reason': row[9]
+                        })
+                    
+                    result[classification.replace('-', '_')] = queries
+                
+                return result
+        except Exception as e:
+            print(f"Error retrieving detailed queries: {e}")
+            return {'on_topic': [], 'off_topic': [], 'harmful': []}
 
 def get_google_sheets_client():
     """Initialize and return Google Sheets client"""
@@ -391,6 +506,9 @@ async def get_analytics(password: str = Query(..., description="Admin password")
             "Chinese": int(total_interactions * 0.1)
         }
         
+        # No sample interactions - will be populated by real query logging
+        recent_interactions = []
+        
         # Generate mock recent interactions
         recent_interactions = []
         for i in range(min(10, total_interactions)):
@@ -405,6 +523,9 @@ async def get_analytics(password: str = Query(..., description="Admin password")
                 "cache_hit": i % 3 == 0
             })
         
+        # Get detailed queries from database
+        detailed_queries = get_detailed_queries_by_classification()
+
         analytics_data["cost_analytics"] = {
             "total_cost": round(total_estimated_cost, 6),
             "total_interactions": total_interactions,
@@ -435,7 +556,8 @@ async def get_analytics(password: str = Query(..., description="Admin password")
             },
             "recent_interactions": recent_interactions,
             "interaction_breakdown": interaction_breakdown,
-            "language_breakdown": language_breakdown
+            "language_breakdown": language_breakdown,
+            "detailed_queries": detailed_queries
         }
         
         print(f"Generated cost analytics: Total cost ${total_estimated_cost:.6f} for {total_interactions} interactions")
@@ -593,8 +715,147 @@ async def test_increment_interactions():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to increment: {str(e)}")
 
+@app.post("/admin/queries/store")
+async def store_query_details(
+    query_data: dict,
+    password: str = Query(..., description="Admin password")
+):
+    """Store detailed query information for analytics"""
+    # Verify admin password
+    if password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="Invalid admin password")
+    
+    try:
+        # Validate required fields
+        required_fields = ['session_id', 'query_text', 'classification', 'safety_score', 'language', 'model', 'response_generated']
+        for field in required_fields:
+            if field not in query_data:
+                raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+        
+        # Add timestamp if not provided
+        if 'timestamp' not in query_data:
+            query_data['timestamp'] = datetime.now().isoformat()
+        
+        # Validate classification
+        valid_classifications = ['on-topic', 'off-topic', 'harmful']
+        if query_data['classification'] not in valid_classifications:
+            raise HTTPException(status_code=400, detail=f"Invalid classification. Must be one of: {valid_classifications}")
+        
+        # Store in database
+        success = store_detailed_query(query_data)
+        
+        if success:
+            return {"success": True, "message": "Query details stored successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to store query details")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error storing query: {str(e)}")
+
+@app.get("/admin/queries/detailed")
+async def get_detailed_queries(password: str = Query(..., description="Admin password")):
+    """Get detailed queries grouped by classification"""
+    # Verify admin password
+    if password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="Invalid admin password")
+    
+    try:
+        detailed_queries = get_detailed_queries_by_classification()
+        
+        # Get statistics
+        stats = {}
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT classification, COUNT(*) 
+                FROM detailed_queries 
+                GROUP BY classification
+            ''')
+            for classification, count in cursor.fetchall():
+                stats[classification.replace('-', '_')] = count
+        
+        return {
+            "detailed_queries": detailed_queries,
+            "statistics": stats,
+            "total_stored": sum(stats.values())
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving detailed queries: {str(e)}")
+
+# Endpoint to simulate storing sample queries for testing
+@app.post("/admin/queries/populate-sample")
+async def populate_sample_queries(password: str = Query(..., description="Admin password")):
+    """Populate database with sample queries for testing"""
+    # Verify admin password
+    if password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="Invalid admin password")
+    
+    try:
+        sample_queries = [
+            {
+                "session_id": "sess_001",
+                "query_text": "What are the main causes of climate change and how do they impact global temperatures?",
+                "classification": "on-topic",
+                "safety_score": 0.95,
+                "language": "English",
+                "model": "aws_nova_lite",
+                "response_generated": True,
+                "timestamp": (datetime.now() - datetime.timedelta(hours=2)).isoformat()
+            },
+            {
+                "session_id": "sess_002", 
+                "query_text": "How can renewable energy help reduce carbon emissions?",
+                "classification": "on-topic",
+                "safety_score": 0.92,
+                "language": "English", 
+                "model": "cohere_command_a",
+                "response_generated": True,
+                "timestamp": (datetime.now() - datetime.timedelta(hours=1)).isoformat()
+            },
+            {
+                "session_id": "sess_003",
+                "query_text": "What's your favorite pizza topping?",
+                "classification": "off-topic",
+                "safety_score": 0.85,
+                "language": "English",
+                "model": "aws_nova_lite", 
+                "response_generated": False,
+                "timestamp": (datetime.now() - datetime.timedelta(minutes=30)).isoformat()
+            },
+            {
+                "session_id": "sess_004",
+                "query_text": "[Content filtered - inappropriate request]",
+                "classification": "harmful",
+                "safety_score": 0.15,
+                "language": "English",
+                "model": "aws_nova_lite",
+                "response_generated": False,
+                "blocked_reason": "Inappropriate content detected",
+                "timestamp": (datetime.now() - datetime.timedelta(minutes=10)).isoformat()
+            }
+        ]
+        
+        stored_count = 0
+        for query in sample_queries:
+            if store_detailed_query(query):
+                stored_count += 1
+        
+        return {
+            "success": True,
+            "message": f"Populated {stored_count} sample queries",
+            "total_stored": stored_count
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error populating sample queries: {str(e)}")
+
 if __name__ == "__main__":
     print("🚀 Starting Climate Chatbot Admin API...")
+    print("📂 Initializing database...")
+    init_database()
     print(f"📊 Admin dashboard will be available at: http://localhost:8001/admin/analytics")
     print(f"🔑 Admin password: {ADMIN_PASSWORD}")
     print("="*60)

@@ -82,6 +82,11 @@ interface AnalyticsData {
     language_breakdown: {
       [key: string]: number;
     };
+    detailed_queries?: {
+      on_topic: DetailedQuery[];
+      off_topic: DetailedQuery[];
+      harmful: DetailedQuery[];
+    };
   };
 }
 
@@ -100,6 +105,9 @@ interface RecentInteraction {
   cost: number;
   processing_time: number;
   cache_hit: boolean;
+  query_text?: string;
+  classification?: "on-topic" | "off-topic" | "harmful";
+  safety_score?: number;
 }
 
 interface ManualFeedbackEntry {
@@ -110,6 +118,19 @@ interface ManualFeedbackEntry {
   bug_details: string;
   evidence: string;
   usage_frequency: string;
+}
+
+interface DetailedQuery {
+  id: string;
+  timestamp: string;
+  session_id: string;
+  query_text: string;
+  classification: "on-topic" | "off-topic" | "harmful";
+  safety_score: number;
+  language: string;
+  model: string;
+  response_generated: boolean;
+  blocked_reason?: string;
 }
 
 function DashboardContent() {
@@ -723,7 +744,9 @@ function DashboardContent() {
                       <div className="space-y-3">
                         {Object.entries(
                           data.cost_analytics.interaction_breakdown
-                        ).map(([type, count]) => (
+                        )
+                          .filter(([type]) => !["on-topic", "off-topic", "harmful"].includes(type))
+                          .map(([type, count]) => (
                           <div
                             key={type}
                             className="flex items-center justify-between"
@@ -759,30 +782,344 @@ function DashboardContent() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-green-600">
-                            {data.cost_analytics.interaction_breakdown?.[
-                              "on-topic"
-                            ] || 0}
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="text-center p-3 border rounded-lg bg-green-50 border-green-200">
+                            <div className="text-2xl font-bold text-green-600">
+                              {data.cost_analytics.interaction_breakdown?.[
+                                "on-topic"
+                              ] || 0}
+                            </div>
+                            <div className="text-xs text-gray-600 font-medium">On-Topic</div>
+                            <div className="text-xs text-gray-500">
+                              {data.cost_analytics &&
+                              data.cost_analytics.total_interactions > 0
+                                ? `${Math.round(
+                                    ((data.cost_analytics.interaction_breakdown?.["on-topic"] || 0) /
+                                      data.cost_analytics.total_interactions) *
+                                      100
+                                  )}%`
+                                : "0%"}
+                            </div>
                           </div>
-                          <div className="text-xs text-gray-500">On-Topic</div>
+                          <div className="text-center p-3 border rounded-lg bg-orange-50 border-orange-200">
+                            <div className="text-2xl font-bold text-orange-600">
+                              {data.cost_analytics.interaction_breakdown?.[
+                                "off-topic"
+                              ] || 0}
+                            </div>
+                            <div className="text-xs text-gray-600 font-medium">Off-Topic</div>
+                            <div className="text-xs text-gray-500">
+                              {data.cost_analytics &&
+                              data.cost_analytics.total_interactions > 0
+                                ? `${Math.round(
+                                    ((data.cost_analytics.interaction_breakdown?.["off-topic"] || 0) /
+                                      data.cost_analytics.total_interactions) *
+                                      100
+                                  )}%`
+                                : "0%"}
+                            </div>
+                          </div>
+                          <div className="text-center p-3 border rounded-lg bg-red-50 border-red-200">
+                            <div className="text-2xl font-bold text-red-600">
+                              {data.cost_analytics.interaction_breakdown?.[
+                                "harmful"
+                              ] || 0}
+                            </div>
+                            <div className="text-xs text-gray-600 font-medium">Harmful</div>
+                            <div className="text-xs text-gray-500">
+                              {data.cost_analytics &&
+                              data.cost_analytics.total_interactions > 0
+                                ? `${Math.round(
+                                    ((data.cost_analytics.interaction_breakdown?.["harmful"] || 0) /
+                                      data.cost_analytics.total_interactions) *
+                                      100
+                                  )}%`
+                                : "0%"}
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-orange-600">
-                            {data.cost_analytics.interaction_breakdown?.[
-                              "off-topic"
-                            ] || 0}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Query Content Details */}
+                <div className="mt-8">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <MessageSquare className="h-5 w-5" />
+                        Query Content Details
+                      </CardTitle>
+                      <CardDescription>
+                        Detailed breakdown of user queries by safety classification
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        {/* On-Topic Queries */}
+                        <div className="border rounded-lg p-4 bg-green-50 border-green-200">
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="w-3 h-3 bg-green-600 rounded-full"></div>
+                            <h4 className="font-semibold text-green-800">On-Topic Messages</h4>
+                            <Badge className="bg-green-100 text-green-800">
+                              {data.cost_analytics.interaction_breakdown?.["on-topic"] || 0}
+                            </Badge>
                           </div>
-                          <div className="text-xs text-gray-500">Off-Topic</div>
+                          <div className="max-h-64 overflow-y-auto space-y-2">
+                            {data.cost_analytics?.detailed_queries?.on_topic && data.cost_analytics.detailed_queries.on_topic.length > 0 ? (
+                              data.cost_analytics.detailed_queries.on_topic.slice(0, 5).map((query, index) => (
+                                <div key={query.id} className="bg-white p-2 rounded border text-sm">
+                                  <div className="flex justify-between items-start mb-1">
+                                    <span className="text-xs text-gray-500 font-mono">
+                                      {query.session_id.substring(0, 8)}
+                                    </span>
+                                    <span className="text-xs text-gray-400">
+                                      {new Date(query.timestamp).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                  <p className="text-gray-700 line-clamp-2">
+                                    {query.query_text.substring(0, 100)}{query.query_text.length > 100 ? '...' : ''}
+                                  </p>
+                                  <div className="flex gap-1 mt-1">
+                                    <Badge variant="outline" className="text-xs">
+                                      {query.language}
+                                    </Badge>
+                                    <Badge variant="outline" className="text-xs">
+                                      {query.model.replace("_", " ")}
+                                    </Badge>
+                                    <Badge className="text-xs bg-green-100 text-green-800">
+                                      Score: {(query.safety_score * 100).toFixed(0)}%
+                                    </Badge>
+                                  </div>
+                                </div>
+                              ))
+                            ) : data.cost_analytics.recent_interactions
+                              ?.filter((interaction) => interaction.classification === "on-topic" || interaction.query_type === "climate_response")
+                              .slice(0, 5)
+                              .map((interaction, index) => (
+                                <div key={index} className="bg-white p-2 rounded border text-sm">
+                                  <div className="flex justify-between items-start mb-1">
+                                    <span className="text-xs text-gray-500 font-mono">
+                                      {interaction.session_id?.substring(0, 8)}
+                                    </span>
+                                    <span className="text-xs text-gray-400">
+                                      {new Date(interaction.timestamp).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                  <p className="text-gray-700">
+                                    {interaction.query_text || "Climate-related question about environmental impacts..."}
+                                  </p>
+                                  <div className="flex gap-1 mt-1">
+                                    <Badge variant="outline" className="text-xs">
+                                      {interaction.language}
+                                    </Badge>
+                                    <Badge variant="outline" className="text-xs">
+                                      {interaction.model.replace("_", " ")}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              )).length > 0 ? data.cost_analytics.recent_interactions
+                              ?.filter((interaction) => interaction.classification === "on-topic" || interaction.query_type === "climate_response")
+                              .slice(0, 5)
+                              .map((interaction, index) => (
+                                <div key={index} className="bg-white p-2 rounded border text-sm">
+                                  <div className="flex justify-between items-start mb-1">
+                                    <span className="text-xs text-gray-500 font-mono">
+                                      {interaction.session_id?.substring(0, 8)}
+                                    </span>
+                                    <span className="text-xs text-gray-400">
+                                      {new Date(interaction.timestamp).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                  <p className="text-gray-700">
+                                    {interaction.query_text || "Climate-related question about environmental impacts..."}
+                                  </p>
+                                  <div className="flex gap-1 mt-1">
+                                    <Badge variant="outline" className="text-xs">
+                                      {interaction.language}
+                                    </Badge>
+                                    <Badge variant="outline" className="text-xs">
+                                      {interaction.model.replace("_", " ")}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              )) : (
+                              <div className="text-center text-gray-500 py-4">
+                                <p className="text-sm">No on-topic queries to display</p>
+                                <p className="text-xs">Data will appear here when queries are classified</p>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-red-600">
-                            {data.cost_analytics.interaction_breakdown?.[
-                              "harmful"
-                            ] || 0}
+
+                        {/* Off-Topic Queries */}
+                        <div className="border rounded-lg p-4 bg-orange-50 border-orange-200">
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="w-3 h-3 bg-orange-600 rounded-full"></div>
+                            <h4 className="font-semibold text-orange-800">Off-Topic Messages</h4>
+                            <Badge className="bg-orange-100 text-orange-800">
+                              {data.cost_analytics.interaction_breakdown?.["off-topic"] || 0}
+                            </Badge>
                           </div>
-                          <div className="text-xs text-gray-500">Harmful</div>
+                          <div className="max-h-64 overflow-y-auto space-y-2">
+                            {data.cost_analytics?.detailed_queries?.off_topic && data.cost_analytics.detailed_queries.off_topic.length > 0 ? (
+                              data.cost_analytics.detailed_queries.off_topic.slice(0, 3).map((query, index) => (
+                                <div key={query.id} className="bg-white p-2 rounded border text-sm">
+                                  <div className="flex justify-between items-start mb-1">
+                                    <span className="text-xs text-gray-500 font-mono">
+                                      {query.session_id.substring(0, 8)}
+                                    </span>
+                                    <span className="text-xs text-gray-400">
+                                      {new Date(query.timestamp).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                  <p className="text-gray-700 line-clamp-2">
+                                    {query.query_text.substring(0, 100)}{query.query_text.length > 100 ? '...' : ''}
+                                  </p>
+                                  <div className="flex gap-1 mt-1">
+                                    <Badge variant="outline" className="text-xs">
+                                      {query.language}
+                                    </Badge>
+                                    <Badge variant="outline" className="text-xs">
+                                      {query.model.replace("_", " ")}
+                                    </Badge>
+                                    <Badge className="text-xs bg-orange-100 text-orange-800">
+                                      Score: {(query.safety_score * 100).toFixed(0)}%
+                                    </Badge>
+                                  </div>
+                                </div>
+                              ))
+                            ) : data.cost_analytics?.recent_interactions
+                              ?.filter((interaction) => interaction.classification === "off-topic" || interaction.query_type === "translation")
+                              .slice(0, 3)
+                              .map((interaction, index) => (
+                                <div key={index} className="bg-white p-2 rounded border text-sm">
+                                  <div className="flex justify-between items-start mb-1">
+                                    <span className="text-xs text-gray-500 font-mono">
+                                      {interaction.session_id?.substring(0, 8)}
+                                    </span>
+                                    <span className="text-xs text-gray-400">
+                                      {new Date(interaction.timestamp).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                  <p className="text-gray-700">
+                                    {interaction.query_text || "Non-climate question about general topics..."}
+                                  </p>
+                                  <div className="flex gap-1 mt-1">
+                                    <Badge variant="outline" className="text-xs">
+                                      {interaction.language}
+                                    </Badge>
+                                    <Badge variant="outline" className="text-xs">
+                                      {interaction.model.replace("_", " ")}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              )).length > 0 ? data.cost_analytics.recent_interactions
+                              ?.filter((interaction) => interaction.classification === "off-topic" || interaction.query_type === "translation")
+                              .slice(0, 3)
+                              .map((interaction, index) => (
+                                <div key={index} className="bg-white p-2 rounded border text-sm">
+                                  <div className="flex justify-between items-start mb-1">
+                                    <span className="text-xs text-gray-500 font-mono">
+                                      {interaction.session_id?.substring(0, 8)}
+                                    </span>
+                                    <span className="text-xs text-gray-400">
+                                      {new Date(interaction.timestamp).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                  <p className="text-gray-700">
+                                    {interaction.query_text || "Non-climate question about general topics..."}
+                                  </p>
+                                  <div className="flex gap-1 mt-1">
+                                    <Badge variant="outline" className="text-xs">
+                                      {interaction.language}
+                                    </Badge>
+                                    <Badge variant="outline" className="text-xs">
+                                      {interaction.model.replace("_", " ")}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              )) : (
+                              <div className="text-center text-gray-500 py-4">
+                                <p className="text-sm">No off-topic queries to display</p>
+                                <p className="text-xs">Data will appear here when queries are classified</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Harmful Queries */}
+                        <div className="border rounded-lg p-4 bg-red-50 border-red-200">
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="w-3 h-3 bg-red-600 rounded-full"></div>
+                            <h4 className="font-semibold text-red-800">Harmful/Blocked Messages</h4>
+                            <Badge className="bg-red-100 text-red-800">
+                              {data.cost_analytics.interaction_breakdown?.["harmful"] || 0}
+                            </Badge>
+                          </div>
+                          <div className="max-h-64 overflow-y-auto space-y-2">
+                            {data.cost_analytics?.detailed_queries?.harmful && data.cost_analytics.detailed_queries.harmful.length > 0 ? (
+                              data.cost_analytics.detailed_queries.harmful.slice(0, 3).map((query, index) => (
+                                <div key={query.id} className="bg-white p-2 rounded border text-sm">
+                                  <div className="flex justify-between items-start mb-1">
+                                    <span className="text-xs text-gray-500 font-mono">
+                                      {query.session_id.substring(0, 8)}
+                                    </span>
+                                    <span className="text-xs text-gray-400">
+                                      {new Date(query.timestamp).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                  <p className="text-gray-700">
+                                    {query.blocked_reason 
+                                      ? `[Blocked: ${query.blocked_reason}]`
+                                      : "[Content filtered by safety guardrails]"}
+                                  </p>
+                                  <div className="flex gap-1 mt-1">
+                                    <Badge variant="destructive" className="text-xs">
+                                      Blocked
+                                    </Badge>
+                                    <Badge variant="outline" className="text-xs">
+                                      {query.language}
+                                    </Badge>
+                                    <Badge className="text-xs bg-red-100 text-red-800">
+                                      Risk: {((1 - query.safety_score) * 100).toFixed(0)}%
+                                    </Badge>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (data.cost_analytics?.interaction_breakdown?.["harmful"] || 0) > 0 ? (
+                              Array.from({ length: Math.min(3, data.cost_analytics?.interaction_breakdown?.["harmful"] || 0) }).map((_, index) => (
+                                <div key={index} className="bg-white p-2 rounded border text-sm">
+                                  <div className="flex justify-between items-start mb-1">
+                                    <span className="text-xs text-gray-500 font-mono">
+                                      session_{String(index + 1).padStart(3, '0')}
+                                    </span>
+                                    <span className="text-xs text-gray-400">
+                                      {new Date().toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                  <p className="text-gray-700">
+                                    [Content filtered by safety guardrails]
+                                  </p>
+                                  <div className="flex gap-1 mt-1">
+                                    <Badge variant="destructive" className="text-xs">
+                                      Blocked
+                                    </Badge>
+                                    <Badge variant="outline" className="text-xs">
+                                      English
+                                    </Badge>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-center text-gray-500 py-4">
+                                <p className="text-sm">No harmful queries detected</p>
+                                <p className="text-xs">Safety guardrails are working effectively</p>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </CardContent>

@@ -28,6 +28,9 @@ sys.path.append(str(project_root))
 from src.utils.env_loader import load_environment, validate_environment
 from src.data.config.azure_config import is_running_in_azure, configure_for_azure
 
+# Import query logger for analytics
+from src.utils.query_logger import log_user_query
+
 # Load environment variables
 load_environment()
 
@@ -408,6 +411,22 @@ class MultilingualClimateChatbot:
                     result_reason = topic_results.get('reason', 'not_climate_related')
                     
                     if result_reason == 'harmful_content':
+                        # Log harmful content detection
+                        try:
+                            log_user_query(
+                                query=query,
+                                language="unknown",  # Language not available in input guards
+                                classification="harmful",
+                                safety_score=topic_results.get('safety_score', 0.0),
+                                response_status="blocked",
+                                details={
+                                    "block_reason": "harmful_content",
+                                    "moderation_details": topic_results
+                                }
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to log harmful query: {str(e)}")
+                        
                         return {
                             "passed": False,
                             "message": "I cannot provide information on harmful actions. Please ask a question about climate change.",
@@ -422,6 +441,22 @@ class MultilingualClimateChatbot:
                             "details": topic_results
                         }
                     else:
+                        # Log off-topic query
+                        try:
+                            log_user_query(
+                                query=query,
+                                language="unknown",  # Language not available in input guards
+                                classification="off-topic",
+                                safety_score=topic_results.get('safety_score', 0.0),
+                                response_status="rejected",
+                                details={
+                                    "block_reason": result_reason,
+                                    "moderation_details": topic_results
+                                }
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to log off-topic query: {str(e)}")
+                        
                         return {
                             "passed": False,
                             "message": "Oops! Looks like your question isn't about climate change, which is what I specialize in. But I'd love to help if you've got a climate topic in mind!",
@@ -549,6 +584,24 @@ class MultilingualClimateChatbot:
                         if cached_result:
                             cache_time = time.time() - start_time
                             logger.info(f"✨ Cache hit - returning cached response")
+                            
+                            # Log successful cached query
+                            try:
+                                log_user_query(
+                                    query=norm_query,
+                                    language=language_name,
+                                    classification="on-topic",
+                                    safety_score=cached_result.get('faithfulness_score', 0.8),
+                                    response_status="completed",
+                                    details={
+                                        "processing_time": cache_time,
+                                        "cache_hit": True,
+                                        "citations_count": len(cached_result.get('citations', []))
+                                    }
+                                )
+                            except Exception as e:
+                                logger.warning(f"Failed to log cached query: {str(e)}")
+                            
                             # Create current turn with cached response for conversation history
                             current_turn = {
                                 "query": norm_query,
@@ -613,6 +666,25 @@ class MultilingualClimateChatbot:
                     
                     if not topic_results.get('passed', False):
                         total_time = time.time() - start_time
+                        
+                        # Log off-topic query from main processing
+                        try:
+                            classification = "harmful" if topic_results.get('reason') == 'harmful_content' else "off-topic"
+                            log_user_query(
+                                query=norm_query,
+                                language=language_name,
+                                classification=classification,
+                                safety_score=topic_results.get('safety_score', 0.0),
+                                response_status="rejected",
+                                details={
+                                    "block_reason": topic_results.get('reason', 'not_climate_related'),
+                                    "moderation_details": topic_results,
+                                    "processing_time": total_time
+                                }
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to log rejected query: {str(e)}")
+                        
                         return {
                             "success": False,
                             "message": topic_results.get('message', "Oops! Looks like your question isn't about climate change, which is what I specialize in. But I'd love to help if you've got a climate topic in mind!"),
@@ -841,6 +913,25 @@ class MultilingualClimateChatbot:
                         )
                         logger.info(f"Processing time: {total_time} seconds")
                         logger.info("✨ Processing complete!")
+                        
+                        # Log successful on-topic query
+                        try:
+                            log_user_query(
+                                query=norm_query,
+                                language=language_name,
+                                classification="on-topic",
+                                safety_score=faithfulness_score,
+                                response_status="completed",
+                                details={
+                                    "processing_time": total_time,
+                                    "citations_count": len(citations) if citations else 0,
+                                    "cache_hit": False,
+                                    "step_times": step_times
+                                }
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to log successful query: {str(e)}")
+                        
                         return {
                             "success": True,
                             "language_code": language_code,
