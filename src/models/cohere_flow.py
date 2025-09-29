@@ -7,6 +7,7 @@ import cohere
 import json
 import asyncio
 import logging
+import time
 from typing import Dict, Any, Optional, List, AsyncGenerator
 
 # Add the project root to the Python path
@@ -14,6 +15,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from src.utils.env_loader import load_environment
 from src.models.system_messages import CLIMATE_SYSTEM_MESSAGE
+from src.utils.cost_tracker import get_cost_tracker, ModelType
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +32,27 @@ class CohereModel:
             # Initialize synchronous cohere client to avoid event loop issues in Streamlit
             self.client = cohere.Client(os.getenv("COHERE_API_KEY"))
             self.model_id = model_id
+            self.cost_tracker = get_cost_tracker()
             logger.info("✓ Cohere client initialized")
         except Exception as e:
             logger.error(f"Cohere client initialization failed: {str(e)}")
             raise
+
+    async def _track_usage(self, input_text: str, output_text: str, processing_time_ms: float, query_id: Optional[str] = None) -> None:
+        """Track usage and costs for this Cohere interaction."""
+        try:
+            input_tokens = self.cost_tracker.estimate_token_count(input_text)
+            output_tokens = self.cost_tracker.estimate_token_count(output_text)
+            
+            await self.cost_tracker.track_model_usage(
+                model_type=ModelType.COHERE_COMMAND_A,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                processing_time_ms=processing_time_ms,
+                query_id=query_id
+            )
+        except Exception as e:
+            logger.warning(f"Failed to track Cohere usage: {str(e)}")
 
     async def classify(self, prompt: str, system_message: Optional[str] = None, options: Optional[List[str]] = None) -> str:
         """
@@ -47,6 +66,7 @@ class CohereModel:
         Returns:
             str: The classification result
         """
+        start_time = time.time()
         try:
             if not prompt:
                 return ""
@@ -75,6 +95,10 @@ Answer with ONLY the classification result, no explanations or additional text."
             response = await loop.run_in_executor(None, _call)
             result = (response.text or "").strip()
             
+            # Track usage
+            processing_time_ms = (time.time() - start_time) * 1000
+            await self._track_usage(user_message, result, processing_time_ms)
+            
             # If options were provided, ensure the result is one of the options
             if options and result not in options:
                 # Try to extract one of the options from the result
@@ -102,6 +126,7 @@ Answer with ONLY the classification result, no explanations or additional text."
         Returns:
             str: The generated content
         """
+        start_time = time.time()
         try:
             if not prompt:
                 return ""
@@ -118,7 +143,13 @@ Answer with ONLY the classification result, no explanations or additional text."
                     temperature=0.1,
                 )
             response = await loop.run_in_executor(None, _call)
-            return (response.text or "").strip()
+            result = (response.text or "").strip()
+            
+            # Track usage
+            processing_time_ms = (time.time() - start_time) * 1000
+            await self._track_usage(prompt, result, processing_time_ms)
+            
+            return result
         except Exception as e:
             logger.error(f"Content generation error: {str(e)}")
             return ""

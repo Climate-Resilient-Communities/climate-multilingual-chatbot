@@ -18,6 +18,9 @@ from src.models.conversation_parser import ConversationParser
 from src.models.query_routing import MultilingualRouter
 from src.models.redis_cache import ClimateCache
 
+# Import query logger for analytics
+from src.dashboard.database.query_logger import log_user_query
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -89,6 +92,9 @@ async def process_chat_query(
     
     try:
         logger.info(f"Processing chat query: id={request_id} query_len={len(request.query)} lang={request.language}")
+        
+        # Note: Interaction tracking is now handled by query logging in ClimateQueryPipeline
+        # All analytics are stored persistently in SQLite database
         
         # Step 1: Parse conversation history
         standardized_history = []
@@ -166,6 +172,24 @@ async def process_chat_query(
             
             # Handle pipeline result
             if result.get('success', False):
+                # Log successful query to analytics database
+                try:
+                    log_user_query(
+                        query=request.query,
+                        language=language_name,
+                        classification="on-topic",  # Successful queries are on-topic
+                        safety_score=result.get('faithfulness_score', 0.8),
+                        response_status="completed",
+                        details={
+                            "processing_time": processing_time,
+                            "citations_count": len(result.get('citations', [])),
+                            "model_used": model_used,
+                            "retrieval_source": result.get('retrieval_source', 'unknown'),
+                            "request_id": request_id
+                        }
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to log successful query: {str(e)}")
                 # Keep citations in original dictionary format for better frontend handling
                 citations = result.get('citations', [])
                 if citations and isinstance(citations[0], dict):

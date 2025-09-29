@@ -6,7 +6,7 @@ A comprehensive multilingual climate change assistant powered by Amazon Bedrock 
 
 - **Multilingual Support**: 180+ languages with intelligent model routing
 - **Real-time Chat**: Server-sent events for streaming responses
-- **Smart Caching**: Redis-based caching with bypass functionality  
+- **Smart Caching**: Redis-based caching with bypass functionality
 - **Citation System**: Comprehensive source attribution with link validation
 - **Safety Filters**: Advanced off-topic and harmful content filtering
 - **Export Functionality**: Save conversations in multiple formats
@@ -32,10 +32,14 @@ A comprehensive multilingual climate change assistant powered by Amazon Bedrock 
 # 2. Start production server (serves both API and frontend)
 uvicorn src.webui.api.main:app --host 0.0.0.0 --port 8000
 
-# 3. Access the application
-# Frontend: http://localhost:8000
+# 3. Start admin API server (optional, for analytics dashboard)
+python admin_api_server.py
+
+# 4. Access the application
+# Main App: http://localhost:8000
+# Admin Dashboard: http://localhost:8000/admin/dashboard
 # API Docs: http://localhost:8000/docs
-# Health: http://localhost:8000/health
+# Admin API Docs: http://localhost:8001/docs
 ```
 
 ### Development Setup
@@ -55,7 +59,35 @@ uvicorn src.webui.api.main:app --host 0.0.0.0 --port 8000 --reload
 
 # Frontend (development mode):
 cd src/webui/app && npm run dev
+
+# Terminal 3 - Admin API (optional):
+python admin_api_server.py
 ```
+
+### Complete Setup with Admin Dashboard
+
+For full functionality including analytics and cost tracking:
+
+1. **Setup Environment Variables** (see Configuration section below)
+2. **Configure Google Sheets** (see Admin Dashboard Setup)
+3. **Run All Services**:
+
+   ```bash
+   # Start main application
+   uvicorn src.webui.api.main:app --host 0.0.0.0 --port 8000 --reload
+
+   # Start admin API (in another terminal)
+   python admin_api_server.py
+
+   # Start frontend development server (in another terminal)
+   cd src/webui/app && npm run dev
+   ```
+
+4. **Access Points**:
+   - **Main Chat**: http://localhost:9002 (dev) or http://localhost:8000 (prod)
+   - **Admin Dashboard**: http://localhost:9002/admin/dashboard
+   - **API Documentation**: http://localhost:8000/docs
+   - **Admin API**: http://localhost:8001/docs
 
 ## 🔧 Configuration
 
@@ -77,14 +109,38 @@ PINECONE_INDEX_NAME=your_index_name
 
 # Redis (optional, uses in-memory fallback)
 REDIS_URL=redis://localhost:6379
+
+# CORS Configuration (production)
+CORS_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+
+# Admin Dashboard Authentication
+ADMIN_PASSWORD=your_secure_admin_password
+
+# Google Sheets Integration (for persistent analytics)
+GOOGLE_SHEETS_ID=your_google_sheets_spreadsheet_id
+GOOGLE_SERVICE_ACCOUNT_FILE=credentials.json
 ```
+
+#### 5. Admin Dashboard Features
+
+- **🔐 Password Protection**: Secure admin access
+- **📊 Analytics Overview**: Total interactions, daily trends
+- **💰 Cost Tracking**: Real-time cost estimates for AI models
+  - Cohere Command-A: ~$5.00 per 1M tokens
+  - Amazon Nova Pro: ~$0.60 per 1M tokens
+  - Pinecone Vector Search: ~$0.20 per 1M tokens
+- **📈 Interaction Breakdown**: User engagement metrics
+- **🛡️ Safety Metrics**: Content filtering statistics
+- **💾 Persistent Storage**: Data saved to Google Sheets for long-term analysis
 
 ## 📋 Supported Languages
 
 ### Command-A Model (22 languages)
+
 Arabic, Bengali, Chinese, Filipino, French, Gujarati, Korean, Persian, Russian, Tamil, Urdu, Vietnamese, Polish, Turkish, Dutch, Czech, Indonesian, Ukrainian, Romanian, Greek, Hindi, Hebrew
 
-### Nova Model (6 languages)  
+### Nova Model (6 languages)
+
 English, Spanish, Japanese, German, Swedish, Danish
 
 ## 🧪 Testing
@@ -97,8 +153,9 @@ python comprehensive_multilingual_test.py
 ```
 
 **Latest Test Results**: 64.6% overall score
+
 - Language Detection: 87.2% (Excellent)
-- Query Rewriting: 96.6% (Outstanding) 
+- Query Rewriting: 96.6% (Outstanding)
 - Citations: 60.5% (Good)
 - Answer Quality: 57.6% (Acceptable)
 - Safety Filtering: 37.1% (Needs Work)
@@ -109,10 +166,13 @@ python comprehensive_multilingual_test.py
 ├── src/
 │   ├── webui/
 │   │   ├── api/           # FastAPI backend
-│   │   └── app/           # Next.js frontend
+│   │   └── app/           # Next.js frontend (includes admin dashboard)
 │   ├── models/            # AI pipeline and models
 │   ├── data/config/       # Configuration files
-│   └── utils/             # Shared utilities
+│   └── utils/             # Shared utilities (including cost_tracker.py)
+├── admin_api_server.py    # Standalone admin API server
+├── credentials.json       # Google Service Account credentials (must add yourself using Google API)
+├── analytics_data.json    # Local analytics storage (auto-generated)
 ├── build.sh              # Production build script
 ├── STARTUP_GUIDE.md       # Detailed setup instructions
 └── ARCHITECTURE.md        # Technical architecture details
@@ -127,16 +187,33 @@ python comprehensive_multilingual_test.py
 
 ## 🛡️ Security
 
-- Input validation and sanitization
-- Rate limiting and abuse protection  
-- Content filtering for harmful/off-topic queries
-- URL validation for citations
-- CORS protection
-- No sensitive data logging
+- **Secure Admin Authentication**: Uses Authorization headers instead of query parameters for admin access
+- **Environment-based CORS**: CORS origins configured via `CORS_ORIGINS` environment variable
+- **No Hardcoded Secrets**: All passwords and credentials stored in environment variables
+- **Input Validation**: Comprehensive input validation and sanitization
+- **Rate Limiting**: Built-in abuse protection  
+- **Content Filtering**: Advanced filtering for harmful/off-topic queries
+- **URL Validation**: Citation URLs validated for security
+- **Secure Logging**: Sensitive data excluded from application logs
+- **No Client-Side Secrets**: No authentication credentials stored in frontend bundles
 
-## 🔄 Deployment
+### Admin Security
+
+The admin dashboard uses secure authentication:
+
+- **Backend Verification**: Admin credentials verified server-side only
+- **Bearer Token Auth**: Uses `Authorization: Bearer <password>` headers
+- **No URL Exposure**: Admin passwords never appear in URLs or logs
+- **Environment Config**: Admin password set via `ADMIN_PASSWORD` environment variable
+
+```bash
+# Secure admin access example
+curl -H "Authorization: Bearer your_admin_password" \
+     http://localhost:8000/api/v1/admin/analytics
+```## 🔄 Deployment
 
 The application uses a **single deployment model**:
+
 1. Next.js builds to static files (`out/` directory)
 2. FastAPI serves both API endpoints and static files
 3. All traffic goes through the FastAPI server on port 8000

@@ -26,6 +26,9 @@ from src.models.nova_flow import BedrockModel
 from src.models.cohere_flow import CohereModel
 from src.models.conversation_parser import conversation_parser
 
+# Import query logger for analytics
+from src.dashboard.database.query_logger import log_user_query
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -52,7 +55,7 @@ class ClimateQueryPipeline:
             self.cohere_model = CohereModel()
 
             # Eager heavy initialization for embeddings, index, and Cohere client
-            self.index_name = index_name or "climate-change-adaptation-index-10-24-prod"
+            self.index_name = index_name or os.getenv("PINECONE_INDEX_NAME", "climate-change-adaptation-index-10-24-prod")
             _t0 = time.time()
             self.embed_model = self._initialize_embedding_model()
             logger.info(f"Init: embeddings model ready in {time.time() - _t0:.2f}s")
@@ -521,6 +524,25 @@ class ClimateQueryPipeline:
 
                     if cached_result:
                         logger.info(f"✓ Cache hit for {language_name} - returning cached response")
+                        
+                        # Log successful cached query
+                        try:
+                            cache_time = time.time() - start_time
+                            log_user_query(
+                                query=query,
+                                language=language_name,
+                                classification="on-topic",
+                                safety_score=cached_result.get('faithfulness_score', 0.8),
+                                response_status="completed",
+                                details={
+                                    "processing_time": cache_time,
+                                    "cache_hit": True,
+                                    "citations_count": len(cached_result.get('citations', []))
+                                }
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to log cached query: {str(e)}")
+                        
                         # Cached result should already be in the correct language
                         return self._add_processing_time(cached_result, start_time)
                     else:
@@ -534,6 +556,27 @@ class ClimateQueryPipeline:
                         )
                         if fuzzy_hit is not None:
                             logger.info(f"✓ Cache hit via fuzzy match (score={fuzzy_hit['score']:.2f})")
+                            
+                            # Log successful fuzzy cached query
+                            try:
+                                cache_time = time.time() - start_time
+                                log_user_query(
+                                    query=query,
+                                    language=language_name,
+                                    classification="on-topic",
+                                    safety_score=fuzzy_hit['result'].get('faithfulness_score', 0.8),
+                                    response_status="completed",
+                                    details={
+                                        "processing_time": cache_time,
+                                        "cache_hit": True,
+                                        "fuzzy_match": True,
+                                        "fuzzy_score": fuzzy_hit['score'],
+                                        "citations_count": len(fuzzy_hit['result'].get('citations', []))
+                                    }
+                                )
+                            except Exception as e:
+                                logger.warning(f"Failed to log fuzzy cached query: {str(e)}")
+                            
                             return self._add_processing_time(fuzzy_hit['result'], start_time)
 
                 except Exception as e:
@@ -701,6 +744,22 @@ class ClimateQueryPipeline:
                         except Exception:
                             final_msg = msg_en
                         
+                        # Log off-topic query
+                        try:
+                            log_user_query(
+                                query=query,
+                                language=language_name,
+                                classification="off-topic",
+                                safety_score=1.0,
+                                response_status="rejected",
+                                details={
+                                    "block_reason": "off_topic_canned",
+                                    "processing_time": time.time() - start_time
+                                }
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to log off-topic query: {str(e)}")
+                        
                         return {
                             "success": True,
                             "response": final_msg,
@@ -743,6 +802,22 @@ class ClimateQueryPipeline:
                                 final_msg = await self.nova_model.translate(msg_en, 'english', target_name)
                         except Exception:
                             final_msg = msg_en
+                        
+                        # Log harmful query
+                        try:
+                            log_user_query(
+                                query=query,
+                                language=language_name,
+                                classification="harmful",
+                                safety_score=0.0,
+                                response_status="blocked",
+                                details={
+                                    "block_reason": "harmful_canned",
+                                    "processing_time": time.time() - start_time
+                                }
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to log harmful query: {str(e)}")
                         
                         return {
                             "success": True,
@@ -1082,6 +1157,25 @@ class ClimateQueryPipeline:
                     "query_rewritten": processed_query != query if 'processed_query' in locals() else False,
                 },
             }
+
+            # Log successful on-topic query
+            try:
+                log_user_query(
+                    query=query,
+                    language=language_name,
+                    classification="on-topic",
+                    safety_score=faithfulness_score,
+                    response_status="completed",
+                    details={
+                        "processing_time": time.time() - start_time,
+                        "citations_count": len(citations) if citations else 0,
+                        "cache_hit": used_cached,
+                        "model_used": routing_info['model_name'],
+                        "retrieval_source": retrieval_source
+                    }
+                )
+            except Exception as e:
+                logger.warning(f"Failed to log successful query: {str(e)}")
 
             # STEP 10: CACHE THE RESULT IN THE CORRECT LANGUAGE
             if self.cache:
