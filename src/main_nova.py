@@ -29,7 +29,7 @@ from src.utils.env_loader import load_environment, validate_environment
 from src.data.config.azure_config import is_running_in_azure, configure_for_azure
 
 # Import query logger for analytics
-from src.utils.query_logger import log_user_query
+from src.dashboard.database.query_logger import log_user_query
 
 # Load environment variables
 load_environment()

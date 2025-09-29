@@ -11,6 +11,20 @@ import time
 import webbrowser
 from pathlib import Path
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    # Only show success message in development
+    if os.getenv("ENVIRONMENT", "production").lower() in ["development", "dev"]:
+        print("✅ Environment variables loaded from .env file")
+except ImportError:
+    if os.getenv("ENVIRONMENT", "production").lower() in ["development", "dev"]:
+        print("⚠️  python-dotenv not installed, using system environment only")
+except Exception as e:
+    if os.getenv("ENVIRONMENT", "production").lower() in ["development", "dev"]:
+        print(f"⚠️  Could not load .env file: {e}")
+
 def check_dependencies():
     """Check if all required components are available"""
     print("🔍 Checking system dependencies...")
@@ -20,18 +34,19 @@ def check_dependencies():
         print("❌ Database not found. Please run setup_query_logging.py first")
         return False
     
-    # Check if admin API server exists
-    if not Path("admin_api_server.py").exists():
-        print("❌ Admin API server not found")
+    # Check if admin API server exists in new location
+    admin_server_path = Path("src/dashboard/api/admin_server.py")
+    if not admin_server_path.exists():
+        print(f"❌ Admin API server not found at {admin_server_path}")
         return False
     
     # Check admin password
     admin_password = os.getenv("ADMIN_PASSWORD")
     if not admin_password:
-        print("⚠️  ADMIN_PASSWORD not set in environment")
-        print("   Using default password for demo purposes")
-        os.environ["ADMIN_PASSWORD"] = "demo_password_123"
-        admin_password = "demo_password_123"
+        print("❌ ADMIN_PASSWORD not set in environment variables")
+        print("   Please set ADMIN_PASSWORD in your .env file or environment")
+        print("   Example: ADMIN_PASSWORD=your_secure_password_here")
+        return False
     
     print(f"✅ All dependencies ready")
     print(f"🔑 Admin password: {admin_password}")
@@ -46,9 +61,9 @@ def start_admin_server():
         print("   Press Ctrl+C to stop")
         print("-" * 50)
         
-        # Start the server
+        # Start the server from new location
         process = subprocess.run([
-            sys.executable, "admin_api_server.py"
+            sys.executable, "src/dashboard/api/admin_server.py"
         ], check=False)
         
         return process.returncode == 0
@@ -62,7 +77,7 @@ def start_admin_server():
 
 def show_dashboard_info():
     """Show information about accessing the dashboard"""
-    admin_password = os.getenv("ADMIN_PASSWORD", "demo_password_123")
+    admin_password = os.getenv("ADMIN_PASSWORD")
     
     print("\n" + "=" * 60)
     print("📊 ADMIN DASHBOARD ACCESS INFORMATION")

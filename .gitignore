@@ -40,3 +40,21 @@ build/
 # Development-only folders that shouldn't be deployed  
 .cursor/
 .claude/
+
+# Dashboard and Analytics
+admin_analytics.db
+analytics_data.json
+analytics_response.json
+
+# Credentials and sensitive files
+credentials.json
+credentials_old.json
+
+# Debug and test files
+debug_*.py
+test_*.py
+*_test.py
+
+# Development guides and notes
+CPU_OPTIMIZATION_GUIDE.md
+COMMAND_A_OVERRIDE.md

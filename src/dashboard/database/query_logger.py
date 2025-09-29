@@ -49,6 +49,18 @@ class QueryLogger:
                 cursor.execute('''
                     CREATE INDEX IF NOT EXISTS idx_timestamp ON detailed_queries (timestamp);
                 ''')
+                
+                # Create daily interaction summary table for fast analytics
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS daily_interactions (
+                        date TEXT PRIMARY KEY,
+                        total_count INTEGER DEFAULT 0,
+                        on_topic_count INTEGER DEFAULT 0,
+                        off_topic_count INTEGER DEFAULT 0,
+                        harmful_count INTEGER DEFAULT 0,
+                        last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                ''')
                 cursor.execute('''
                     CREATE INDEX IF NOT EXISTS idx_session ON detailed_queries (session_id);
                 ''')
@@ -106,6 +118,8 @@ class QueryLogger:
                 
                 with sqlite3.connect(self.db_path) as conn:
                     cursor = conn.cursor()
+                    
+                    # Insert detailed query record
                     cursor.execute('''
                         INSERT OR REPLACE INTO detailed_queries 
                         (id, timestamp, session_id, query_text, classification, safety_score, 
@@ -123,6 +137,30 @@ class QueryLogger:
                         response_generated,
                         blocked_reason
                     ))
+                    
+                    # Update daily interaction summary
+                    date_only = datetime.fromisoformat(timestamp).date().isoformat()
+                    
+                    # Upsert daily summary
+                    cursor.execute('''
+                        INSERT INTO daily_interactions (date, total_count, on_topic_count, off_topic_count, harmful_count)
+                        VALUES (?, 1, ?, ?, ?)
+                        ON CONFLICT(date) DO UPDATE SET
+                            total_count = total_count + 1,
+                            on_topic_count = on_topic_count + ?,
+                            off_topic_count = off_topic_count + ?,
+                            harmful_count = harmful_count + ?,
+                            last_updated = CURRENT_TIMESTAMP
+                    ''', (
+                        date_only,
+                        1 if classification == 'on-topic' else 0,
+                        1 if classification == 'off-topic' else 0,
+                        1 if classification == 'harmful' else 0,
+                        1 if classification == 'on-topic' else 0,
+                        1 if classification == 'off-topic' else 0,
+                        1 if classification == 'harmful' else 0
+                    ))
+                    
                     conn.commit()
                     return True
             except Exception as e:
@@ -204,6 +242,76 @@ def get_query_logger() -> QueryLogger:
     if _query_logger is None:
         _query_logger = QueryLogger()
     return _query_logger
+
+def get_analytics_summary() -> Dict[str, Any]:
+    """
+    Get comprehensive analytics summary from SQLite database.
+    This replaces Redis-based analytics with persistent storage.
+    
+    Returns:
+        Dict containing all dashboard metrics
+    """
+    logger = get_query_logger()
+    
+    with db_lock:
+        try:
+            with sqlite3.connect(logger.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Get total interactions from detailed_queries
+                cursor.execute("SELECT COUNT(*) FROM detailed_queries")
+                total_interactions = cursor.fetchone()[0]
+                
+                # Get classification breakdown
+                cursor.execute('''
+                    SELECT classification, COUNT(*) 
+                    FROM detailed_queries 
+                    GROUP BY classification
+                ''')
+                classifications = dict(cursor.fetchall())
+                
+                # Get recent queries by classification
+                recent_queries = {}
+                for classification in ['on-topic', 'off-topic', 'harmful']:
+                    cursor.execute('''
+                        SELECT query_text, language, model, safety_score, created_at
+                        FROM detailed_queries 
+                        WHERE classification = ?
+                        ORDER BY created_at DESC
+                        LIMIT 10
+                    ''', (classification,))
+                    
+                    queries = []
+                    for row in cursor.fetchall():
+                        queries.append({
+                            'query_text': row[0],
+                            'language': row[1], 
+                            'model': row[2],
+                            'safety_score': row[3],
+                            'created_at': row[4]
+                        })
+                    recent_queries[classification.replace('-', '_')] = queries
+                
+                return {
+                    'total_interactions': total_interactions,
+                    'classifications': {
+                        'on_topic': classifications.get('on-topic', 0),
+                        'off_topic': classifications.get('off-topic', 0),
+                        'harmful': classifications.get('harmful', 0)
+                    },
+                    'recent_queries': recent_queries,
+                    'data_source': 'sqlite_persistent'
+                }
+                
+        except Exception as e:
+            print(f"Warning: Failed to get analytics summary: {e}")
+            return {
+                'total_interactions': 0,
+                'classifications': {'on_topic': 0, 'off_topic': 0, 'harmful': 0},
+                'recent_queries': {'on_topic': [], 'off_topic': [], 'harmful': []},
+                'data_source': 'error',
+                'error': str(e)
+            }
 
 def log_user_query(
     query: str,
