@@ -3,8 +3,7 @@ from unittest.mock import Mock, patch
 from src.models.gen_response_nova import (
     nova_chat,
     doc_preprocessing,
-    process_single_doc,
-    generate_cache_key
+    process_single_doc
 )
 
 @pytest.fixture
@@ -56,18 +55,10 @@ def test_doc_preprocessing_fallback_content(sample_docs):
     assert len(processed) == 1
     assert 'Global warming leads to' in processed[0]['content']
 
-def test_generate_cache_key():
-    docs = [
-        {'title': 'Doc1', 'url': 'url1'},
-        {'title': 'Doc2', 'url': 'url2'}
-    ]
-    key1 = generate_cache_key("test query", docs)
-    key2 = generate_cache_key("test query", docs)
-    
-    # Same inputs should generate same key
-    assert key1 == key2
-    # Different query should generate different key
-    assert key1 != generate_cache_key("different query", docs)
+# NOTE: test_generate_cache_key was removed because cache key generation
+# was moved to the pipeline level with stable SHA256 hashing.
+# Response generator level caching was removed as it used unstable hash()
+# which broke cross-session cache sharing.
 
 @pytest.mark.asyncio
 async def test_nova_chat_success(sample_docs, mock_nova_client):
