@@ -7,6 +7,7 @@ from fastapi import APIRouter, Response, Cookie, HTTPException, Request
 from typing import Optional
 import uuid
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -32,9 +33,16 @@ async def check_consent(
         return {"has_consent": False, "session_id": None}
 
     try:
-        redis_client = request.app.state.redis_client
+        cache = request.app.state.redis_client
+        # Access raw Redis client from ClimateCache wrapper
+        raw_client = cache.redis_client
+        if not raw_client:
+            logger.warning("Redis client not available")
+            return {"has_consent": False, "session_id": session_id}
+
         consent_key = f"consent:{session_id}"
-        consent = await redis_client.get(consent_key)
+        # Use raw Redis client to get plain string (not JSON)
+        consent = await asyncio.to_thread(raw_client.get, consent_key)
 
         has_consent = consent is not None
         logger.info(f"Consent check for session {session_id[:8]}...: {has_consent}")
@@ -75,15 +83,33 @@ async def accept_consent(
         logger.info(f"Using existing session ID: {session_id[:8]}...")
 
     try:
-        redis_client = request.app.state.redis_client
+        cache = request.app.state.redis_client
+        # Access raw Redis client from ClimateCache wrapper
+        raw_client = cache.redis_client
+        if not raw_client:
+            logger.error("Redis client not available")
+            raise HTTPException(
+                status_code=500,
+                detail="Cache service unavailable"
+            )
+
         consent_key = f"consent:{session_id}"
 
-        # Store consent with 30-day expiration (2592000 seconds)
-        await redis_client.set(
+        # Store consent with 30-day expiration using raw Redis client
+        # ClimateCache.set() only supports 1-hour TTL, so we use setex directly
+        success = await asyncio.to_thread(
+            raw_client.setex,
             consent_key,
-            "accepted",
-            ex=2592000  # 30 days in seconds
+            2592000,  # 30 days in seconds
+            "accepted"
         )
+
+        if not success:
+            logger.error(f"Failed to store consent in Redis for session {session_id[:8]}...")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to store consent"
+            )
 
         # Set cookie with same 30-day expiration
         response.set_cookie(
@@ -101,6 +127,8 @@ async def accept_consent(
             "status": "ok",
             "session_id": session_id
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error storing consent: {str(e)}")
         raise HTTPException(
@@ -130,11 +158,17 @@ async def revoke_consent(
         return {"status": "no_session"}
 
     try:
-        redis_client = request.app.state.redis_client
+        cache = request.app.state.redis_client
+        # Access raw Redis client from ClimateCache wrapper
+        raw_client = cache.redis_client
+        if not raw_client:
+            logger.warning("Redis client not available")
+            return {"status": "no_cache"}
+
         consent_key = f"consent:{session_id}"
 
-        # Delete the consent record
-        await redis_client.delete(consent_key)
+        # Delete the consent record using raw Redis client
+        await asyncio.to_thread(raw_client.delete, consent_key)
 
         # Clear the session cookie
         response.delete_cookie(key="session_id")
