@@ -8,6 +8,7 @@ from typing import Optional
 import uuid
 import logging
 import asyncio
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -112,11 +113,15 @@ async def accept_consent(
             )
 
         # Set cookie with same 30-day expiration
+        # Use secure cookies in production, allow HTTP in development for local testing
+        environment = os.getenv("ENVIRONMENT", "production").lower()
+        is_production = environment == "production"
+
         response.set_cookie(
             key="session_id",
             value=session_id,
             max_age=2592000,  # 30 days in seconds
-            secure=True,  # Only send over HTTPS
+            secure=is_production,  # Only send over HTTPS in production
             httponly=True,  # Not accessible via JavaScript
             samesite="lax"  # CSRF protection
         )
