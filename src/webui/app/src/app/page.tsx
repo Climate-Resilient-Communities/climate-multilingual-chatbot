@@ -23,6 +23,7 @@ export default function Home() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [showConsent, setShowConsent] = useState(true);
+  const [checkingConsent, setCheckingConsent] = useState(true);
   // Language selection state
   const [selectedLanguage, setSelectedLanguage] = useState<string>('en');
   const [userManuallySelectedLanguage, setUserManuallySelectedLanguage] = useState<boolean>(false);
@@ -322,9 +323,41 @@ export default function Home() {
     }
   };
   
-  const handleConsent = () => {
-    setShowConsent(false);
+  const handleConsent = async () => {
+    try {
+      // Call API to record consent acceptance
+      await apiClient.acceptConsent();
+      setShowConsent(false);
+    } catch (error) {
+      console.error('Failed to save consent:', error);
+      // Still allow user to continue even if API call fails
+      setShowConsent(false);
+      toast({
+        variant: "destructive",
+        title: "Warning",
+        description: "Failed to save your consent preference. You may need to accept again on your next visit.",
+        duration: 5000,
+      });
+    }
   };
+
+  // Check consent on mount
+  useEffect(() => {
+    const checkConsent = async () => {
+      try {
+        const result = await apiClient.checkConsent();
+        setShowConsent(!result.has_consent);
+      } catch (error) {
+        console.error('Failed to check consent:', error);
+        // Default to showing consent dialog on error
+        setShowConsent(true);
+      } finally {
+        setCheckingConsent(false);
+      }
+    };
+
+    checkConsent();
+  }, []);
 
   useEffect(() => {
     if (inputRef.current) {
@@ -332,10 +365,22 @@ export default function Home() {
     }
   }, []);
 
+  // Show loading while checking consent
+  if (checkingConsent) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (showConsent) {
     return <ConsentDialog open={showConsent} onConsent={handleConsent} />;
   }
-  
+
   const isLoading = loadingMessage !== null;
 
   return (
