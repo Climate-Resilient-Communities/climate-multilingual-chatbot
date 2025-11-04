@@ -87,6 +87,16 @@ export interface ApiError {
   };
 }
 
+export interface ConsentCheckResponse {
+  has_consent: boolean;
+  session_id: string | null;
+}
+
+export interface ConsentAcceptResponse {
+  status: string;
+  session_id: string;
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -279,6 +289,26 @@ class ApiClient {
    */
   async healthCheck(): Promise<{ status: string; timestamp: number }> {
     return this.request('/health');
+  }
+
+  /**
+   * Check if user has previously accepted terms and conditions
+   */
+  async checkConsent(): Promise<ConsentCheckResponse> {
+    return this.request<ConsentCheckResponse>('/api/v1/consent/check', {
+      method: 'GET',
+      credentials: 'include', // Include cookies in request
+    });
+  }
+
+  /**
+   * Record user's acceptance of terms and conditions
+   */
+  async acceptConsent(): Promise<ConsentAcceptResponse> {
+    return this.request<ConsentAcceptResponse>('/api/v1/consent/accept', {
+      method: 'POST',
+      credentials: 'include', // Include cookies in request
+    });
   }
 }
 
