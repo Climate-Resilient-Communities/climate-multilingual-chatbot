@@ -175,8 +175,17 @@ async def revoke_consent(
         # Delete the consent record using raw Redis client
         await asyncio.to_thread(raw_client.delete, consent_key)
 
-        # Clear the session cookie
-        response.delete_cookie(key="session_id")
+        # Clear the session cookie with matching attributes
+        # Cookie deletion requires the same attributes used during creation
+        environment = os.getenv("ENVIRONMENT", "production").lower()
+        is_production = environment == "production"
+
+        response.delete_cookie(
+            key="session_id",
+            secure=is_production,  # Must match cookie creation
+            httponly=True,  # Must match cookie creation
+            samesite="lax"  # Must match cookie creation
+        )
 
         logger.info(f"Consent revoked for session {session_id[:8]}...")
 
