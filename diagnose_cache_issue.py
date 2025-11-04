@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """
-Diagnose Cache Key Issue
+Diagnose Cache Key Issue - Historical Analysis
 
-This demonstrates why cache isn't working across requests.
+⚠️  NOTE: This script demonstrates the OLD BROKEN behavior before the fix.
+It shows WHY cache wasn't working when model_type was in the cache key.
+
+The fix has been applied in climate_pipeline.py - model_type is now only
+in the cache VALUE, not the KEY. See test_cache_fix.py for verification
+of the new behavior.
 """
 
 import hashlib
@@ -17,7 +22,7 @@ def normalize_query(text: str) -> str:
     return t
 
 def make_cache_key(language_code: str, model_type: str, base_query: str) -> str:
-    """Create cache key (current implementation)."""
+    """Create cache key (OLD BROKEN implementation - for demonstration only)."""
     key_material = f"{language_code}:{model_type}:{base_query}".encode("utf-8")
     digest = hashlib.sha256(key_material).hexdigest()
     return f"q:{language_code}:{digest}"
