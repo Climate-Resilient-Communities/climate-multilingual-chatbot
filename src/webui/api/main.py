@@ -75,8 +75,9 @@ async def lifespan(app: FastAPI):
         
         # Redis cache for sessions and feedback
         cache = ClimateCache()
+        app.state.redis_client = cache  # Make cache available to routes via app.state
         logger.info("✅ Redis cache initialized")
-        
+
         logger.info("🎉 All components initialized successfully!")
         
     except Exception as e:
@@ -300,12 +301,13 @@ if os.path.exists(frontend_out_dir):
     logger.info(f"✅ Mounted Next.js static files from {frontend_out_dir}")
 
 # Import and include routers
-from .routers import chat, languages, feedback, streaming
+from .routers import chat, languages, feedback, streaming, consent
 
 app.include_router(chat.router, prefix="/api/v1", tags=["chat"])
 app.include_router(languages.router, prefix="/api/v1", tags=["languages"])
 app.include_router(feedback.router, prefix="/api/v1", tags=["feedback"])
 app.include_router(streaming.router, prefix="/api/v1", tags=["streaming"])
+app.include_router(consent.router, tags=["consent"])
 
 # Serve static assets (favicon, logos, etc.) before catch-all route
 @app.get("/favicon.ico")
