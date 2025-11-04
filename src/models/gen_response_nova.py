@@ -5,7 +5,6 @@ import asyncio
 from typing import List, Dict, Tuple, Any, Optional, Union, AsyncGenerator
 from src.models.title_normalizer import normalize_title
 from src.models.nova_flow import BedrockModel
-from src.models.redis_cache import ClimateCache
 from concurrent.futures import ThreadPoolExecutor
 import time
 from langsmith import traceable
@@ -75,16 +74,6 @@ def doc_preprocessing(docs: List[Dict]) -> List[Dict]:
         
     return documents
 
-def generate_cache_key(query: str, docs: List[Dict]) -> str:
-    """Generate a unique cache key."""
-    doc_identifiers = sorted([
-        f"{d.get('title', '')}:{d.get('url', '')}"
-        for d in docs
-    ])
-    doc_key = hash(tuple(doc_identifiers))
-    query_key = hash(query.lower().strip())
-    return f"nova_response:{query_key}:{doc_key}"
-
 async def generate_chat_response(query, documents, model, description=None, conversation_history=None):
     """
     Generate a response from Nova model using a query and retrieved documents.
@@ -122,20 +111,7 @@ async def generate_chat_response(query, documents, model, description=None, conv
                     logger.error("No documents and no conversation history available")
                     raise ValueError("No valid documents to process")
 
-            # Generate cache key based on query and documents
-            cache_key = generate_cache_key(query, documents)
-            
-            # Try to get cached response
-            cache = ClimateCache()
-            if cache.redis_client:
-                try:
-                    cached_result = await cache.get(cache_key)
-                    if cached_result:
-                        logger.info("Cache hit - returning cached response")
-                        return cached_result.get('response'), cached_result.get('citations', [])
-                except Exception as e:
-                    logger.error(f"Error retrieving from cache: {str(e)}")
-            
+            # Note: Caching is handled at the pipeline level with stable SHA256 keys
             try:
                 # Process documents for generation
                 with trace(name="document_processing"):
@@ -146,19 +122,7 @@ async def generate_chat_response(query, documents, model, description=None, conv
                         description=description,
                         conversation_history=conversation_history
                     )
-                    
-                # Cache the result if cache is available
-                if cache.redis_client:
-                    try:
-                        cache_data = {
-                            'response': response,
-                            'citations': citations
-                        }
-                        await cache.set(cache_key, cache_data)
-                        logger.info("Response cached successfully")
-                    except Exception as e:
-                        logger.error(f"Error caching response: {str(e)}")
-                
+
                 logger.info("Response generation complete")
                 return response, citations
                 
