@@ -512,7 +512,8 @@ class ClimateQueryPipeline:
 
             # FIX: Create language-specific cache keys for non-English queries
             # This ensures Filipino queries get Filipino responses from cache
-            cache_key = self._make_cache_key(language_code, model_type, normalized)
+            # Note: model_type NOT in key - allows cache sharing across model changes
+            cache_key = self._make_cache_key(language_code, normalized)
 
             if self.cache and not skip_cache:
                 try:
@@ -529,8 +530,7 @@ class ClimateQueryPipeline:
                         # Try fuzzy match for this specific language
                         fuzzy_hit = await self._try_fuzzy_cache_match(
                             normalized,
-                            language_code=language_code,
-                            model_type=model_type
+                            language_code=language_code
                         )
                         if fuzzy_hit is not None:
                             logger.info(f"✓ Cache hit via fuzzy match (score={fuzzy_hit['score']:.2f})")
@@ -1087,12 +1087,13 @@ class ClimateQueryPipeline:
             if self.cache:
                 try:
                     # Cache the response in the requested language
+                    # Note: result contains model_type for attribution (line 1073)
                     await self.cache.set(cache_key, result)
-                    logger.info(f"✓ Response cached in {language_name}")
+                    logger.info(f"✓ Response cached in {language_name} (model: {model_type})")
 
                     # Also cache the English version if different
                     if language_code != 'en':
-                        english_cache_key = self._make_cache_key('en', model_type, normalized)
+                        english_cache_key = self._make_cache_key('en', normalized)
                         english_result = result.copy()
                         english_result['response'] = original_english_response
                         english_result['language_code'] = 'en'
@@ -1155,12 +1156,14 @@ class ClimateQueryPipeline:
         cached_result["processing_time"] = time.time() - start_time
         return cached_result
 
-    def _make_cache_key(self, language_code: str, model_type: str, base_query: str) -> str:
-        """Create a stable cache key using normalized query and metadata.
+    def _make_cache_key(self, language_code: str, base_query: str) -> str:
+        """Create a stable cache key using normalized query and language.
 
-        FIX: Include language_code in the cache key to ensure language-specific caching.
+        FIX: Removed model_type from cache key to enable cache sharing across models.
+        The model_type is preserved in the cache VALUE for attribution tracking.
+        This allows the same question to hit cache regardless of which model is selected.
         """
-        key_material = f"{language_code}:{model_type}:{base_query}".encode("utf-8")
+        key_material = f"{language_code}:{base_query}".encode("utf-8")
         digest = hashlib.sha256(key_material).hexdigest()
         return f"q:{language_code}:{digest}"  # Include language code in key prefix
 
@@ -1177,12 +1180,12 @@ class ClimateQueryPipeline:
             self,
             normalized_query: str,
             language_code: str,
-            model_type: str,
             threshold: float = 0.92
     ) -> Optional[Dict[str, Any]]:
         """Try to reuse a cached response if a recent query is a near-duplicate.
 
         FIX: Only match queries in the same language.
+        Note: model_type not needed - cache value contains attribution.
         """
         try:
             if not self.cache:
