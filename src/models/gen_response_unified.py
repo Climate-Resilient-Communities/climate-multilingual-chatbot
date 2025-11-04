@@ -5,7 +5,6 @@ import asyncio
 from typing import List, Dict, Tuple, Any, Optional, Union
 from src.models.nova_flow import BedrockModel
 from src.models.cohere_flow import CohereModel
-from src.models.redis_cache import ClimateCache
 from src.models.system_messages import CLIMATE_SYSTEM_MESSAGE
 import time
 from langsmith import traceable
@@ -77,16 +76,6 @@ class UnifiedResponseGenerator:
             
         return documents
 
-    def _generate_cache_key(self, query: str, docs: List[Dict], model_type: str, language_code: str = "en") -> str:
-        """Generate a unique cache key including model type."""
-        doc_identifiers = sorted([
-            f"{d.get('title', '')}:{d.get('url', '')}"
-            for d in docs
-        ])
-        doc_key = hash(tuple(doc_identifiers))
-        query_key = hash(query.lower().strip())
-        return f"{language_code}:{model_type}_response:{query_key}:{doc_key}"
-
     async def generate_response(
         self,
         query: str,
@@ -136,21 +125,8 @@ class UnifiedResponseGenerator:
                         logger.error("No documents and no conversation history available")
                         raise ValueError("No valid documents to process")
 
-                # Generate cache key
-                cache_key = self._generate_cache_key(query, documents, model_type, language_code)
-                
-                # Try cache first
-                cache = ClimateCache()
-                if cache.redis_client:
-                    try:
-                        cached_result = await cache.get(cache_key)
-                        if cached_result:
-                            logger.info(f"Cache hit for {model_type} - returning cached response")
-                            return cached_result.get('response'), cached_result.get('citations', [])
-                    except Exception as e:
-                        logger.error(f"Error retrieving from cache: {str(e)}")
-                
                 # Process documents and generate response
+                # Note: Caching is handled at the pipeline level with stable SHA256 keys
                 with trace(name="document_processing_and_generation"):
                     response, citations = await self._process_and_generate(
                         query=query,
@@ -179,19 +155,7 @@ class UnifiedResponseGenerator:
                                 cleaned.append(re.sub(r"[^\x09\x0A\x0D\x20-\x7E]", "", part or ""))
                         return "".join(cleaned)
                     response = _clean_non_english(response)
-                    
-                # Cache the result
-                if cache.redis_client:
-                    try:
-                        cache_data = {
-                            'response': response,
-                            'citations': citations
-                        }
-                        await cache.set(cache_key, cache_data)
-                        logger.info(f"{model_type} response cached successfully")
-                    except Exception as e:
-                        logger.error(f"Error caching response: {str(e)}")
-                
+
                 logger.info(f"{model_type} response generation complete")
                 return response, citations
                 
