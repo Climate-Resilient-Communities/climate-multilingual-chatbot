@@ -75,9 +75,44 @@ PINECONE_API_KEY=your_pinecone_key
 PINECONE_ENVIRONMENT=your_environment
 PINECONE_INDEX_NAME=your_index_name
 
-# Redis (optional, uses in-memory fallback)
+# Redis (recommended for caching)
 REDIS_URL=redis://localhost:6379
+# Or use individual settings:
+# REDIS_HOST=localhost
+# REDIS_PORT=6379
+# REDIS_PASSWORD=your_password  # if authentication is enabled
+# REDIS_SSL=true  # for secure connections
 ```
+
+### Redis Setup (Important!)
+
+Redis is essential for caching responses and preventing regeneration of answers. **Without Redis persistence, all cached responses are lost when the application restarts.**
+
+#### Quick Start (Development)
+```bash
+# Start Redis with proper persistence
+./start-redis.sh
+```
+
+#### Production Setup
+
+**Option 1: System Service (Recommended for VPS/EC2)**
+```bash
+sudo systemctl enable redis-server
+sudo systemctl start redis-server
+# Copy persistence settings from redis.conf to /etc/redis/redis.conf
+```
+
+**Option 2: Managed Redis (Recommended for Cloud)**
+Use a managed service that handles persistence automatically:
+- AWS ElastiCache for Redis
+- Azure Cache for Redis
+- Redis Enterprise Cloud
+- Upstash Redis
+
+Update environment variables with your managed Redis connection details.
+
+**Why this matters:** See [REDIS_CACHE_FIX.md](REDIS_CACHE_FIX.md) for details on the cache persistence issue and solution.
 
 ## 📋 Supported Languages
 
