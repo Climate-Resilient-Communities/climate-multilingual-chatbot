@@ -39,4 +39,6 @@ build/
 
 # Development-only folders that shouldn't be deployed  
 .cursor/
-.claude/
+.claude/dump.rdb
+*.aof
+appendonlydir/
