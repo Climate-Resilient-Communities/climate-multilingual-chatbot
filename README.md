@@ -159,7 +159,7 @@ python comprehensive_multilingual_test.py
 - **[Architecture](docs/ARCHITECTURE.md)**: Technical architecture and design decisions
 - **[Azure Deployment](docs/AZURE_DEPLOYMENT_GUIDE.md)**: Azure-specific deployment guide
 - **[Redis Cache Fix](docs/REDIS_CACHE_FIX.md)**: Cache persistence configuration
-- **[Info Folder](info/)**: Additional technical documentation and reports
+- **[All Documentation](docs/)**: Full documentation including reports and technical notes
 
 ## 🛡️ Security
 
