@@ -208,7 +208,7 @@ After implementing the fix:
 
 ## Files Modified/Created
 
-- `redis.conf` - Custom Redis configuration with persistence
+- `scripts/redis.conf` - Custom Redis configuration with persistence (dev only)
 - `scripts/start-redis.sh` - Script to start Redis with proper settings
 - `test_toronto_cache_key.py` - Cache key generation test
 - `REDIS_CACHE_FIX.md` - This documentation
