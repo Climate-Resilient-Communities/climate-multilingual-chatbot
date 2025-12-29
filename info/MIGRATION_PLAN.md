@@ -639,9 +639,9 @@ This configuration does two things:
 1.  It serves the static assets of the Next.js application (JavaScript, CSS, etc.) from the `/_next` path.
 2.  It serves the `index.html` file for all other routes, allowing the Next.js client-side router to take over.
 
-#### **3. Build Automation (`build.sh`)**
+#### **3. Build Automation (`scripts/build.sh`)**
 
-To automate the build process, we'll create a `build.sh` script in the root of the project. This script will be responsible for building the frontend and moving the static files to the correct location for the backend to serve.
+To automate the build process, we'll create a `build.sh` script in the scripts folder. This script will be responsible for building the frontend and moving the static files to the correct location for the backend to serve.
 
 Create a file named `build.sh` in the root of the project with the following content:
 
@@ -666,7 +666,7 @@ cd ../../..
 echo "Build complete."
 ```
 
-Make the script executable: `chmod +x build.sh`
+Make the script executable: `chmod +x scripts/build.sh`
 
 #### **4. Deployment with Render (`render.yaml`)**
 
@@ -678,7 +678,7 @@ services:
     name: climate-multilingual-chatbot
     env: python
     plan: standard
-    buildCommand: "./build.sh && pip install -r requirements.txt"
+    buildCommand: "./scripts/build.sh && pip install -r requirements.txt"
     startCommand: "uvicorn src.webui.api.main:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: PYTHON_VERSION
