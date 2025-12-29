@@ -37,8 +37,11 @@ build/
 .cache/
 .pytest_cache/
 
-# Development-only folders that shouldn't be deployed  
+# Development-only folders that shouldn't be deployed
 .cursor/
-.claude/dump.rdb
+.history/
+.logs/
+.claude/
+dump.rdb
 *.aof
 appendonlydir/
