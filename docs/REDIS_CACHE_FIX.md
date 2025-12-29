@@ -80,7 +80,7 @@ maxmemory-policy allkeys-lru
 - Limit memory usage to 512 MB
 - Evict least recently used keys when full
 
-### 2. Startup Script (`start-redis.sh`)
+### 2. Startup Script (`scripts/start-redis.sh`)
 
 Created a script to:
 - Start Redis with the custom configuration
@@ -98,7 +98,7 @@ Created a script to:
 ### Start Redis with Proper Configuration
 
 ```bash
-./start-redis.sh
+./scripts/start-redis.sh
 ```
 
 This will:
@@ -192,10 +192,10 @@ volumes:
 
 After implementing the fix:
 
-1. **Start Redis** with `./start-redis.sh`
+1. **Start Redis** with `./scripts/start-redis.sh`
 2. **Ask a question** through the API
 3. **Check cache**: `redis-cli dbsize` should show `> 0`
-4. **Stop and restart Redis**: `redis-cli shutdown && ./start-redis.sh`
+4. **Stop and restart Redis**: `redis-cli shutdown && ./scripts/start-redis.sh`
 5. **Check cache again**: `redis-cli dbsize` should still show the cached entries
 6. **Ask the same question**: Should return instantly from cache
 
@@ -209,7 +209,7 @@ After implementing the fix:
 ## Files Modified/Created
 
 - `redis.conf` - Custom Redis configuration with persistence
-- `start-redis.sh` - Script to start Redis with proper settings
+- `scripts/start-redis.sh` - Script to start Redis with proper settings
 - `test_toronto_cache_key.py` - Cache key generation test
 - `REDIS_CACHE_FIX.md` - This documentation
 
@@ -217,5 +217,5 @@ After implementing the fix:
 
 - `src/models/climate_pipeline.py:1159-1177` - Cache key generation logic
 - `src/models/redis_cache.py` - Redis cache implementation
-- `debug_redis_cache.py` - Redis inspection tool
-- `diagnose_cache_issue.py` - Historical analysis of model_type cache bug
+- `scripts/debug_redis_cache.py` - Redis inspection tool
+- `scripts/diagnose_cache_issue.py` - Historical analysis of model_type cache bug

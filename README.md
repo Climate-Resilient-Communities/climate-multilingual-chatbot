@@ -27,7 +27,7 @@ A comprehensive multilingual climate change assistant powered by Amazon Bedrock 
 
 ```bash
 # 1. Build the complete application
-./build.sh
+./scripts/build.sh
 
 # 2. Start production server (serves both API and frontend)
 uvicorn src.webui.api.main:app --host 0.0.0.0 --port 8000
@@ -91,7 +91,7 @@ Redis is essential for caching responses and preventing regeneration of answers.
 #### Quick Start (Development)
 ```bash
 # Start Redis with proper persistence
-./start-redis.sh
+./scripts/start-redis.sh
 ```
 
 #### Production Setup
@@ -112,7 +112,7 @@ Use a managed service that handles persistence automatically:
 
 Update environment variables with your managed Redis connection details.
 
-**Why this matters:** See [REDIS_CACHE_FIX.md](REDIS_CACHE_FIX.md) for details on the cache persistence issue and solution.
+**Why this matters:** See [REDIS_CACHE_FIX.md](docs/REDIS_CACHE_FIX.md) for details on the cache persistence issue and solution.
 
 ## 📋 Supported Languages
 
@@ -148,16 +148,17 @@ python comprehensive_multilingual_test.py
 │   ├── models/            # AI pipeline and models
 │   ├── data/config/       # Configuration files
 │   └── utils/             # Shared utilities
-├── build.sh              # Production build script
-├── STARTUP_GUIDE.md       # Detailed setup instructions
-└── ARCHITECTURE.md        # Technical architecture details
+├── scripts/              # Shell scripts (build.sh, start-redis.sh, etc.)
+├── docs/                 # Documentation (STARTUP_GUIDE.md, ARCHITECTURE.md, etc.)
+└── tests/                # Test suite
 ```
 
 ## 📚 Documentation
 
-- **[Startup Guide](STARTUP_GUIDE.md)**: Detailed setup and deployment instructions
-- **[Architecture](ARCHITECTURE.md)**: Technical architecture and design decisions
-- **[Azure Deployment](AZURE_DEPLOYMENT_GUIDE.md)**: Azure-specific deployment guide
+- **[Startup Guide](docs/STARTUP_GUIDE.md)**: Detailed setup and deployment instructions
+- **[Architecture](docs/ARCHITECTURE.md)**: Technical architecture and design decisions
+- **[Azure Deployment](docs/AZURE_DEPLOYMENT_GUIDE.md)**: Azure-specific deployment guide
+- **[Redis Cache Fix](docs/REDIS_CACHE_FIX.md)**: Cache persistence configuration
 - **[Info Folder](info/)**: Additional technical documentation and reports
 
 ## 🛡️ Security

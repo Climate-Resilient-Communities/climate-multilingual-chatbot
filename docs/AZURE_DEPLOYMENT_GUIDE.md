@@ -52,7 +52,7 @@ Azure App Service (Single Deployment)
   ```
 
 ### **3. Build Automation**
-- ✅ **File**: `build.sh`
+- ✅ **File**: `scripts/build.sh`
 - ✅ **Features**:
   - Automated frontend build with `npm run build`
   - Static export validation
@@ -118,7 +118,7 @@ Startup Command: "uvicorn src.webui.api.main:app --host 0.0.0.0 --port $PORT"
 ### **Local Testing**
 ```bash
 # 1. Build the application
-./build.sh
+./scripts/build.sh
 
 # 2. Test single deployment locally
 uvicorn src.webui.api.main:app --host 0.0.0.0 --port 8000 --reload
