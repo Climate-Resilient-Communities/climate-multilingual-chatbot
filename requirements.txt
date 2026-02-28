@@ -28,7 +28,7 @@ aiobotocore==2.20.0
 cohere==5.13.12
 langchain-cohere==0.4.2
 
-# Hugging Face Transformers and Embeddings
+# Hugging Face Transformers and Embeddings (required by FlagEmbedding / BGE-M3)
 transformers==4.44.2
 peft<0.18.0
 torch==2.6.0
