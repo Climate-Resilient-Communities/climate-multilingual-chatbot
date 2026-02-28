@@ -1042,7 +1042,8 @@ async def test_retrieval():
         cohere_client = cohere.Client(COHERE_API_KEY)
 
         # Initialize embedding model
-        embed_model = BGEM3FlagModel('BAAI/bge-m3', use_fp16=False)
+        from src.models.cohere_flow import HFEmbedder
+        embed_model = HFEmbedder()
 
         # Test query
         query = "What is climate change?"

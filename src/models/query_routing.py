@@ -483,29 +483,26 @@ def test_routing():
             ]
             
             # Run tests
-            command_a_count = 0
-            nova_count = 0
-            
+            route_counts = {}
+
             for case in test_cases:
                 print(f"\nTesting: {case['query']}")
                 print(f"Language: {case['language_name']}")
-                
+
                 result = await router.route_query(
                     query=case['query'],
                     language_code=case['language_code'],
                     language_name=case['language_name'],
                     translation=nova_model.nova_translation
                 )
-                
+
                 print(f"Should proceed: {result['should_proceed']}")
                 print(f"Support level: {result['routing_info']['support_level']}")
-                
+
                 # Count routing decisions
-                if result['routing_info']['support_level'] == 'command_a':
-                    command_a_count += 1
-                elif result['routing_info']['support_level'] == 'nova':
-                    nova_count += 1
-                    
+                level = result['routing_info']['support_level']
+                route_counts[level] = route_counts.get(level, 0) + 1
+
                 if result['should_proceed']:
                     print(f"Processed query: {result['processed_query']}")
                     if result['english_query'] != result['processed_query']:
@@ -513,14 +510,12 @@ def test_routing():
                 else:
                     print(f"Error: {result['routing_info']['message']}")
                 print('-' * 50)
-            
+
             # Print summary
             print(f"\n=== ROUTING SUMMARY ===")
-            print(f"Command A routes: {command_a_count}")
-            print(f"Nova routes: {nova_count}")
+            for level, count in sorted(route_counts.items()):
+                print(f"  {level}: {count}")
             print(f"Total tests: {len(test_cases)}")
-            print(f"Expected Command A: 22 languages")
-            print(f"Expected Nova: 7 languages (English + Spanish, German, Italian, Portuguese, Japanese, Swedish, Danish)")
                 
         except Exception as e:
             print(f"Test failed: {str(e)}")

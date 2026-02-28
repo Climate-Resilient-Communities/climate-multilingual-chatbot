@@ -27,7 +27,7 @@ class TestLiveFunctionality:
         # Mock external services
         with patch('src.models.nova_flow.BedrockModel') as mock_bedrock, \
              patch('pinecone.Pinecone') as mock_pinecone, \
-             patch('FlagEmbedding.BGEM3FlagModel') as mock_bge, \
+             patch('src.models.cohere_flow.HFEmbedder') as mock_bge, \
              patch('redis.Redis') as mock_redis, \
              patch('cohere.Client') as mock_cohere:
             

@@ -52,7 +52,7 @@ class TestEndToEndPipeline:
         # Mock all external dependencies
         with patch('src.main_nova.BedrockModel') as mock_bedrock, \
              patch('src.main_nova.Pinecone') as mock_pinecone, \
-             patch('src.main_nova.BGEM3FlagModel') as mock_bge, \
+             patch('src.main_nova.HFEmbedder') as mock_bge, \
              patch('src.main_nova.redis.Redis') as mock_redis, \
              patch('src.main_nova.Client') as mock_client:
             

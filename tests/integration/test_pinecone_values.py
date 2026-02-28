@@ -36,10 +36,10 @@ def test_pinecone_include_values_returns_vectors():
         pytest.skip(f"Index '{index_name}' not available: {e}")
 
     # Build a query vector and sparse weights using the same embedder as the app
-    from FlagEmbedding import BGEM3FlagModel
+    from src.models.cohere_flow import HFEmbedder
     from src.models.retrieval import get_query_embeddings
 
-    embed_model = BGEM3FlagModel('BAAI/bge-m3', use_fp16=False)
+    embed_model = HFEmbedder()
     q_dense, q_sparse_list = get_query_embeddings("climate change impacts", embed_model)
     assert q_dense is not None and len(q_dense) > 0
     assert q_sparse_list and isinstance(q_sparse_list[0], dict)

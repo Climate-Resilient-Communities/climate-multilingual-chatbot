@@ -36,7 +36,7 @@ def mock_router():
 async def chatbot():
     with patch('src.main_nova.BedrockModel'), \
          patch('src.main_nova.Pinecone'), \
-         patch('src.main_nova.BGEM3FlagModel'), \
+         patch('src.main_nova.HFEmbedder'), \
          patch('src.main_nova.MultilingualRouter'), \
          patch('src.main_nova.ClimateCache'), \
          patch('src.main_nova.Client'):

@@ -243,8 +243,8 @@ class MultilingualClimateChatbot:
             self.index = self.pinecone_client.Index(index_name)
             logger.info("Pinecone index initialized via v5 client")
 
-        from FlagEmbedding import BGEM3FlagModel
-        self.embed_model = BGEM3FlagModel('BAAI/bge-m3', use_fp16=False)
+        from src.models.cohere_flow import HFEmbedder
+        self.embed_model = HFEmbedder()
 
     def _initialize_language_router(self) -> None:
         """Initialize language routing components."""

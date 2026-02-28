@@ -110,7 +110,7 @@ async def test_chatbot_initialization():
         
         with patch('src.models.nova_flow.BedrockModel') as mock_bedrock, \
              patch('pinecone.Pinecone') as mock_pinecone, \
-             patch('FlagEmbedding.BGEM3FlagModel') as mock_bge, \
+             patch('src.models.cohere_flow.HFEmbedder') as mock_bge, \
              patch('redis.Redis') as mock_redis, \
              patch('cohere.Client') as mock_cohere:
             
@@ -154,7 +154,7 @@ async def test_language_mapping():
         
         with patch('src.models.nova_flow.BedrockModel'), \
              patch('pinecone.Pinecone'), \
-             patch('FlagEmbedding.BGEM3FlagModel'), \
+             patch('src.models.cohere_flow.HFEmbedder'), \
              patch('redis.Redis'), \
              patch('cohere.Client'):
             
@@ -254,7 +254,7 @@ async def test_mock_query_processing():
         
         with patch('src.models.nova_flow.BedrockModel') as mock_bedrock, \
              patch('pinecone.Pinecone'), \
-             patch('FlagEmbedding.BGEM3FlagModel'), \
+             patch('src.models.cohere_flow.HFEmbedder'), \
              patch('redis.Redis'), \
              patch('cohere.Client'), \
              patch('src.models.retrieval.get_documents') as mock_retrieval, \

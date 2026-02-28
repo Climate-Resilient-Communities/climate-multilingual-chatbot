@@ -78,14 +78,9 @@ async def test_session_flags_initialized_without_attribute_error(monkeypatch):
         'cohere', 'redis', 'aioboto3', 'boto3', 'botocore',
         'azure', 'azure.storage', 'azure.storage.blob',
         'langchain', 'langchain_core', 'langchain_community',
-        'datasets', 'pydantic_settings', 'numpy', 'FlagEmbedding',
+        'datasets', 'pydantic_settings', 'numpy',
     ]:
         stub(name)
-    
-    # Special stub for FlagEmbedding with BGEM3FlagModel
-    flag_embedding_stub = types.ModuleType('FlagEmbedding')
-    flag_embedding_stub.BGEM3FlagModel = type('BGEM3FlagModel', (), {'__init__': lambda self, **kwargs: None})
-    sys.modules['FlagEmbedding'] = flag_embedding_stub
     
     # Add numpy specifically with required attributes
     numpy_stub = types.ModuleType('numpy')
