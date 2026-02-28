@@ -18,39 +18,7 @@ MODEL_CONFIG = {
         "max_tokens": 2000,
         "temperature": 0.7,
         "top_p": 0.8
-    },
-    # Cohere Tiny-Aya regional models (primary LLMs)
-    "tiny_aya": {
-        "global": {
-            "model_id": "tiny-aya-global",
-            "description": "Default multilingual model — best balance across all languages",
-        },
-        "earth": {
-            "model_id": "tiny-aya-earth",
-            "description": "Optimized for African languages",
-        },
-        "fire": {
-            "model_id": "tiny-aya-fire",
-            "description": "Optimized for South Asian languages",
-        },
-        "water": {
-            "model_id": "tiny-aya-water",
-            "description": "Optimized for Asia-Pacific, Western Asia, and European languages",
-        },
-        "max_tokens": 2000,
-        "temperature": 0.3,
-    },
-    # Cohere embedding model (replaces local BGE-M3)
-    "embedding": {
-        "model_id": "embed-english-v3.0",
-        "dimensions": 1024,
-        "input_type_query": "search_query",
-        "input_type_document": "search_document",
-    },
-    # Cohere reranker (fast v4)
-    "reranker": {
-        "model_id": "rerank-v4.0-fast",
-    },
+    }
 }
 
 # Retrieval configurations
@@ -59,7 +27,7 @@ RETRIEVAL_CONFIG = {
     # Base knobs
     "top_k_retrieve": 15,           # legacy top-k before rerank (kept for compatibility)
     "top_k_rerank": 5,              # cross-encoder final cap
-    "hybrid_alpha": 1.0,            # dense-only (Cohere embed has no sparse)
+    "hybrid_alpha": 0.5,            # dense/sparse fusion weight
     # Overfetch controls: balance latency vs recall
     "overfetch": 8,                 # smaller initial vector overfetch for interactive UX
     # Similarity gating

@@ -13,8 +13,10 @@ boto3 = "^1.34.0"
 cohere = "^5.11.3"
 python-dotenv = "^1.0.0"
 streamlit = "^1.40.1"
-# torch, transformers, flagembedding, huggingface-hub REMOVED
-# Embeddings now use Cohere API (embed-english-v3.0) instead of local BGE-M3
+torch = "^2.5.1"  # Required by FlagEmbedding (BGE-M3)
+transformers = "^4.44.2"  # Required by FlagEmbedding (BGE-M3)
+flagembedding = "^1.3.2"
+huggingface-hub = "^0.23.5"
 langchain = "^0.3.7"
 langchain-community = "^0.3.5"
 langchain_cohere="^0.4.2"
@@ -27,7 +29,7 @@ pandas = "^2.2.3"
 tqdm = "^4.66.5"
 typing-extensions = "^4.12.2"
 jsonschema = "^4.23.0"
-# tokenizers REMOVED (was for BGE-M3)
+tokenizers = "^0.19.1"
 opencensus = "^0.11.4"
 opencensus-ext-azure = "^1.1.15"
 opencensus-ext-logging = "^0.1.1"

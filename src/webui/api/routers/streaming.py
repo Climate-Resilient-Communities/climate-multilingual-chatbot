@@ -56,13 +56,17 @@ async def generate_chat_stream(
         yield f"data: {json.dumps({'type': 'progress', 'stage': 'detecting_language', 'request_id': request_id})}\n\n"
         
         detected_language = request.language
-        model_used = "tiny_aya_global"
-
+        model_used = "command_a"
+        
         try:
             language_info = lang_router.detect_language(request.query)
             detected_language = language_info.get('language_code', detected_language)
-            support = lang_router.check_language_support(detected_language)
-            model_used = support.value
+            
+            if detected_language in lang_router.COMMAND_A_SUPPORTED_LANGUAGES:
+                model_used = "command_a"
+            else:
+                model_used = "nova"
+                
         except Exception as e:
             logger.warning(f"Language routing failed: {str(e)}")
         

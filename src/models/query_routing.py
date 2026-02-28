@@ -1,38 +1,54 @@
-"""
-Query routing — Tiny-Aya regional model selection + language detection.
-
-Routing priority:
-  1. tiny-aya-fire  → South Asian languages
-  2. tiny-aya-earth → African languages
-  3. tiny-aya-water → Asia-Pacific, Western Asia, European languages
-  4. tiny-aya-global → English + catch-all default
-  5. nova           → fallback only (when Cohere API is unavailable)
-"""
 import os
 import logging
-import re
 from enum import Enum
 from typing import Dict, Any
+import re
 from src.utils.env_loader import load_environment
-from src.models.cohere_flow import resolve_tiny_aya_model, FIRE_LANGUAGES, EARTH_LANGUAGES, WATER_LANGUAGES
+from src.models.nova_flow import BedrockModel
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
-
 class LanguageSupport(Enum):
-    """Model tier for a given language."""
-    TINY_AYA_GLOBAL = "tiny_aya_global"
-    TINY_AYA_FIRE = "tiny_aya_fire"
-    TINY_AYA_EARTH = "tiny_aya_earth"
-    TINY_AYA_WATER = "tiny_aya_water"
-    NOVA = "nova"  # fallback only
-
+    """Enum for language support levels"""
+    COMMAND_A = "command_a"            # Command A model support  
+    NOVA = "nova"                      # Nova model support
+    UNSUPPORTED = "unsupported"        # No support
 
 class MultilingualRouter:
-    """Routes queries to the correct Tiny-Aya regional model based on language."""
-
-    # ── Language code normalisation ──────────────────────────────────────
+    """Handles language routing for queries."""
+    
+    COMMAND_A_SUPPORTED_LANGUAGES = {
+        'ar',   # Arabic
+        'bn',   # Bengali  
+        'zh',   # Chinese
+        # skip english due to latency - routes to Nova instead
+        'tl',   # Filipino (Tagalog)
+        'fr',   # French
+        'gu',   # Gujarati
+        'ko',   # Korean
+        'fa',   # Persian
+        'ru',   # Russian
+        'ta',   # Tamil
+        'ur',   # Urdu
+        'vi',   # Vietnamese
+        'pl',   # Polish
+        'tr',   # Turkish
+        'nl',   # Dutch
+        'cs',   # Czech
+        'id',   # Indonesian
+        'uk',   # Ukrainian
+        'ro',   # Romanian
+        'el',   # Greek
+        'hi',   # Hindi
+        'he',   # Hebrew
+        # Spanish, German, Italian, Portuguese, Japanese route to Nova for faster response
+    }
+    
     LANGUAGE_CODE_MAP = {
         'zh-cn': 'zh', 'zh-tw': 'zh', 'pt-br': 'pt', 'pt-pt': 'pt',
         'en-us': 'en', 'en-gb': 'en', 'fr-ca': 'fr', 'fr-fr': 'fr',
@@ -45,10 +61,10 @@ class MultilingualRouter:
         'ms-my': 'ms', 'th-th': 'th', 'tr-tr': 'tr', 'uk-ua': 'uk',
         'bg-bg': 'bg', 'cs-cz': 'cs', 'hu-hu': 'hu', 'ro-ro': 'ro',
         'sk-sk': 'sk', 'sl-si': 'sl', 'tl-ph': 'tl', 'gu-in': 'gu',
-        'bn-bd': 'bn', 'ta-in': 'ta', 'ur-pk': 'ur', 'fa-ir': 'fa',
+        'bn-bd': 'bn', 'ta-in': 'ta', 'ur-pk': 'ur', 'fa-ir': 'fa'
     }
-
-    # ── Language code → name (183 languages) ────────────────────────────
+    
+    # Language code to language name mapping (Source: frontend languages.json - 183 languages)
     LANGUAGE_NAME_MAP = {
         'aa': 'afar', 'ab': 'abkhazian', 'ae': 'avestan', 'af': 'afrikaans', 'ak': 'akan', 'am': 'amharic', 'an': 'aragonese', 'ar': 'arabic', 'as': 'assamese', 'av': 'avaric',
         'ay': 'aymara', 'az': 'azerbaijani', 'ba': 'bashkir', 'be': 'belarusian', 'bg': 'bulgarian', 'bi': 'bislama', 'bm': 'bambara', 'bn': 'bengali', 'bo': 'tibetan', 'br': 'breton',
@@ -68,48 +84,64 @@ class MultilingualRouter:
         'st': 'sotho, southern', 'su': 'sundanese', 'sv': 'swedish', 'sw': 'swahili', 'ta': 'tamil', 'te': 'telugu', 'tg': 'tajik', 'th': 'thai', 'ti': 'tigrinya', 'tk': 'turkmen',
         'tl': 'tagalog', 'tn': 'tswana', 'to': 'tonga', 'tr': 'turkish', 'ts': 'tsonga', 'tt': 'tatar', 'tw': 'twi', 'ty': 'tahitian', 'ug': 'uighur', 'uk': 'ukrainian',
         'ur': 'urdu', 'uz': 'uzbek', 've': 'venda', 'vi': 'vietnamese', 'vo': 'volapük', 'wa': 'walloon', 'wo': 'wolof', 'xh': 'xhosa', 'yi': 'yiddish', 'yo': 'yoruba',
-        'za': 'zhuang', 'zh': 'chinese', 'zu': 'zulu',
+        'za': 'zhuang', 'zh': 'chinese', 'zu': 'zulu'
     }
 
     def __init__(self):
-        """Initialize language routing."""
-        pass
-
-    # ── Heuristic language detection (unchanged from original) ──────────
+        """Initialize language routing"""
+        # No local file logging in production path
 
     def _is_probably_english(self, text: str) -> bool:
+        """Stricter heuristic for English using ASCII ratio and common stopwords."""
         if not text:
             return False
         t = text.lower()
         ascii_letters = re.findall(r"[a-z]", t)
         ascii_ratio = len(ascii_letters) / max(1, len(t))
+        # Simple stopword hit
         en_hits = sum(1 for w in (" the ", " and ", " what ", " is ", " of ", " to ", " in ") if w in f" {t} ")
         es_hits = sum(1 for w in (" el ", " la ", " los ", " las ", " y ", " de ", " del ", " qué ", " que ", " es ") if w in f" {t} ")
         return ascii_ratio > 0.7 and en_hits >= 1 and es_hits == 0
 
     def _is_probably_non_english(self, text: str) -> bool:
+        """Detect likely non-English (Spanish-like) content for mismatch blocking when EN selected."""
         if not text:
             return False
         t = text.lower()
+        # Spanish cue words (ASCII-friendly)
         es_hits = sum(1 for w in (" el ", " la ", " los ", " las ", " y ", " de ", " del ", " que ", " por ", " para ") if w in f" {t} ")
         en_hits = sum(1 for w in (" the ", " and ", " what ", " is ", " of ", " to ", " in ") if w in f" {t} ")
         return es_hits > en_hits
 
     def _detect_language_code_simple(self, text: str) -> str:
+        """Very lightweight language guess for routing-mismatch checks.
+
+        Returns a 2-letter code if confident, else 'unknown'.
+        """
         if not text:
             return 'unknown'
         t = f" {text.lower()} "
-        # Greeting shortcuts
-        for token in (" hello ", " hi ", " hey ", " thanks ", " thank you ", " goodbye ", " bye "):
+        # Fast path for common greetings and phrases by language
+        english_short_tokens = [
+            " hello ", " hi ", " hey ", " thanks ", " thank you ", " goodbye ", " bye "
+        ]
+        spanish_short_tokens = [
+            " hola ", " buenos ", " buenas ", " gracias ", " adiós ", " cómo ", " como "
+        ]
+        french_short_tokens = [
+            " bonjour ", " salut ", " merci ", " au revoir ", " comment "
+        ]
+        
+        for token in english_short_tokens:
             if token in t:
                 return 'en'
-        for token in (" hola ", " buenos ", " buenas ", " gracias ", " adiós ", " cómo ", " como "):
+        for token in spanish_short_tokens:
             if token in t:
                 return 'es'
-        for token in (" bonjour ", " salut ", " merci ", " au revoir ", " comment "):
+        for token in french_short_tokens:
             if token in t:
                 return 'fr'
-        # Script detection
+        # Script-based quick checks
         if re.search(r"[\u4e00-\u9fff]", t):
             return 'zh'
         if re.search(r"[\u3040-\u309f\u30a0-\u30ff]", t):
@@ -128,148 +160,392 @@ class MultilingualRouter:
             return 'el'
         if re.search(r"[\u0E00-\u0E7F]", t):
             return 'th'
-        # Stopword scoring for Latin scripts
+
+        # Latin language stopword cues
         def hits(s):
             return sum(1 for w in s if w in t)
+
+        en_set = [" the ", " and ", " what ", " is ", " of ", " to ", " in "]
+        # Stopword scoring for formal text
+        es_set = [" el ", " la ", " los ", " las ", " de ", " del ", " que ", " por ", " para ", " es ", " qué ", " con ", " en ", " se ", " un ", " una "]
+        fr_set = [" le ", " la ", " les ", " des ", " du ", " est ", " que ", " pour ", " avec ", " sur "]
+        de_set = [" der ", " die ", " das ", " und ", " ist ", " nicht ", " mit ", " auf "]
+        it_set = [" il ", " lo ", " la ", " gli ", " le ", " che ", " per ", " con ", " non ", " è "]
+        pt_set = [" os ", " as ", " da ", " que ", " para ", " com ", " não ", " está ", " são ", " tem "]
+
         scores = {
-            'en': hits([" the ", " and ", " what ", " is ", " of ", " to ", " in "]),
-            'es': hits([" el ", " la ", " los ", " las ", " de ", " del ", " que ", " por ", " para ", " es ", " qué ", " con ", " en ", " se ", " un ", " una "]),
-            'fr': hits([" le ", " la ", " les ", " des ", " du ", " est ", " que ", " pour ", " avec ", " sur "]),
-            'de': hits([" der ", " die ", " das ", " und ", " ist ", " nicht ", " mit ", " auf "]),
-            'it': hits([" il ", " lo ", " la ", " gli ", " le ", " che ", " per ", " con ", " non ", " è "]),
-            'pt': hits([" os ", " as ", " da ", " que ", " para ", " com ", " não ", " está ", " são ", " tem "]),
+            'en': hits(en_set),
+            'es': hits(es_set),
+            'fr': hits(fr_set),
+            'de': hits(de_set),
+            'it': hits(it_set),
+            'pt': hits(pt_set),
         }
         lang, score = max(scores.items(), key=lambda x: x[1])
+        # Require at least 2 stopword hits to be confident
         return lang if score >= 2 else 'unknown'
 
-    # ── Public API ──────────────────────────────────────────────────────
-
     def detect_language(self, text: str) -> Dict[str, Any]:
+        """
+        Detect language for API compatibility.
+        Returns a dict with language_code and confidence.
+        """
         detected_code = self._detect_language_code_simple(text)
+        
         if detected_code == 'unknown':
+            # Default to English if can't detect
             detected_code = 'en'
             confidence = 0.5
         else:
-            confidence = 0.8
+            confidence = 0.8  # Reasonable confidence for detected languages
+        
         return {
             'language_code': detected_code,
             'confidence': confidence,
-            'method': 'simple_detection',
+            'method': 'simple_detection'
         }
 
     def standardize_language_code(self, language_code: str) -> str:
+        """Standardize language codes to match our supported formats."""
         return self.LANGUAGE_CODE_MAP.get(language_code.lower(), language_code.lower())
 
     def check_language_support(self, language_code: str) -> LanguageSupport:
-        """Determine which Tiny-Aya regional model to use for a language."""
-        lc = self.standardize_language_code(language_code)
-        if lc in FIRE_LANGUAGES:
-            return LanguageSupport.TINY_AYA_FIRE
-        if lc in EARTH_LANGUAGES:
-            return LanguageSupport.TINY_AYA_EARTH
-        if lc in WATER_LANGUAGES:
-            return LanguageSupport.TINY_AYA_WATER
-        return LanguageSupport.TINY_AYA_GLOBAL
+        """Check the level of language support using standardized language codes."""
+        standardized_code = self.standardize_language_code(language_code)
+        
+        if standardized_code in self.COMMAND_A_SUPPORTED_LANGUAGES:
+            return LanguageSupport.COMMAND_A
+        else: 
+            return LanguageSupport.NOVA
 
-    def _get_model_info(self, support: LanguageSupport) -> Dict[str, str]:
-        """Return model_type and human-readable model_name for a support tier."""
-        model_id, region = resolve_tiny_aya_model('en')  # default
-        mapping = {
-            LanguageSupport.TINY_AYA_GLOBAL: ("tiny_aya_global", "Tiny-Aya Global", "tiny-aya-global"),
-            LanguageSupport.TINY_AYA_FIRE:   ("tiny_aya_fire",   "Tiny-Aya Fire",   "tiny-aya-fire"),
-            LanguageSupport.TINY_AYA_EARTH:  ("tiny_aya_earth",  "Tiny-Aya Earth",  "tiny-aya-earth"),
-            LanguageSupport.TINY_AYA_WATER:  ("tiny_aya_water",  "Tiny-Aya Water",  "tiny-aya-water"),
-            LanguageSupport.NOVA:            ("nova",            "Nova",             "amazon.nova-lite-v1:0"),
-        }
-        model_type, model_name, model_id = mapping.get(
-            support, ("tiny_aya_global", "Tiny-Aya Global", "tiny-aya-global")
-        )
-        return {"model_type": model_type, "model_name": model_name, "model_id": model_id}
-
+    def _get_unsupported_language_message(self, language_name: str, language_code: str) -> str:
+        """Private helper to generate unsupported language messages."""
+        return f"We currently don't support {language_name} ({language_code}). Please try another language."
+        
     async def route_query(
         self,
         query: str,
         language_code: str,
         language_name: str,
-        translation: Any = None,
+        translation: Any = None
     ) -> Dict[str, Any]:
-        """Route and process query — central decision maker."""
+        """Route and process query based on language - central decision maker."""
         try:
+            # Check language support level and determine model
             support_level = self.check_language_support(language_code)
-            info = self._get_model_info(support_level)
-            model_type = info["model_type"]
-            model_name = info["model_name"]
-
+            
+            # Determine model type based on language support
+            if support_level == LanguageSupport.COMMAND_A:
+                model_type = "cohere"
+                model_name = "Command-A"
+            else:
+                model_type = "nova"
+                model_name = "Nova"
+            
             logger.info(f"Language: {language_name} ({language_code}) → Model: {model_name}")
-
+            
+            # Process routing info with model selection
             routing_info = {
                 'support_level': support_level.value,
                 'model_type': model_type,
                 'model_name': model_name,
-                'model_id': info["model_id"],
                 'needs_translation': language_code != 'en',
                 'language_code': language_code,
                 'language_name': language_name,
-                'message': None,
+                'message': None
             }
-
+            
+            # Set query processing parameters
             english_query = query
             processed_query = query
-
-            # Mismatch detection
+            
+            # Detect mismatch: selected language differs from detected language (for common languages)
             language_mismatch = False
             detected_code = self._detect_language_code_simple(query)
             if detected_code != 'unknown' and detected_code != language_code:
                 language_mismatch = True
+                detected_name = detected_code
+                # For first-run UX, do not hard-stop; allow pipeline to translate, but include mismatch flag
                 routing_info['message'] = (
-                    f"Detected {detected_code} text while language selected is {language_name}. "
+                    f"Detected {detected_name} text while language selected is {language_name}. "
                     "You can switch the language in the sidebar."
                 )
                 routing_info['detected_language'] = detected_code
+                # Proceed but mark mismatch; pipeline can decide to translate
                 return {
                     'should_proceed': True,
                     'routing_info': {**routing_info, 'language_mismatch': language_mismatch},
                     'processed_query': query,
-                    'english_query': query,
+                    'english_query': query
                 }
 
-            # Translate non-English queries
+            # Handle non-English queries if translation function provided and no mismatch
             if routing_info['needs_translation'] and translation and not language_mismatch:
                 try:
                     logger.info(f"Translating query from {language_name} to English")
+                    try:
+                        # Net debug before translation
+                        logger.info("Router NET IN → query repr=%r", query[:200])
+                    except Exception:
+                        pass
+                    # Translate to English using the provided translation function
                     english_query = await translation(query, language_name, 'english')
                     processed_query = english_query
                     logger.info("Translation successful")
+                    try:
+                        logger.info("Router NET OUT → english_query repr=%r", english_query[:200])
+                    except Exception:
+                        pass
                 except Exception as e:
-                    logger.error(f"Translation error: {e}")
-                    routing_info['message'] = f"Translation failed: {e}"
+                    logger.error(f"Translation error: {str(e)}")
+                    routing_info['message'] = f"Translation failed: {str(e)}"
                     return {
                         'should_proceed': False,
                         'routing_info': routing_info,
                         'processed_query': query,
-                        'english_query': query,
+                        'english_query': query
                     }
 
             return {
                 'should_proceed': True,
                 'routing_info': {**routing_info, 'language_mismatch': language_mismatch},
                 'processed_query': processed_query,
-                'english_query': english_query,
+                'english_query': english_query
             }
 
         except Exception as e:
-            logger.error(f"Error in query routing: {e}")
+            logger.error(f"Error in query routing: {str(e)}")
             return {
                 'should_proceed': False,
                 'routing_info': {
-                    'support_level': 'nova',
-                    'model_type': 'nova',
+                    'support_level': 'unsupported',
+                    'model_type': 'nova',  # Default fallback
                     'model_name': 'Nova',
                     'needs_translation': False,
                     'language_code': language_code,
                     'language_name': language_name,
-                    'message': f"Routing error: {e}",
+                    'message': f"Routing error: {str(e)}"
                 },
                 'processed_query': query,
-                'english_query': query,
+                'english_query': query
             }
+
+def test_routing():
+    """Test the query routing functionality"""
+    import asyncio
+    
+    async def run_tests():
+        try:
+            # Initialize components
+            print("\n=== Testing Query Routing ===")
+            load_environment()
+            
+            # Initialize router and translation
+            router = MultilingualRouter()
+            nova_model = BedrockModel()
+            
+            # Test cases - Comprehensive test of all supported languages
+            test_cases = [
+                # === Command A Languages (22 total) ===
+                {
+                    'query': 'ما هو تغير المناخ؟',
+                    'language_code': 'ar',
+                    'language_name': 'arabic'
+                },
+                {
+                    'query': 'জলবায়ু পরিবর্তন কী?',
+                    'language_code': 'bn',
+                    'language_name': 'bengali'
+                },
+                {
+                    'query': '什么是气候变化？',
+                    'language_code': 'zh',
+                    'language_name': 'chinese'
+                },
+                {
+                    'query': 'Ano ang climate change?',
+                    'language_code': 'tl',
+                    'language_name': 'filipino'
+                },
+                {
+                    'query': 'Qu\'est-ce que le changement climatique?',
+                    'language_code': 'fr',
+                    'language_name': 'french'
+                },
+                {
+                    'query': 'આબોહવા પરિવર્તન શું છે?',
+                    'language_code': 'gu',
+                    'language_name': 'gujarati'
+                },
+                {
+                    'query': '기후 변화는 무엇입니까?',
+                    'language_code': 'ko',
+                    'language_name': 'korean'
+                },
+                {
+                    'query': 'تغییرات آب و هوایی چیست؟',
+                    'language_code': 'fa',
+                    'language_name': 'persian'
+                },
+                {
+                    'query': 'Что такое изменение климата?',
+                    'language_code': 'ru',
+                    'language_name': 'russian'
+                },
+                {
+                    'query': 'காலநிலை மாற்றம் என்றால் என்ன?',
+                    'language_code': 'ta',
+                    'language_name': 'tamil'
+                },
+                {
+                    'query': 'موسمیاتی تبدیلی کیا ہے؟',
+                    'language_code': 'ur',
+                    'language_name': 'urdu'
+                },
+                {
+                    'query': 'Biến đổi khí hậu là gì?',
+                    'language_code': 'vi',
+                    'language_name': 'vietnamese'
+                },
+                {
+                    'query': 'Co to jest zmiana klimatu?',
+                    'language_code': 'pl',
+                    'language_name': 'polish'
+                },
+                {
+                    'query': 'İklim değişikliği nedir?',
+                    'language_code': 'tr',
+                    'language_name': 'turkish'
+                },
+                {
+                    'query': 'Wat is klimaatverandering?',
+                    'language_code': 'nl',
+                    'language_name': 'dutch'
+                },
+                {
+                    'query': 'Co je změna klimatu?',
+                    'language_code': 'cs',
+                    'language_name': 'czech'
+                },
+                {
+                    'query': 'Apa itu perubahan iklim?',
+                    'language_code': 'id',
+                    'language_name': 'indonesian'
+                },
+                {
+                    'query': 'Що таке зміна клімату?',
+                    'language_code': 'uk',
+                    'language_name': 'ukrainian'
+                },
+                {
+                    'query': 'Ce este schimbarea climatică?',
+                    'language_code': 'ro',
+                    'language_name': 'romanian'
+                },
+                {
+                    'query': 'Τι είναι η κλιματική αλλαγή;',
+                    'language_code': 'el',
+                    'language_name': 'greek'
+                },
+                {
+                    'query': 'जलवायु परिवर्तन क्या है?',
+                    'language_code': 'hi',
+                    'language_name': 'hindi'
+                },
+                {
+                    'query': 'מה זה שינוי אקלים?',
+                    'language_code': 'he',
+                    'language_name': 'hebrew'
+                },
+                
+                # === Nova Languages (English + 5 additional) ===
+                {
+                    'query': 'What is climate change?',
+                    'language_code': 'en',
+                    'language_name': 'english'
+                },
+                {
+                    'query': '¿Qué es el cambio climático?',
+                    'language_code': 'es',
+                    'language_name': 'spanish'
+                },
+                {
+                    'query': '気候変動とは何ですか？',
+                    'language_code': 'ja',
+                    'language_name': 'japanese'
+                },
+                {
+                    'query': 'Was ist der Klimawandel?',
+                    'language_code': 'de',
+                    'language_name': 'german'
+                },
+                {
+                    'query': 'Vad är klimatförändringar?',
+                    'language_code': 'sv',
+                    'language_name': 'swedish'
+                },
+                {
+                    'query': 'Hvad er klimaændringer?',
+                    'language_code': 'da',
+                    'language_name': 'danish'
+                },
+                
+                # === Edge cases ===
+                {
+                    'query': '',  # Empty query test
+                    'language_code': 'en',
+                    'language_name': 'english'
+                }
+            ]
+            
+            # Run tests
+            command_a_count = 0
+            nova_count = 0
+            
+            for case in test_cases:
+                print(f"\nTesting: {case['query']}")
+                print(f"Language: {case['language_name']}")
+                
+                result = await router.route_query(
+                    query=case['query'],
+                    language_code=case['language_code'],
+                    language_name=case['language_name'],
+                    translation=nova_model.nova_translation
+                )
+                
+                print(f"Should proceed: {result['should_proceed']}")
+                print(f"Support level: {result['routing_info']['support_level']}")
+                
+                # Count routing decisions
+                if result['routing_info']['support_level'] == 'command_a':
+                    command_a_count += 1
+                elif result['routing_info']['support_level'] == 'nova':
+                    nova_count += 1
+                    
+                if result['should_proceed']:
+                    print(f"Processed query: {result['processed_query']}")
+                    if result['english_query'] != result['processed_query']:
+                        print(f"English query: {result['english_query']}")
+                else:
+                    print(f"Error: {result['routing_info']['message']}")
+                print('-' * 50)
+            
+            # Print summary
+            print(f"\n=== ROUTING SUMMARY ===")
+            print(f"Command A routes: {command_a_count}")
+            print(f"Nova routes: {nova_count}")
+            print(f"Total tests: {len(test_cases)}")
+            print(f"Expected Command A: 22 languages")
+            print(f"Expected Nova: 7 languages (English + Spanish, German, Italian, Portuguese, Japanese, Swedish, Danish)")
+                
+        except Exception as e:
+            print(f"Test failed: {str(e)}")
+    
+    # Run the async tests
+    try:
+        asyncio.run(run_tests())
+    except Exception as e:
+        print(f"Test failed: {str(e)}")
+
+if __name__ == "__main__":
+    test_routing()

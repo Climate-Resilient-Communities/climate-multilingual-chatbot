@@ -6,10 +6,8 @@ from typing import Dict, List
 
 class ModelType(Enum):
     NOVA = "nova"
-    TINY_AYA_GLOBAL = "tiny_aya_global"
-    TINY_AYA_EARTH = "tiny_aya_earth"
-    TINY_AYA_FIRE = "tiny_aya_fire"
-    TINY_AYA_WATER = "tiny_aya_water"
+    CLAUDE = "claude"
+    GPT = "gpt"
 
 class LanguageCode(Enum):
     ENGLISH = "en"
@@ -33,7 +31,7 @@ MAX_CACHE_SIZE = 10000
 
 # Retrieval configuration
 MAX_DOCUMENTS = 5
-HYBRID_ALPHA = 1.0  # Dense-only with Cohere embeddings (no sparse)
+HYBRID_ALPHA = 0.5
 RERANK_THRESHOLD = 0.7
 
 # Error codes

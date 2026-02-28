@@ -84,44 +84,33 @@ class UnifiedResponseGenerator:
         model_type: str,
         language_code: str = "en",
         description: Optional[str] = None,
-        conversation_history: Optional[List[Dict]] = None,
-        model_id: Optional[str] = None,
+        conversation_history: Optional[List[Dict]] = None
     ) -> Tuple[str, List[Dict[str, str]]]:
         """
         Generate response using the specified model type.
-
+        
         Args:
             query (str): The user's query
             documents (List[Dict]): Retrieved documents
             model_type (str): Either 'nova' or 'cohere'
-            language_code (str): Language code for output filtering
             description (str, optional): Additional context
             conversation_history (List[Dict], optional): Previous conversation
-            model_id (str, optional): Specific Cohere model ID (e.g. 'tiny-aya-fire')
-
+            
         Returns:
             Tuple[str, List[Dict]]: (response, citations)
         """
         try:
             from langsmith import trace
-
+            
             with trace(name=f"{model_type}_response_generation"):
                 logger.info(f"Starting {model_type} response generation")
-
+                
                 # Validate model type
                 if model_type not in ['nova', 'cohere']:
                     raise ValueError(f"Invalid model_type: {model_type}. Must be 'nova' or 'cohere'")
-
+                
                 # Select the appropriate model
-                if model_type == 'nova':
-                    model = self.nova_model
-                else:
-                    # Use the specific Tiny-Aya regional model if provided
-                    if model_id:
-                        model = self.cohere_model.with_model(model_id)
-                        logger.info(f"Using Cohere model: {model_id}")
-                    else:
-                        model = self.cohere_model
+                model = self.nova_model if model_type == 'nova' else self.cohere_model
                 
                 # Handle empty documents
                 if not documents:

@@ -22,10 +22,8 @@ class LanguageInfo(BaseModel):
     name: str
 
 class SupportedLanguagesResponse(BaseModel):
-    tiny_aya_fire_languages: List[LanguageInfo]
-    tiny_aya_earth_languages: List[LanguageInfo]
-    tiny_aya_water_languages: List[LanguageInfo]
-    tiny_aya_global_languages: List[LanguageInfo]
+    command_a_languages: List[LanguageInfo]
+    nova_languages: List[LanguageInfo]
     default_language: str
     total_supported: int
 
@@ -50,36 +48,47 @@ async def get_supported_languages(
     """
     Get all supported languages with their routing information
     
-    Returns languages supported by Tiny-Aya regional models.
+    Returns languages supported by Command A and Nova models
     This serves as the single source of truth for language support
     """
     try:
-        from src.models.cohere_flow import FIRE_LANGUAGES, EARTH_LANGUAGES, WATER_LANGUAGES
-
-        def _build_list(codes):
-            return [
-                LanguageInfo(
-                    code=lc,
-                    name=lang_router.LANGUAGE_NAME_MAP.get(lc, lc),
-                )
-                for lc in sorted(codes)
-            ]
-
-        fire = _build_list(FIRE_LANGUAGES)
-        earth = _build_list(EARTH_LANGUAGES)
-        water = _build_list(WATER_LANGUAGES)
-        global_langs = [LanguageInfo(code="en", name="english")]
-
-        total = len(fire) + len(earth) + len(water) + len(global_langs)
-        logger.info(f"Returning language support: fire={len(fire)} earth={len(earth)} water={len(water)} global={len(global_langs)}")
-
+        # Get Command A supported languages
+        command_a_languages = []
+        for lang_code in lang_router.COMMAND_A_SUPPORTED_LANGUAGES:
+            # Get full language name from the mapping
+            lang_name = lang_router.LANGUAGE_CODE_MAP.get(lang_code, lang_code.upper())
+            command_a_languages.append(LanguageInfo(code=lang_code, name=lang_name))
+        
+        # For Nova model, we support a broader set of languages
+        # These are languages not in Command A's supported set
+        nova_languages = []
+        
+        # Add some common languages not in Command A
+        additional_nova_languages = {
+            'eo': 'Esperanto',
+            'la': 'Latin', 
+            'cy': 'Welsh',
+            'ga': 'Irish',
+            'mt': 'Maltese',
+            'is': 'Icelandic',
+            'fo': 'Faroese',
+            'eu': 'Basque',
+            'ca': 'Catalan',
+            'gl': 'Galician'
+        }
+        
+        for lang_code, lang_name in additional_nova_languages.items():
+            nova_languages.append(LanguageInfo(code=lang_code, name=lang_name))
+        
+        total_supported = len(command_a_languages) + len(nova_languages)
+        
+        logger.info(f"Returning language support: command_a={len(command_a_languages)} nova={len(nova_languages)}")
+        
         return SupportedLanguagesResponse(
-            tiny_aya_fire_languages=fire,
-            tiny_aya_earth_languages=earth,
-            tiny_aya_water_languages=water,
-            tiny_aya_global_languages=global_langs,
+            command_a_languages=command_a_languages,
+            nova_languages=nova_languages,
             default_language="en",
-            total_supported=total,
+            total_supported=total_supported
         )
         
     except Exception as e:
@@ -116,9 +125,12 @@ async def validate_language(
         confidence = language_info.get('confidence', 0.8)  # Default confidence
         
         # Determine recommended model based on language support
-        support = lang_router.check_language_support(detected_language)
-        recommended_model = support.value
-        is_supported = True
+        if detected_language in lang_router.COMMAND_A_SUPPORTED_LANGUAGES:
+            recommended_model = "command_a"
+            is_supported = True
+        else:
+            recommended_model = "nova"
+            is_supported = True  # Nova supports broader language set
         
         logger.info(
             f"Language validation: query_len={len(request.query)} "

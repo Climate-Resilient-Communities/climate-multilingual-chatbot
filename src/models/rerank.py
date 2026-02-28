@@ -92,7 +92,7 @@ def rerank_fcn(query: str, docs_to_rerank: List[Dict], top_k: int, cohere_client
                     query=query,
                     documents=docs,
                     top_n=top_k,
-                    model="rerank-v4.0-fast",
+                    model="rerank-english-v3.0",
                     return_documents=True,
                 )
 

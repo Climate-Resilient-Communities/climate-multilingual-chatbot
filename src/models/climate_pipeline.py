@@ -3,10 +3,17 @@ import json
 import asyncio
 import logging
 import time
+import warnings
 from typing import Dict, Any, List, Optional, Callable
 import hashlib
 import re
 from langsmith import traceable
+
+# Filter out transformer warnings early
+warnings.filterwarnings("ignore", message="You're using a XLMRobertaTokenizerFast tokenizer")
+warnings.filterwarnings("ignore", message=".*XLMRobertaTokenizerFast.*", category=UserWarning)
+warnings.filterwarnings("ignore", category=UserWarning, module="transformers")
+warnings.filterwarnings("ignore", category=FutureWarning, module="transformers")
 
 from src.utils.env_loader import load_environment
 from src.models.query_routing import MultilingualRouter
@@ -16,7 +23,7 @@ from src.models.gen_response_unified import UnifiedResponseGenerator
 from src.models.hallucination_guard import check_hallucination, extract_contexts, evaluate_faithfulness_threshold
 from src.models.redis_cache import ClimateCache
 from src.models.nova_flow import BedrockModel
-from src.models.cohere_flow import CohereModel, CohereEmbedder, resolve_tiny_aya_model
+from src.models.cohere_flow import CohereModel
 from src.models.conversation_parser import conversation_parser
 
 # Configure logging
@@ -54,19 +61,15 @@ class ClimateQueryPipeline:
             # Initialize and store the cache instance for reuse
             self.cache = self._initialize_cache()
 
-            # Models — Tiny-Aya primary, Nova as fallback
+            # Models for translation (lightweight clients)
             self.nova_model = BedrockModel()
-            self.cohere_model = CohereModel()  # default: c4ai-tiny-aya-global
+            self.cohere_model = CohereModel()
 
-            # Cohere API key (used for embeddings, reranking, and chat)
-            self.COHERE_API_KEY = os.getenv("COHERE_API_KEY")
-
-            # Embedding: Cohere embed-english-v3.0 via API (replaces local BGE-M3)
+            # Eager heavy initialization for embeddings, index, and Cohere client
             self.index_name = index_name or "climate-change-adaptation-index-10-24-prod"
             _t0 = time.time()
-            self.embed_model = CohereEmbedder(api_key=self.COHERE_API_KEY)
-            logger.info(f"Init: Cohere embedder ready in {time.time() - _t0:.2f}s")
-
+            self.embed_model = self._initialize_embedding_model()
+            logger.info(f"Init: embeddings model ready in {time.time() - _t0:.2f}s")
             _t1 = time.time()
             try:
                 self.index = self._initialize_pinecone_index()
@@ -75,31 +78,40 @@ class ClimateQueryPipeline:
                 logger.warning(f"Pinecone not available, continuing without index ({e.__class__.__name__})")
                 self.index = None
 
-            # Cohere client for reranking (v1 Client needed for rerank_fcn)
+            # Cohere client for retrieval and reranking
+            self.COHERE_API_KEY = os.getenv("COHERE_API_KEY")
             _t2 = time.time()
             self.cohere_client = self._init_cohere()
-            logger.info(f"Init: cohere rerank client ready in {time.time() - _t2:.2f}s")
+            logger.info(f"Init: cohere client ready in {time.time() - _t2:.2f}s")
 
-            logger.info("✓ Climate Query Pipeline initialized (Tiny-Aya + Cohere Embed)")
+            logger.info("✓ Climate Query Pipeline initialized (eager heavy-init)")
 
         except Exception as e:
             logger.error(f"Failed to initialize Climate Query Pipeline: {str(e)}")
             raise
 
     async def prewarm(self) -> None:
-        """Pre-initialize dependencies to reduce first-query latency."""
+        """Pre-initialize heavy dependencies to reduce first-query latency."""
         try:
-            logger.info("Prewarm: starting component initialization")
+            logger.info("Prewarm: starting heavy component initialization")
             start = time.time()
-
-            # Embedding model (Cohere API — no heavy local init needed)
-            if self.embed_model is None:
-                self.embed_model = CohereEmbedder(api_key=self.COHERE_API_KEY)
-            # Single warm-up call to verify API connectivity
-            logger.info("Prewarming Cohere embedder...")
+            # Embedding model
             t0 = time.time()
-            _ = self.embed_model.encode(["prewarm climate query"], input_type="search_query")
-            logger.info(f"Prewarm embed took {(time.time() - t0) * 1000:.0f}ms")
+            if self.embed_model is None:
+                self.embed_model = self._initialize_embedding_model()
+            logger.info(f"Prewarm: embeddings ready in {time.time() - t0:.2f}s")
+
+            # Force the BGE-M3 model to fully initialize (fixes 6-second cold start)
+            logger.info("Prewarming embed model...")
+            dummy_text = "This is a prewarm query to initialize the model"
+            start_prewarm = time.time()
+            _ = self.embed_model.encode([dummy_text])
+            logger.info(f"Prewarm encode took {(time.time() - start_prewarm) * 1000:.0f}ms")
+
+            # Do it twice to ensure everything is cached
+            start_second = time.time()
+            _ = self.embed_model.encode([dummy_text])
+            logger.info(f"Second prewarm took {(time.time() - start_second) * 1000:.0f}ms")
 
             # Pinecone index
             t1 = time.time()
@@ -130,11 +142,29 @@ class ClimateQueryPipeline:
             return None
 
     def _initialize_embedding_model(self):
-        """Initialize Cohere embedding model (API-based, no local weights)."""
+        """Initialize embedding model with optimizations for tokenizer performance."""
         try:
-            return CohereEmbedder(api_key=self.COHERE_API_KEY)
+            from FlagEmbedding import BGEM3FlagModel
+            model_path = os.getenv("EMBED_MODEL_PATH", "BAAI/bge-m3")
+
+            # Initialize with optimizations and warning suppression
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                warnings.simplefilter("ignore", FutureWarning)
+                warnings.filterwarnings("ignore", message=".*XLMRobertaTokenizerFast.*")
+                warnings.filterwarnings("ignore", message=".*fast tokenizer.*")
+
+                model = BGEM3FlagModel(model_path, use_fp16=True, device="cpu")
+
+            # Try to optimize tokenizer usage if accessible
+            if hasattr(model, 'tokenizer') and hasattr(model.tokenizer, '__call__'):
+                logger.info("✓ Embedding model initialized with fast tokenizer")
+            else:
+                logger.debug("Embedding model using standard tokenizer (performance could be improved)")
+
+            return model
         except Exception as e:
-            logger.error(f"Failed to initialize Cohere embedder: {e}")
+            logger.error(f"Failed to initialize embedding model: {str(e)}")
             raise
 
     def _initialize_pinecone_index(self):
@@ -209,11 +239,17 @@ class ClimateQueryPipeline:
                     "snippet": (r.get("content", "")[:200] + "...") if r.get("content") else "",
                 })
 
-            # Generate via Tiny-Aya (primary) for Tavily fallback
+            # Generate via unified generator - check for Command A override
+            fallback_model_type = "nova"
+            force_command_a = os.getenv('FORCE_COMMAND_A_RESPONSES', '').lower() in ('true', '1', 'yes')
+            if force_command_a:
+                fallback_model_type = "cohere"
+                logger.info("⚠️  Fallback: Overriding Nova → Command A (via FORCE_COMMAND_A_RESPONSES)")
+                
             response, citations = await self.response_generator.generate_response(
                 query=english_query,
                 documents=docs_for_fallback,
-                model_type="cohere",
+                model_type=fallback_model_type,
                 language_code="en",
                 conversation_history=None,
             )
@@ -407,25 +443,25 @@ class ClimateQueryPipeline:
 
             routing_info = route_result['routing_info']
             model_type = routing_info['model_type']
-
-            # Resolve the correct Tiny-Aya model for generation based on routing
-            model_id = routing_info.get('model_id', 'tiny-aya-global')
-            if model_type.startswith('tiny_aya'):
-                # Swap the cohere_model to use the regionally-appropriate Tiny-Aya model
-                self.cohere_model = self.cohere_model.with_model(model_id)
-                # Normalize model_type for downstream (gen_response_unified expects 'cohere')
-                gen_model_type = 'cohere'
-            else:
-                gen_model_type = 'nova'
-
-            logger.info(f"✓ Routed to {routing_info['model_name']} (model_id={model_id})")
+            
+            # Check for Command A override (force all responses to use Command A)
+            force_command_a = os.getenv('FORCE_COMMAND_A_RESPONSES', '').lower() in ('true', '1', 'yes')
+            if force_command_a and model_type != 'cohere':
+                logger.info(f"⚠️  Overriding model selection: {routing_info['model_name']} → Command A (via FORCE_COMMAND_A_RESPONSES)")
+                model_type = 'cohere'
+                routing_info['model_name'] = 'Command A'
+            
+            logger.info(f"✓ Routed to {routing_info['model_name']} model")
             route_ms = (time.time() - _route_start) * 1000
             logger.info(f"Timing: routing={route_ms:.1f}ms")
 
-            # Set translation function — Tiny-Aya handles translation via Cohere
+            # Set translation function based on model type
             if routing_info['needs_translation']:
-                translation_func = self.cohere_model.translate
-                logger.info("Routing requires translation → provider=%s", routing_info['model_name'])
+                if model_type == 'nova':
+                    translation_func = self.nova_model.translate
+                else:
+                    translation_func = self.cohere_model.translate
+                logger.info("Routing requires translation → provider=%s", 'Nova' if model_type == 'nova' else 'Command-A')
 
                 # Re-run routing with proper translation function
                 route_result = await self.router.route_query(
@@ -597,7 +633,7 @@ class ClimateQueryPipeline:
                         final_text = canned_text
                         if language_code != 'en':
                             try:
-                                final_text = await self.cohere_model.translate(canned_text, 'english', language_name)
+                                final_text = await self.nova_model.translate(canned_text, 'english', language_name)
                                 logger.info("✓ Canned response translated to selected language")
                             except Exception as te:
                                 logger.warning(f"Canned translation failed, falling back to English: {te}")
@@ -629,7 +665,7 @@ class ClimateQueryPipeline:
                             target_code = detected_lang if detected_lang and detected_lang != 'unknown' else language_code
                             if target_code != 'en':
                                 target_name = LANG_CODE_TO_NAME.get(target_code, target_code)
-                                final_msg = await self.cohere_model.translate(msg_en, 'english', target_name)
+                                final_msg = await self.nova_model.translate(msg_en, 'english', target_name)
                         except Exception:
                             final_msg = msg_en
                         
@@ -659,7 +695,7 @@ class ClimateQueryPipeline:
                             target_code = detected_lang if detected_lang and detected_lang != 'unknown' else language_code
                             if target_code != 'en':
                                 target_name = LANG_CODE_TO_NAME.get(target_code, target_code)
-                                final_msg = await self.cohere_model.translate(msg_en, 'english', target_name)
+                                final_msg = await self.nova_model.translate(msg_en, 'english', target_name)
                         except Exception:
                             final_msg = msg_en
                         
@@ -747,7 +783,7 @@ class ClimateQueryPipeline:
                         final_msg = msg_en
                         if language_code != 'en':
                             try:
-                                final_msg = await self.cohere_model.translate(msg_en, 'english', language_name)
+                                final_msg = await self.nova_model.translate(msg_en, 'english', language_name)
                             except Exception:
                                 final_msg = msg_en
                         
@@ -773,7 +809,7 @@ class ClimateQueryPipeline:
                         final_msg = msg_en
                         if language_code != 'en':
                             try:
-                                final_msg = await self.cohere_model.translate(msg_en, 'english', language_name)
+                                final_msg = await self.nova_model.translate(msg_en, 'english', language_name)
                             except Exception:
                                 final_msg = msg_en
                         
@@ -810,11 +846,11 @@ class ClimateQueryPipeline:
             guards_ms = (time.time() - _guards_start) * 1000
             logger.info(f"Timing: guards={guards_ms:.1f}ms")
 
-            # Ensure deps are ready
+            # Ensure heavy deps are ready
             if self.embed_model is None:
                 t_embed = time.time()
-                self.embed_model = CohereEmbedder(api_key=self.COHERE_API_KEY)
-                logger.info(f"Init: Cohere embedder initialized in {time.time() - t_embed:.2f}s")
+                self.embed_model = self._initialize_embedding_model()
+                logger.info(f"Init: embeddings initialized in {time.time() - t_embed:.2f}s")
             if self.index is None:
                 t_index = time.time()
                 self.index = self._initialize_pinecone_index()
@@ -854,7 +890,7 @@ class ClimateQueryPipeline:
                     final_resp = fb["response"]
                     if self.get_language_code(language_name) != "en":
                         try:
-                            final_resp = await self.cohere_model.translate(final_resp, "english", language_name)
+                            final_resp = await self.nova_model.translate(final_resp, "english", language_name)
                         except Exception:
                             pass
                     retrieval_source = fb.get("retrieval_source", "tavily")
@@ -882,12 +918,11 @@ class ClimateQueryPipeline:
                     self.response_generator.generate_response(
                         query=processed_query,
                         documents=documents,
-                        model_type=gen_model_type,
-                        language_code='en',
-                        conversation_history=conversation_history,
-                        model_id=model_id,  # Route to specific Tiny-Aya regional model
+                        model_type=model_type,
+                        language_code='en',  # Always generate in English first
+                        conversation_history=conversation_history
                     ),
-                    timeout=45.0
+                    timeout=45.0  # 45 seconds total for the entire generation process
                 )
                 logger.info("✓ Response generated successfully in English")
             except Exception as e:
@@ -949,8 +984,8 @@ class ClimateQueryPipeline:
                 logger.info(f"Step 8: Translating response to {language_name} (code={language_code})")
                 try:
                     _trans_start = time.time()
-                    # Use Tiny-Aya (Cohere) for translation
-                    translated_response = await self.cohere_model.translate(
+                    # Use Nova translator for all languages including Filipino
+                    translated_response = await self.nova_model.translate(
                         response,
                         'english',
                         language_name
