@@ -14,7 +14,7 @@ digraph "Climate Chatbot Architecture" {
 		fillcolor="#EDF7ED" label="Query Processing & Follow-up Detection" style=filled
 		llm_classifier [label="LLM-based
 Follow-up Detection" fillcolor="#98FB98" shape=box style=filled]
-		topic_moderation [label="ClimateBERT
+		topic_moderation [label="Keyword + LLM
 Topic Moderation"]
 		query_processing [label="Query Normalization"]
 		translation [label="Query Translation"]

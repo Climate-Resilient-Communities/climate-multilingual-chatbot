@@ -10,34 +10,10 @@ This guide provides instructions for deploying the Climate Multilingual Chatbot 
 
 ## Important: Model Preparation
 
-The application no longer requires bundling a local ClimateBERT model. Ensure environment variables are configured and network access to providers is available.
-
-## Using Git LFS for Model Files
-
-Since the model files are large, we use Git LFS (Large File Storage) to manage them efficiently. When deploying to Azure:
-
-### Option 1: Clone with Git LFS Support
-
-If your Azure App Service has Git LFS installed and configured:
-
-1. Make sure Git LFS is correctly set up in your deployment workflow:
-   ```bash
-   git lfs install
-   git clone https://github.com/yourusername/climate-multilingual-chatbot.git
-   ```
-
-2. Verify the model files were properly downloaded:
-   ```bash
-   ls -la models/climatebert/
-   ```
-
-### Option 2: Manual Model Upload (Legacy)
-
-Previously we supported bundling `models/climatebert/`. This is no longer required and is not recommended.
-
-### Handling Git LFS in Docker Deployments
-
-If you use containers, no local HF model bundling is necessary for this app.
+No local ML models need to be bundled. ClimateBERT has been fully removed — topic
+moderation now uses keyword matching and LLM-based classification (Nova Lite).
+Ensure environment variables are configured and network access to AWS Bedrock
+and Cohere APIs is available.
 
 ## Configuration Options
 

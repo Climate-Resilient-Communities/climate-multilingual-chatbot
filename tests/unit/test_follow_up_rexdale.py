@@ -47,9 +47,7 @@ async def test_rexdale_queries():
     nova_model = BedrockModel()
     logger.info("Nova model initialized")
 
-    # Get topic moderation pipeline
-    from src.models.input_guardrail import initialize_models
-    topic_moderation_pipe, _ = initialize_models()
+    # Topic moderation uses keyword + LLM detection (no ClimateBERT needed)
     
     # Define the sequence of questions to test
     queries = [
@@ -69,13 +67,13 @@ async def test_rexdale_queries():
         # First test without conversation history
         mod_result_without_history = await topic_moderation(
             query=query, 
-            moderation_pipe=topic_moderation_pipe
+            nova_model=nova_model
         )
         
         # Then test with conversation history
         mod_result_with_history = await topic_moderation(
             query=query, 
-            moderation_pipe=topic_moderation_pipe,
+            nova_model=nova_model,
             conversation_history=conversation_history
         )
         
@@ -121,7 +119,7 @@ async def test_rexdale_queries():
     for i, query in enumerate(queries):
         result = await topic_moderation(
             query=query,
-            moderation_pipe=topic_moderation_pipe,
+            nova_model=nova_model,
             conversation_history=conversation_history[:i]  # Use history up to but not including current query
         )
         

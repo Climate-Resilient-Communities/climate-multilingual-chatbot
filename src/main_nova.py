@@ -8,17 +8,7 @@ import time
 import warnings
 import json
 
-#remove deprecation warnings from transformers
-warnings.filterwarnings(
-    "ignore",
-    message="`torch.utils._pytree._register_pytree_node` is deprecated",
-    module="transformers.utils.generic",
-)
-
 # Configure environment variables first
-os.environ["PYTORCH_JIT"] = "0"
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-os.environ["TORCH_USE_CUDA_DSA"] = "0"
 
 # Add the project root directory to Python path
 project_root = Path(__file__).resolve().parent.parent
@@ -54,17 +44,6 @@ os.environ['LANGCHAIN_TRACING_V2'] = os.getenv('LANGCHAIN_TRACING_V2') or ""
 os.environ['LANGCHAIN_API_KEY'] = os.getenv('LANGCHAIN_API_KEY') or ""
 os.environ['LANGCHAIN_PROJECT'] = os.getenv('LANGSMITH_PROJECT', "climate-chat-production")
 os.environ['TAVILY_API_KEY'] = os.getenv('TAVILY_API_KEY') or ""
-
-# Import and configure torch before other imports
-import torch
-torch.set_num_threads(1)
-if torch.cuda.is_available():
-    torch.backends.cuda.matmul.allow_tf32 = True
-
-# Configure torch path settings
-if 'torch' in sys.modules:
-    import torch.utils.data
-    torch.utils.data._utils.MP_STATUS_CHECK_INTERVAL = 0
 
 # Third-party imports
 import cohere
@@ -401,8 +380,8 @@ class MultilingualClimateChatbot:
                 
            
             try:
-                # Direct topic moderation call 
-                topic_results = await topic_moderation(query, self.topic_moderation_pipe)
+                # Direct topic moderation call (keyword + LLM based, no ClimateBERT)
+                topic_results = await topic_moderation(query)
                 
                 if not topic_results or not topic_results.get('passed', False):
                     result_reason = topic_results.get('reason', 'not_climate_related')

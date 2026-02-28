@@ -112,20 +112,21 @@ def _fallback_follow_up_check(query: str) -> Dict[str, Any]:
     }
 
 async def topic_moderation(
-    query: str, 
+    query: str,
     moderation_pipe=None,
     conversation_history: List[Dict] = None,
     nova_model=None
 ) -> Dict[str, Any]:
     """
     Validate if query is about climate change or is a follow-up question.
-    
+    Uses keyword matching and LLM-based follow-up detection.
+
     Args:
         query (str): The user query
-        moderation_pipe: Optional pre-initialized pipeline
+        moderation_pipe: Deprecated, ignored. Kept for call-site compatibility.
         conversation_history (List[Dict], optional): Previous conversation turns
         nova_model: Optional Nova model for LLM operations
-        
+
     Returns:
         Dict[str, Any]: Result of moderation with passed flag
     """
@@ -198,22 +199,6 @@ async def topic_moderation(
             logger.info("Query contains explicit climate keywords - allowing")
             return {"passed": True, "reason": "climate_keywords", "score": 0.95}
         
-        # Last check: If not obvious, optionally use a provided moderation pipeline (legacy path)
-        if moderation_pipe:
-            try:
-                result = moderation_pipe(query)
-                classification = result[0] if result else None
-                label = classification.get('label', '').lower() if classification else ''
-                score = classification.get('score', 0.0) if classification else 0.0
-                if label == 'yes' and score > 0.6:
-                    logger.info(f"Query is about climate change according to legacy ML pipeline, score: {score:.2f}")
-                    return {"passed": True, "reason": "climate_related_ml", "score": score}
-                else:
-                    logger.info(f"Query is not about climate change according to legacy ML pipeline, score: {score:.2f}")
-                    return {"passed": False, "reason": "not_climate_related_ml", "score": score}
-            except Exception as e:
-                logger.error(f"Error in legacy ML classification: {str(e)}")
-        
         # Default to rejecting if none of the above checks passed
         logger.info(f"Query does not appear climate-related - rejecting")
         return {"passed": False, "reason": "not_climate_related", "score": 0.3}
@@ -253,124 +238,11 @@ def _is_running_in_azure() -> bool:
     return bool(os.getenv("WEBSITE_SITE_NAME"))
 
 
-def initialize_models():
-    """Initialize topic moderation ML model."""
-    try:
-        import torch
-        from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
-
-        # Model name for downloading
-        climatebert_model_name = "climatebert/distilroberta-base-climate-detector"
-
-        # Check for local model in Azure App Service path first
-        azure_model_path = Path("/home/site/wwwroot/models/climatebert")
-        project_root = Path(__file__).resolve().parent.parent.parent
-        local_model_path = project_root / "models" / "climatebert"
-
-        # Verify directory existence and contents
-        logger.info("Checking model directories...")
-        is_azure = _is_running_in_azure()
-        logger.info(f"Running in Azure: {is_azure}")
-        
-        azure_exists, azure_files = check_dir(azure_model_path, "Azure model directory")
-        local_exists, local_files = check_dir(local_model_path, "Local model directory")
-        
-        # Extra debug info for Azure environment
-        if is_azure:
-            try:
-                azure_wwwroot = Path("/home/site/wwwroot")
-                wwwroot_exists, wwwroot_contents = check_dir(azure_wwwroot, "Azure wwwroot directory")
-                
-                # Check for models dir directly under wwwroot
-                models_dir = azure_wwwroot / "models"
-                models_exists, models_contents = check_dir(models_dir, "Models directory")
-            except Exception as e:
-                logger.error(f"Error checking Azure directories: {str(e)}")
-        
-        # Set Hugging Face cache dir explicitly to a known writable location
-        if is_azure:
-            os.environ["HF_HOME"] = "/tmp/huggingface"
-            os.environ["TRANSFORMERS_CACHE"] = "/tmp/huggingface/transformers"
-            logger.info(f"Set HF_HOME to {os.environ.get('HF_HOME')}")
-        
-        # Try Azure path first, then local path, then fallback to HF download
-        climatebert_model = None
-        climatebert_tokenizer = None
-        
-        if is_azure and azure_exists and azure_files:
-            logger.info(f"Loading ClimateBERT model from Azure path: {azure_model_path}")
-            try:
-                # Set offline mode to force local file usage
-                os.environ["HF_HUB_OFFLINE"] = "1"
-                climatebert_model = AutoModelForSequenceClassification.from_pretrained(
-                    str(azure_model_path),
-                    local_files_only=True
-                )
-                climatebert_tokenizer = AutoTokenizer.from_pretrained(
-                    str(azure_model_path),
-                    local_files_only=True
-                )
-                os.environ.pop("HF_HUB_OFFLINE", None)  # Remove offline mode
-                logger.info("✓ Successfully loaded ClimateBERT from Azure directory")
-            except Exception as azure_err:
-                os.environ.pop("HF_HUB_OFFLINE", None)  # Remove offline mode
-                logger.warning(f"Failed to load from Azure path: {str(azure_err)}")
-                logger.info("Falling back to local directory...")
-        
-        # If model still not loaded, try local path
-        if (climatebert_model is None) and local_exists and local_files:
-            logger.info(f"Loading ClimateBERT model from local path: {local_model_path}")
-            try:
-                # Set offline mode to force local file usage
-                os.environ["HF_HUB_OFFLINE"] = "1"
-                climatebert_model = AutoModelForSequenceClassification.from_pretrained(
-                    str(local_model_path),
-                    local_files_only=True
-                )
-                climatebert_tokenizer = AutoTokenizer.from_pretrained(
-                    str(local_model_path),
-                    local_files_only=True
-                )
-                os.environ.pop("HF_HUB_OFFLINE", None)  # Remove offline mode
-                logger.info("✓ Successfully loaded ClimateBERT from local directory")
-            except Exception as local_err:
-                os.environ.pop("HF_HUB_OFFLINE", None)  # Remove offline mode
-                logger.warning(f"Failed to load from local path: {str(local_err)}")
-        
-        # If model still not loaded, try downloading
-        if climatebert_model is None:
-            logger.info(f"Local model not found. Downloading from Hugging Face.")
-            try:
-                climatebert_model = AutoModelForSequenceClassification.from_pretrained(climatebert_model_name)
-                climatebert_tokenizer = AutoTokenizer.from_pretrained(climatebert_model_name)
-                logger.info("✓ Successfully downloaded ClimateBERT from Hugging Face")
-            except Exception as download_err:
-                logger.error(f"Failed to download model: {str(download_err)}")
-                raise  # Re-raise if we can't load the model any way
-        
-        # Set up topic moderation pipeline with proper settings
-        device = 0 if torch.cuda.is_available() else -1
-        topic_moderation_pipe = pipeline(
-            "text-classification",
-            model=climatebert_model,
-            tokenizer=climatebert_tokenizer,
-            device=device
-        )
-        
-        logger.info("Models initialized successfully")
-        return topic_moderation_pipe, None
-        
-    except Exception as e:
-        logger.error(f"Error initializing models: {e}")
-        raise
-
 if __name__ == "__main__":
-    # Test the topic moderation functionality
+    # Test the topic moderation functionality (no ClimateBERT needed)
     import asyncio
-    
+
     async def test_moderation():
-        topic_moderation_pipe, _ = initialize_models()
-        
         test_questions = [
             "what is climate change?",
             "how can I start a fire in a forest?",
@@ -381,13 +253,13 @@ if __name__ == "__main__":
             'what else can i do to help?',
             'tell me more about CO2 emissions',
         ]
-        
-        # Test each question independently
+
+        # Test each question independently (keyword-based, no model needed)
         for question in test_questions:
             print(f"\nTesting standalone: {question}")
-            topic_result = await topic_moderation(question, topic_moderation_pipe)
+            topic_result = await topic_moderation(question)
             print(f"Topic moderation result: {topic_result}")
-            
+
         # Now test with conversation history
         print("\n=== Testing with conversation history ===")
         conversation_history = [
@@ -396,16 +268,16 @@ if __name__ == "__main__":
                 'response': 'Climate change refers to long-term shifts in temperatures and weather patterns caused by human activities.'
             }
         ]
-        
+
         follow_up = "what else should I know?"
         print(f"\nFollow-up with context: {follow_up}")
-        result = await topic_moderation(follow_up, topic_moderation_pipe, conversation_history)
+        result = await topic_moderation(follow_up, conversation_history=conversation_history)
         print(f"Result with history: {result}")
-        
-        result_no_context = await topic_moderation(follow_up, topic_moderation_pipe)
+
+        result_no_context = await topic_moderation(follow_up)
         print(f"Result without history: {result_no_context}")
-        
+
         print('-'*50)
-    
+
     asyncio.run(test_moderation())
 

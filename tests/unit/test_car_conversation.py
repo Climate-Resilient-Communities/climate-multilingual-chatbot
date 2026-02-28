@@ -43,10 +43,7 @@ async def test_car_conversation():
     nova_model = BedrockModel()
     logger.info("Nova model initialized")
 
-    # Get topic moderation pipeline from the main program
-    from transformers import pipeline
-    from src.models.input_guardrail import initialize_models
-    topic_moderation_pipe, _ = initialize_models()
+    # Topic moderation uses keyword + LLM detection (no ClimateBERT needed)
     
     # First query with explicit climate context
     query_1 = "What should I consider when buying a car if I'm concerned about climate change?"
@@ -59,7 +56,7 @@ async def test_car_conversation():
         # First check if query is on-topic
         mod_result_1 = await topic_moderation(
             query=query_1, 
-            moderation_pipe=topic_moderation_pipe
+            nova_model=nova_model
         )
         logger.info(f"First query moderation result: {mod_result_1}")
         
@@ -87,7 +84,7 @@ async def test_car_conversation():
             # Check if query is on-topic WITH conversation history
             mod_result_2_with_history = await topic_moderation(
                 query=query_2, 
-                moderation_pipe=topic_moderation_pipe,
+                nova_model=nova_model,
                 conversation_history=conversation_history
             )
             logger.info(f"Second query moderation WITH conversation history: {mod_result_2_with_history}")
@@ -95,7 +92,7 @@ async def test_car_conversation():
             # Check if query is on-topic WITHOUT conversation history
             mod_result_2_without_history = await topic_moderation(
                 query=query_2, 
-                moderation_pipe=topic_moderation_pipe
+                nova_model=nova_model
             )
             logger.info(f"Second query moderation WITHOUT conversation history: {mod_result_2_without_history}")
             
@@ -123,7 +120,7 @@ async def test_car_conversation():
                 # Check if third query is on-topic WITH conversation history
                 mod_result_3_with_history = await topic_moderation(
                     query=query_3, 
-                    moderation_pipe=topic_moderation_pipe,
+                    nova_model=nova_model,
                     conversation_history=conversation_history
                 )
                 logger.info(f"Third query moderation WITH conversation history: {mod_result_3_with_history}")
@@ -131,7 +128,7 @@ async def test_car_conversation():
                 # Check if third query is on-topic WITHOUT conversation history
                 mod_result_3_without_history = await topic_moderation(
                     query=query_3, 
-                    moderation_pipe=topic_moderation_pipe
+                    nova_model=nova_model
                 )
                 logger.info(f"Third query moderation WITHOUT conversation history: {mod_result_3_without_history}")
                 

@@ -37,9 +37,7 @@ async def test_mixed_topics():
     nova_model = BedrockModel()
     logger.info("Nova model initialized")
 
-    # Get topic moderation pipeline
-    from src.models.input_guardrail import initialize_models
-    topic_moderation_pipe, _ = initialize_models()
+    # Topic moderation uses keyword + LLM detection (no ClimateBERT needed)
     
     # Define the sequence of questions to test
     queries = [
@@ -59,14 +57,14 @@ async def test_mixed_topics():
         # First test without conversation history
         mod_result_without_history = await topic_moderation(
             query=query, 
-            moderation_pipe=topic_moderation_pipe
+            nova_model=nova_model
         )
         logger.info(f"Moderation WITHOUT conversation history: {mod_result_without_history}")
         
         # Then test with conversation history
         mod_result_with_history = await topic_moderation(
             query=query, 
-            moderation_pipe=topic_moderation_pipe,
+            nova_model=nova_model,
             conversation_history=conversation_history
         )
         logger.info(f"Moderation WITH conversation history: {mod_result_with_history}")

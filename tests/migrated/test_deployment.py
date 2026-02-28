@@ -20,7 +20,7 @@ async def test_critical_imports():
     try:
         from src.utils.env_loader import load_environment
         from src.main_nova import MultilingualClimateChatbot
-        from src.models.input_guardrail import topic_moderation, initialize_models
+        from src.models.input_guardrail import topic_moderation
         from src.webui.app_nova import main as streamlit_main
         print("✅ All critical imports successful")
         return True
@@ -50,50 +50,52 @@ async def test_environment_setup():
         print(f"❌ Environment test failed: {str(e)}")
         return False
 
-async def test_model_initialization():
-    """Test that models can initialize."""
-    print("🔍 Testing model initialization...")
-    
+async def test_topic_moderation_basic():
+    """Test that keyword-based topic moderation works."""
+    print("🔍 Testing topic moderation (keyword-based)...")
+
     try:
-        from src.models.input_guardrail import initialize_models
-        topic_pipe, _ = initialize_models()
-        
-        if topic_pipe is None:
-            print("❌ Topic moderation pipeline is None")
+        from src.models.input_guardrail import topic_moderation
+
+        result = await topic_moderation("What is climate change?")
+        if not result.get('passed'):
+            print("❌ Climate query should pass moderation")
             return False
-            
-        print("✅ Models initialized successfully")
+
+        result = await topic_moderation("Where can I buy shoes?")
+        if result.get('passed'):
+            print("❌ Shopping query should fail moderation")
+            return False
+
+        print("✅ Topic moderation working correctly")
         return True
     except Exception as e:
-        print(f"❌ Model initialization failed: {str(e)}")
+        print(f"❌ Topic moderation test failed: {str(e)}")
         return False
 
 async def test_basic_query_processing():
     """Test basic query processing without full chatbot."""
     print("🔍 Testing basic query processing...")
-    
+
     try:
-        from src.models.input_guardrail import topic_moderation, initialize_models
-        
-        # Initialize models
-        topic_pipe, _ = initialize_models()
-        
-        # Test basic moderation
+        from src.models.input_guardrail import topic_moderation
+
+        # Test basic moderation (keyword-based, no ClimateBERT needed)
         test_queries = [
             "What is climate change?",  # Should pass
             "Where can I buy shoes?",   # Should fail
         ]
-        
+
         for query in test_queries:
-            result = await topic_moderation(query, topic_pipe)
+            result = await topic_moderation(query)
             expected_pass = "climate" in query.lower()
-            
+
             if result.get('passed') == expected_pass:
                 print(f"  ✅ '{query[:30]}...' - {result.get('reason')}")
             else:
                 print(f"  ❌ '{query[:30]}...' - Unexpected result: {result}")
                 return False
-        
+
         print("✅ Basic query processing working")
         return True
     except Exception as e:
@@ -122,7 +124,7 @@ async def run_deployment_tests():
     tests = [
         ("Critical Imports", test_critical_imports),
         ("Environment Setup", test_environment_setup),
-        ("Model Initialization", test_model_initialization),
+        ("Topic Moderation", test_topic_moderation_basic),
         ("Basic Query Processing", test_basic_query_processing),
         ("Streamlit Importability", test_streamlit_importability),
     ]

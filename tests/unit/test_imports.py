@@ -18,7 +18,7 @@ try:
     print("✓ nova_generation imported successfully")
 
     print("\nTesting input_guardrail...")
-    from src.models.input_guardrail import initialize_models, topic_moderation
+    from src.models.input_guardrail import topic_moderation
     print("✓ input_guardrail imported successfully")
 
     print("\nTesting retrieval...")

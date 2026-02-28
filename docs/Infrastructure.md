@@ -30,7 +30,7 @@ FastAPI Backend (Uvicorn)
     |
     +--> Language Routing (MultilingualRouter)
     +--> Query Rewriting (BedrockModel / Nova Lite)
-    +--> Input Guards (ClimateBERT + keyword checks)
+    +--> Input Guards (keyword + LLM-based topic checks)
     +--> Document Retrieval (BGE-M3 -> Pinecone hybrid search)
     +--> Reranking (Cohere rerank API)
     +--> Response Generation (Nova or Cohere Command A)
@@ -118,11 +118,15 @@ The core pipeline lives in `src/models/climate_pipeline.py` (`ClimateQueryPipeli
 - **Returns**: Dense vectors (1024 dim) + lexical weights (sparse)
 - **Cache**: In-memory LRU cache (5000 entries, configurable via `EMBEDDING_CACHE_MAX_SIZE`)
 
-### ClimateBERT (Optional)
+### ClimateBERT (Removed)
 
-- **Model**: `climatebert/distilroberta-base-climate-detector`
-- **Used For**: ML-based topic classification (backup to keyword/LLM checks)
-- **Loading Priority**: Azure path -> Local path -> HuggingFace download
+- **Status**: Removed as of Feb 2026. Was `climatebert/distilroberta-base-climate-detector`.
+- **Reason**: Topic moderation is now handled entirely by keyword matching + LLM-based
+  follow-up detection (Nova). ClimateBERT was never called in the active pipeline
+  (`climate_pipeline.py`) and its loading code (`initialize_models()`) pulled in
+  `torch` and `transformers`, adding ~1.5 GB of dependencies for zero runtime benefit.
+- **Replacement**: `topic_moderation()` in `input_guardrail.py` uses multi-language
+  keyword lists and optional Nova LLM classification. No ML model loading required.
 
 ---
 

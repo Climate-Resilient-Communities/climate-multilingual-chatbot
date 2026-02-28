@@ -37,7 +37,6 @@ def mock_langsmith_client():
 def mock_nova_chatbot():
     """Create a mock chatbot with mocked components for testing."""
     with patch("src.main_nova.MultilingualClimateChatbot._initialize_api_keys"), \
-         patch("src.main_nova.MultilingualClimateChatbot._initialize_models"), \
          patch("src.main_nova.MultilingualClimateChatbot._initialize_retrieval"), \
          patch("src.main_nova.MultilingualClimateChatbot._initialize_language_router"), \
          patch("src.main_nova.MultilingualClimateChatbot._initialize_nova_flow"), \
@@ -119,10 +118,6 @@ def mock_nova_chatbot():
         })
         
         chatbot.COHERE_API_KEY = "test_key"
-        
-        # Mock the topic moderation pipe
-        chatbot.topic_moderation_pipe = MagicMock()
-        chatbot.topic_moderation_pipe.return_value = [{"label": "yes", "score": 0.95}]
         
         # Set up process_input_guards to return correctly formatted data
         chatbot.process_input_guards = AsyncMock(return_value={'passed': True, 'topic_check': True})
