@@ -2,19 +2,10 @@
 Document Retrieval Module for Climate Chatbot
 ============================================
 
-This module handles document retrieval using BGE-M3 embeddings and Pinecone vector search.
-
-Performance Note - XLMRobertaTokenizerFast Warning:
---------------------------------------------------
-The XLMRobertaTokenizerFast warning from BGE-M3 is suppressed for cleaner output.
-This is a performance optimization suggestion that would need to be implemented
-in the upstream FlagEmbedding library, not in our code.
+This module handles document retrieval using Cohere embed-english-v3.0 embeddings
+and Pinecone vector search.  Dense-only search (alpha=1.0); Cohere reranking
+compensates for the lack of sparse/BM25 matching.
 """
-
-import warnings
-# Suppress XLMRobertaTokenizerFast warnings for cleaner output
-warnings.filterwarnings("ignore", message="You're using a XLMRobertaTokenizerFast tokenizer")
-warnings.filterwarnings("ignore", message=".*XLMRobertaTokenizerFast.*", category=UserWarning)
 
 import os
 import hashlib
@@ -26,7 +17,6 @@ from typing import List, Dict, Any, Optional, Tuple
 import re
 from urllib.parse import urlparse
 from pinecone import Pinecone
-from FlagEmbedding import BGEM3FlagModel
 from src.models.rerank import rerank_fcn
 from src.models.title_normalizer import normalize_title
 from src.utils.env_loader import load_environment
@@ -75,97 +65,34 @@ class EmbeddingCache:
 _EMB_CACHE = EmbeddingCache(max_size=int(os.getenv("EMBED_CACHE_MAX", "4000")))
 
 def get_query_embeddings(query: str, embed_model) -> tuple:
-    """
-    Get dense and sparse embeddings for a query.
+    """Get dense embeddings for a query using Cohere embed-english-v3.0.
 
-    Performance Note: The XLMRobertaTokenizerFast warning suggests using tokenizer.__call__()
-    instead of encode()+pad() for better performance. This is an internal optimization
-    in the BGE-M3 model that could improve speed by ~10-20%.
-
-    To potentially reduce the warning frequency, we ensure optimal input format.
+    Returns (dense_embeddings, sparse_embeddings) where sparse is an empty
+    placeholder (Cohere embed has no sparse output; alpha=1.0 means dense-only).
     """
     import time
     t_start = time.perf_counter()
     logger.info(f"Query embedding IN: query_len={len(query)} chars, query_repr='{query[:100]}...'")
 
-    # Suppress XLMRobertaTokenizerFast warnings during embedding
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", UserWarning)
-        warnings.filterwarnings("ignore", message=".*XLMRobertaTokenizerFast.*")
-        warnings.filterwarnings("ignore", message=".*fast tokenizer.*")
-
-        # Ensure query is properly formatted for optimal tokenization
-        # Try multiple approaches to handle the array ambiguity bug in BGE-M3
-        embeddings = None
-        last_error = None
-
-        try:
-            if isinstance(query, str) and query.strip():
-                # Use list format which is more efficient for batch processing
-                embeddings = embed_model.encode(
-                    [query.strip()],
-                    return_dense=True,
-                    return_sparse=True,
-                    return_colbert_vecs=False
-                )
-            else:
-                # Fallback for edge cases
-                embeddings = embed_model.encode(
-                    [query] if isinstance(query, str) else query,
-                    return_dense=True,
-                    return_sparse=True,
-                    return_colbert_vecs=False
-                )
-        except Exception as e:
-            last_error = e
-            logger.warning(f"BGE-M3 encoding failed: {str(e)[:100]}")
-            if "ambiguous" in str(e).lower():
-                logger.warning(f"Detected array ambiguity error, attempting fallback encoding")
-                # Try with different parameters as workaround
-                try:
-                    embeddings = embed_model.encode(
-                        [str(query).strip()],  # Force string conversion
-                        return_dense=True,
-                        return_sparse=False,  # Disable sparse to avoid the bug
-                        return_colbert_vecs=False
-                    )
-                    # Create empty sparse embeddings as fallback
-                    if 'lexical_weights' not in embeddings:
-                        embeddings['lexical_weights'] = [{}]
-                    logger.info("Successfully used sparse-disabled fallback for BGE-M3")
-                except Exception as e2:
-                    logger.error(f"Both encoding attempts failed: {str(e)} -> {str(e2)}")
-                    raise last_error
-            else:
-                raise
+    embeddings = embed_model.encode(
+        [query.strip()] if isinstance(query, str) else query,
+        input_type="search_query",
+        return_dense=True,
+        return_sparse=False,
+        return_colbert_vecs=False,
+    )
 
     elapsed_ms = int((time.perf_counter() - t_start) * 1000)
-
-    # Safe extraction of dimensions without triggering array boolean evaluation
     dense_vecs = embeddings.get('dense_vecs')
     dense_dim = len(dense_vecs[0]) if dense_vecs is not None and len(dense_vecs) > 0 else 0
+    logger.info(f"dep=cohere_embed op=query_encode ms={elapsed_ms} dense_dim={dense_dim}")
 
-    # Fix lexical_weights access - it's a list of dicts, not dicts with 'indices'
-    lw = embeddings.get('lexical_weights')
-    if isinstance(lw, list) and lw and isinstance(lw[0], dict):
-        sparse_tokens = len(lw[0])  # number of token ids in the first query
-    else:
-        sparse_tokens = 0
-
-    logger.info(f"dep=query_embed op=encode ms={elapsed_ms} dense_dim={dense_dim} sparse_tokens={sparse_tokens}")
-
-    query_dense_embeddings = embeddings['dense_vecs']
-    query_sparse_embeddings_lst = embeddings['lexical_weights']
-
-    query_sparse_embeddings = []
-    for sparse_embedding in query_sparse_embeddings_lst:
-        sparse_dict = {}
-        sparse_dict['indices'] = [int(index) for index in list(sparse_embedding.keys())]
-        sparse_dict['values'] = [float(v) for v in list(sparse_embedding.values())]
-        query_sparse_embeddings.append(sparse_dict)
-
+    query_dense_embeddings = dense_vecs
     if isinstance(query_dense_embeddings, np.ndarray):
         query_dense_embeddings = query_dense_embeddings.astype(float)
+
+    # Empty sparse placeholder — pipeline uses alpha=1.0 (dense-only)
+    query_sparse_embeddings = [{'indices': [], 'values': []}]
 
     return query_dense_embeddings, query_sparse_embeddings
 
@@ -183,16 +110,21 @@ def weight_by_alpha(sparse_embedding: Dict, dense_embedding: List[float], alpha:
 
 def issue_hybrid_query(index, sparse_embedding: Dict, dense_embedding: List[float],
                       alpha: float, top_k: int, metadata_filter: Optional[Dict] = None):
-    """Execute hybrid search query on Pinecone index."""
+    """Execute search query on Pinecone index.
+
+    With alpha=1.0 (dense-only / Cohere embed), sparse is skipped entirely.
+    """
     scaled_sparse, scaled_dense = weight_by_alpha(sparse_embedding, dense_embedding, alpha)
 
     kwargs = {
         'vector': scaled_dense,
-        'sparse_vector': scaled_sparse,
         'top_k': top_k,
         'include_metadata': True,
-        'include_values': True,  # fetch stored dense vectors to avoid re-embedding for MMR
+        'include_values': True,
     }
+    # Only include sparse_vector if there are actual sparse values
+    if scaled_sparse.get('indices'):
+        kwargs['sparse_vector'] = scaled_sparse
     # Optional server-side metadata filter
     if metadata_filter:
         kwargs['filter'] = metadata_filter
@@ -250,41 +182,18 @@ def get_hybrid_results(index, query: str, embed_model, alpha: float, top_k: int,
     return result
 
 
-def issue_sparse_query(index, sparse_embedding: Dict, top_k: int, metadata_filter: Optional[Dict] = None):
-    """Execute sparse-only (BM25-like) search on Pinecone index."""
-    # Some indexes are dense-only; when they reject sparse-only queries,
-    # include a tiny zero dense vector to satisfy schema.
+def get_dense_results(index, query: str, embed_model, top_k: int, metadata_filter: Optional[Dict] = None):
+    """Get dense-only results (wider overfetch) — replaces old sparse fallback."""
+    query_dense_embeddings, _ = get_query_embeddings(query, embed_model)
     kwargs = {
-        'sparse_vector': sparse_embedding,
+        'vector': [float(v) for v in query_dense_embeddings[0]],
         'top_k': int(top_k),
         'include_metadata': True,
-        'include_values': True,  # fetch stored dense vectors when available
+        'include_values': True,
     }
     if metadata_filter:
         kwargs['filter'] = metadata_filter
-    try:
-        return index.query(**kwargs)
-    except Exception as e:
-        # Fallback: add a tiny zero dense vector with expected dimension if available
-        try:
-            dim = getattr(index.describe_index_stats(), 'dimension', None)
-        except Exception:
-            dim = None
-        if dim and isinstance(dim, int) and dim > 0:
-            kwargs['vector'] = [0.0] * dim
-            return index.query(**kwargs)
-        raise
-
-
-def get_sparse_results(index, query: str, embed_model, top_k: int, metadata_filter: Optional[Dict] = None):
-    """Get sparse-only results (BM25-like) using BGE-M3 lexical weights only."""
-    query_dense_embeddings, query_sparse_embeddings = get_query_embeddings(query, embed_model)
-    return issue_sparse_query(
-        index,
-        query_sparse_embeddings[0],
-        int(top_k),
-        metadata_filter=metadata_filter,
-    )
+    return index.query(**kwargs)
 
 
 def _extract_domain(url_value: Any) -> str:
@@ -719,7 +628,7 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
             if to_embed_indices:
                 texts = [(mmr_pool[i].get('content') or '') for i in to_embed_indices]
                 try:
-                    emb_out = embed_model.encode(texts, return_dense=True, return_sparse=False, return_colbert_vecs=False)
+                    emb_out = embed_model.encode(texts, input_type="search_document", return_dense=True, return_sparse=False, return_colbert_vecs=False)
                     dense_list = emb_out['dense_vecs']
                     for idx, vec in zip(to_embed_indices, dense_list):
                         doc_vecs_list[idx] = vec
@@ -798,15 +707,15 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
             final_after = len(final_docs)
             hybrid_refill = 0
             if len(final_docs) < final_max_docs:
-                # 2a) Sparse-only (BM25-like) fallback
-                sec_results_sparse = get_sparse_results(
+                # 2a) Dense widened fallback (replaces old sparse-only BM25)
+                sec_results_dense = get_dense_results(
                     index,
                     query,
                     embed_model,
                     top_k=int(overfetch) + int(refill_overfetch) + 50,
                     metadata_filter=None,
                 )
-                sec_docs_sparse = process_search_results(sec_results_sparse)
+                sec_docs_sparse = process_search_results(sec_results_dense)
                 # 2b) Hybrid widened as additional supplement
                 sec_results_hybrid = get_hybrid_results_cached(
                     index,

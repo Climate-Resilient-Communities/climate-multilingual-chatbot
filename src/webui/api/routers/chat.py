@@ -116,18 +116,16 @@ async def process_chat_query(
                 language_info = lang_router.detect_language(request.query)
                 detected_language = language_info.get('language_code', detected_language)
             
-            # Determine which model to use based on language support
-            if detected_language in lang_router.COMMAND_A_SUPPORTED_LANGUAGES:
-                model_used = "command_a"
-            else:
-                model_used = "nova"
-                
+            # Determine which Tiny-Aya model to use based on language support
+            support = lang_router.check_language_support(detected_language)
+            model_used = support.value
+
             logger.info(f"Language routing: detected={detected_language} model={model_used}")
-            
+
         except Exception as e:
             logger.warning(f"Language routing failed, using defaults: {str(e)}")
             detected_language = request.language or "en"
-            model_used = "command_a"  # Default fallback
+            model_used = "tiny_aya_global"
         
         # Step 3: Process through main pipeline
         try:
