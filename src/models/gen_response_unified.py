@@ -1,6 +1,7 @@
 import os
 import logging
 import json
+import re
 import asyncio
 from typing import List, Dict, Tuple, Any, Optional, Union
 from src.models.nova_flow import BedrockModel
@@ -139,7 +140,6 @@ class UnifiedResponseGenerator:
 
                 # Hard guard: if language_code is English, strip any non-ASCII/Latin scripts that are not part of URLs or citations
                 if (language_code or "en").lower().startswith("en") and isinstance(response, str):
-                    import re
                     # Allow basic punctuation, spaces, latin letters/numbers
                     # Keep URLs and markdown links intact
                     def _clean_non_english(text: str) -> str:
@@ -234,7 +234,6 @@ class UnifiedResponseGenerator:
                             cleaned = []
                             for t in tokens:
                                 # Extract trailing integer if present
-                                import re
                                 m = re.search(r"(-?\d+)$", t)
                                 if m:
                                     cleaned.append(int(m.group(1)))

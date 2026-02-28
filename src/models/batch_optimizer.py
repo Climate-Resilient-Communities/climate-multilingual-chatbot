@@ -93,7 +93,7 @@ class PipelineBatchOptimizer:
             try:
                 result = await router.detect_language(text)
                 return result.get('detected_language', 'unknown')
-            except:
+            except Exception:
                 return 'unknown'
         
         # Limit concurrent detections to avoid overwhelming APIs

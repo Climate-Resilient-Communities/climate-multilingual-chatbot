@@ -442,25 +442,22 @@ Answer with ONLY the classification result, no explanations or additional text."
         """Ensure markdown headers are properly formatted for rendering."""
         if not text:
             return text
-            
+
         lines = text.split("\n")
         formatted_lines = []
-        
+
         for line in lines:
             # Check for headers without proper spacing
             if line.strip().startswith('#'):
                 # Find the position of the last # in the sequence
                 pos = len(line) - len(line.lstrip('#'))
-                
-                # Get the header level
-                header_level = pos
-                
+
                 # Check if there's no space after the #s
                 if pos < len(line) and line[pos] != ' ':
                     line = line[:pos] + ' ' + line[pos:]
-            
+
             formatted_lines.append(line)
-                
+
         return "\n".join(formatted_lines)
 
 if __name__ == "__main__":
@@ -507,7 +504,7 @@ if __name__ == "__main__":
     print("\nTesting content generation:")
     test_gen = "Extract the main topics from: Climate change affects weather patterns, sea levels, and biodiversity."
     try:
-        result = asyncio.run(model.nova_content_generation(
+        result = asyncio.run(model.content_generation(
             prompt=test_gen,
             system_message="Extract key topics concisely."
         ))

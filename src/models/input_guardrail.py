@@ -1,16 +1,9 @@
+import os
 import logging
 from typing import Dict, Any, List, Optional
+from pathlib import Path
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
-
-def construct_dataset(question):
-    """Return a dataset from a question"""
-    return Dataset.from_dict({'question': [question]})
 
 async def check_follow_up_with_llm(query: str, conversation_history: List[Dict] = None, nova_model=None) -> Dict[str, Any]:
     """
@@ -255,20 +248,28 @@ def check_dir(path, description="directory"):
         logger.warning(f"{description} at {path} does not exist or is not a directory")
         return False, []
 
+def _is_running_in_azure() -> bool:
+    """Check if running in Azure App Service."""
+    return bool(os.getenv("WEBSITE_SITE_NAME"))
+
+
 def initialize_models():
     """Initialize topic moderation ML model."""
     try:
+        import torch
+        from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
+
         # Model name for downloading
         climatebert_model_name = "climatebert/distilroberta-base-climate-detector"
-        
+
         # Check for local model in Azure App Service path first
         azure_model_path = Path("/home/site/wwwroot/models/climatebert")
         project_root = Path(__file__).resolve().parent.parent.parent
         local_model_path = project_root / "models" / "climatebert"
-        
+
         # Verify directory existence and contents
         logger.info("Checking model directories...")
-        is_azure = is_running_in_azure()
+        is_azure = _is_running_in_azure()
         logger.info(f"Running in Azure: {is_azure}")
         
         azure_exists, azure_files = check_dir(azure_model_path, "Azure model directory")

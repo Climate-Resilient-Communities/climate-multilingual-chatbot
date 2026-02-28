@@ -20,6 +20,7 @@ class AnalyticsTracker:
             'unique_users': set(),
             'language_distribution': defaultdict(int),
             'query_times': [],
+            'queries': [],
             'error_counts': defaultdict(int),
             'cache_usage': {'hits': 0, 'misses': 0}
         })
@@ -35,7 +36,12 @@ class AnalyticsTracker:
         stats['unique_users'].add(query_data.get('user_id', 'anonymous'))
         stats['language_distribution'][query_data.get('language', 'en')] += 1
         stats['query_times'].append(query_data.get('processing_time', 0))
-        
+
+        # Store query text for trending topic analysis
+        query_text = query_data.get('query', '')
+        if query_text:
+            stats['queries'].append(query_text)
+
         # Track errors if any
         if 'error' in query_data:
             error_type = query_data['error'].get('code', 'unknown')

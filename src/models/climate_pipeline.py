@@ -17,7 +17,7 @@ warnings.filterwarnings("ignore", category=FutureWarning, module="transformers")
 
 from src.utils.env_loader import load_environment
 from src.models.query_routing import MultilingualRouter
-from src.models.query_rewriter import query_rewriter
+from src.models.query_rewriter import query_rewriter, CANNED_MAP, _looks_climate_any
 from src.models.retrieval import get_documents
 from src.models.gen_response_unified import UnifiedResponseGenerator
 from src.models.hallucination_guard import check_hallucination, extract_contexts, evaluate_faithfulness_threshold
@@ -29,6 +29,20 @@ from src.models.conversation_parser import conversation_parser
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Language code to name mapping - single source of truth for the pipeline
+LANG_CODE_TO_NAME = {
+    'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
+    'it': 'Italian', 'pt': 'Portuguese', 'nl': 'Dutch', 'ru': 'Russian',
+    'zh': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean', 'ar': 'Arabic',
+    'hi': 'Hindi', 'bn': 'Bengali', 'ur': 'Urdu', 'ta': 'Tamil',
+    'gu': 'Gujarati', 'fa': 'Persian', 'vi': 'Vietnamese', 'th': 'Thai',
+    'tr': 'Turkish', 'pl': 'Polish', 'cs': 'Czech', 'hu': 'Hungarian',
+    'ro': 'Romanian', 'el': 'Greek', 'he': 'Hebrew', 'uk': 'Ukrainian',
+    'id': 'Indonesian', 'tl': 'Filipino', 'da': 'Danish', 'sv': 'Swedish',
+    'no': 'Norwegian', 'fi': 'Finnish', 'bg': 'Bulgarian', 'sk': 'Slovak',
+    'sl': 'Slovenian', 'et': 'Estonian', 'lv': 'Latvian', 'lt': 'Lithuanian'
+}
 
 
 class ClimateQueryPipeline:
@@ -114,14 +128,8 @@ class ClimateQueryPipeline:
             logger.warning(f"Prewarm encountered an error: {str(e)}")
 
     def _initialize_redis(self):
-        """Initialize Redis cache - will be replaced by the dedicated cache instance."""
-        # This method is now mainly for backwards compatibility
-        # The actual cache will be stored in self.cache
-        try:
-            return True  # Signal that Redis should be available
-        except Exception as e:
-            logger.warning(f"Redis initialization failed: {str(e)}")
-            return None
+        """Legacy stub - Redis is now managed via self.cache (ClimateCache)."""
+        return None
 
     def _initialize_cache(self):
         """Initialize and return a reusable cache instance."""
@@ -419,20 +427,8 @@ class ClimateQueryPipeline:
             # Check for language mismatch early: do not block English; only warn for non-English
             if route_result.get('routing_info', {}).get('language_mismatch') and language_code != 'en':
                 detected_lang = route_result['routing_info'].get('detected_language', 'unknown')
-                lang_code_to_name = {
-                    'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
-                    'it': 'Italian', 'pt': 'Portuguese', 'nl': 'Dutch', 'ru': 'Russian',
-                    'zh': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean', 'ar': 'Arabic',
-                    'hi': 'Hindi', 'bn': 'Bengali', 'ur': 'Urdu', 'ta': 'Tamil',
-                    'gu': 'Gujarati', 'fa': 'Persian', 'vi': 'Vietnamese', 'th': 'Thai',
-                    'tr': 'Turkish', 'pl': 'Polish', 'cs': 'Czech', 'hu': 'Hungarian',
-                    'ro': 'Romanian', 'el': 'Greek', 'he': 'Hebrew', 'uk': 'Ukrainian',
-                    'id': 'Indonesian', 'tl': 'Filipino', 'da': 'Danish', 'sv': 'Swedish',
-                    'no': 'Norwegian', 'fi': 'Finnish', 'bg': 'Bulgarian', 'sk': 'Slovak',
-                    'sl': 'Slovenian', 'et': 'Estonian', 'lv': 'Latvian', 'lt': 'Lithuanian'
-                }
-                detected_name = lang_code_to_name.get(detected_lang, detected_lang.upper())
-                selected_name = lang_code_to_name.get(language_code, language_code.upper())
+                detected_name = LANG_CODE_TO_NAME.get(detected_lang, detected_lang.upper())
+                selected_name = LANG_CODE_TO_NAME.get(language_code, language_code.upper())
                 logger.warning(
                     f"Router language mismatch: query is in {detected_name} but {selected_name} was selected")
                 # Soft warning only; proceed with processing
@@ -563,8 +559,7 @@ class ClimateQueryPipeline:
                 text = (rewriter_output or "").strip()
                 # Expect strict JSON from query_rewriter now
                 try:
-                    import json as _json
-                    qr = _json.loads(text)
+                    qr = json.loads(text)
                 except Exception:
                     logger.warning("Query rewriter returned non-JSON; falling back to original parsing")
                     qr = {}
@@ -593,7 +588,6 @@ class ClimateQueryPipeline:
                                 or query
                         )
                         # Don't block a climate query just because the rewriter errored
-                        from src.models.query_rewriter import _looks_climate_any
                         if _looks_climate_any(processed_query):
                             logger.info("Safety net: detected climate query despite rewriter error → forcing on-topic")
                             classification = "on-topic"
@@ -609,25 +603,12 @@ class ClimateQueryPipeline:
 
                     # Restore prior UX: block when the detected query language is non-English and mismatches selection
                     if (language_match_result == 'no' or (detected_lang != 'unknown' and detected_lang != language_code)):
-                        lang_code_to_name = {
-                            'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
-                            'it': 'Italian', 'pt': 'Portuguese', 'nl': 'Dutch', 'ru': 'Russian',
-                            'zh': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean', 'ar': 'Arabic',
-                            'hi': 'Hindi', 'bn': 'Bengali', 'ur': 'Urdu', 'ta': 'Tamil',
-                            'gu': 'Gujarati', 'fa': 'Persian', 'vi': 'Vietnamese', 'th': 'Thai',
-                            'tr': 'Turkish', 'pl': 'Polish', 'cs': 'Czech', 'hu': 'Hungarian',
-                            'ro': 'Romanian', 'el': 'Greek', 'he': 'Hebrew', 'uk': 'Ukrainian',
-                            'id': 'Indonesian', 'tl': 'Filipino', 'da': 'Danish', 'sv': 'Swedish',
-                            'no': 'Norwegian', 'fi': 'Finnish', 'bg': 'Bulgarian', 'sk': 'Slovak',
-                            'sl': 'Slovenian', 'et': 'Estonian', 'lv': 'Latvian', 'lt': 'Lithuanian'
-                        }
-                        detected_name = lang_code_to_name.get(detected_lang, detected_lang.upper())
-                        selected_name = lang_code_to_name.get(language_code, language_code.upper())
+                        detected_name = LANG_CODE_TO_NAME.get(detected_lang, detected_lang.upper())
+                        selected_name = LANG_CODE_TO_NAME.get(language_code, language_code.upper())
                         logger.warning(
                             f"Language mismatch detected by query rewriter: query is in {detected_name} but {selected_name} was selected"
                         )
                         # Get canned response for language mismatch
-                        from src.models.query_rewriter import CANNED_MAP
                         canned_response = CANNED_MAP.get('language_mismatch', {})
                         msg_text = canned_response.get('text', 
                             "Whoops! You wrote in a different language than the one you selected. Please choose the language you want me to respond in on the right so we can ensure the best translation for you!"
@@ -672,7 +653,6 @@ class ClimateQueryPipeline:
                     # Return canned responses for off-topic and harmful queries
                     if classification == 'off-topic':
                         # Get canned response from query rewriter
-                        from src.models.query_rewriter import CANNED_MAP
                         canned_response = CANNED_MAP.get('off-topic', {})
                         msg_en = canned_response.get('text', 
                             "I'm a climate change assistant and can only help with questions about climate, environment, and sustainability. "
@@ -684,19 +664,7 @@ class ClimateQueryPipeline:
                         try:
                             target_code = detected_lang if detected_lang and detected_lang != 'unknown' else language_code
                             if target_code != 'en':
-                                code_to_name = {
-                                    'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
-                                    'it': 'Italian', 'pt': 'Portuguese', 'nl': 'Dutch', 'ru': 'Russian',
-                                    'zh': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean', 'ar': 'Arabic',
-                                    'hi': 'Hindi', 'bn': 'Bengali', 'ur': 'Urdu', 'ta': 'Tamil',
-                                    'gu': 'Gujarati', 'fa': 'Persian', 'vi': 'Vietnamese', 'th': 'Thai',
-                                    'tr': 'Turkish', 'pl': 'Polish', 'cs': 'Czech', 'hu': 'Hungarian',
-                                    'ro': 'Romanian', 'el': 'Greek', 'he': 'Hebrew', 'uk': 'Ukrainian',
-                                    'id': 'Indonesian', 'tl': 'Filipino', 'da': 'Danish', 'sv': 'Swedish',
-                                    'no': 'Norwegian', 'fi': 'Finnish', 'bg': 'Bulgarian', 'sk': 'Slovak',
-                                    'sl': 'Slovenian', 'et': 'Estonian', 'lv': 'Latvian', 'lt': 'Lithuanian'
-                                }
-                                target_name = code_to_name.get(target_code, target_code)
+                                target_name = LANG_CODE_TO_NAME.get(target_code, target_code)
                                 final_msg = await self.nova_model.translate(msg_en, 'english', target_name)
                         except Exception:
                             final_msg = msg_en
@@ -716,7 +684,6 @@ class ClimateQueryPipeline:
                     
                     if classification == 'harmful':
                         # Get canned response from query rewriter
-                        from src.models.query_rewriter import CANNED_MAP
                         canned_response = CANNED_MAP.get('harmful', {})
                         msg_en = canned_response.get('text', 
                             "I can't assist with that request. Please ask me questions about climate change, environmental issues, or sustainability."
@@ -727,19 +694,7 @@ class ClimateQueryPipeline:
                         try:
                             target_code = detected_lang if detected_lang and detected_lang != 'unknown' else language_code
                             if target_code != 'en':
-                                code_to_name = {
-                                    'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
-                                    'it': 'Italian', 'pt': 'Portuguese', 'nl': 'Dutch', 'ru': 'Russian',
-                                    'zh': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean', 'ar': 'Arabic',
-                                    'hi': 'Hindi', 'bn': 'Bengali', 'ur': 'Urdu', 'ta': 'Tamil',
-                                    'gu': 'Gujarati', 'fa': 'Persian', 'vi': 'Vietnamese', 'th': 'Thai',
-                                    'tr': 'Turkish', 'pl': 'Polish', 'cs': 'Czech', 'hu': 'Hungarian',
-                                    'ro': 'Romanian', 'el': 'Greek', 'he': 'Hebrew', 'uk': 'Ukrainian',
-                                    'id': 'Indonesian', 'tl': 'Filipino', 'da': 'Danish', 'sv': 'Swedish',
-                                    'no': 'Norwegian', 'fi': 'Finnish', 'bg': 'Bulgarian', 'sk': 'Slovak',
-                                    'sl': 'Slovenian', 'et': 'Estonian', 'lv': 'Latvian', 'lt': 'Lithuanian'
-                                }
-                                target_name = code_to_name.get(target_code, target_code)
+                                target_name = LANG_CODE_TO_NAME.get(target_code, target_code)
                                 final_msg = await self.nova_model.translate(msg_en, 'english', target_name)
                         except Exception:
                             final_msg = msg_en
@@ -792,26 +747,13 @@ class ClimateQueryPipeline:
                     # Check for language mismatch: block when detected query language is non-English and mismatches selection
                     if (language_match_result == 'no' or (
                             detected_lang != 'unknown' and detected_lang != language_code)):
-                        lang_code_to_name = {
-                            'en': 'English', 'es': 'Spanish', 'fr': 'French', 'de': 'German',
-                            'it': 'Italian', 'pt': 'Portuguese', 'nl': 'Dutch', 'ru': 'Russian',
-                            'zh': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean', 'ar': 'Arabic',
-                            'hi': 'Hindi', 'bn': 'Bengali', 'ur': 'Urdu', 'ta': 'Tamil',
-                            'gu': 'Gujarati', 'fa': 'Persian', 'vi': 'Vietnamese', 'th': 'Thai',
-                            'tr': 'Turkish', 'pl': 'Polish', 'cs': 'Czech', 'hu': 'Hungarian',
-                            'ro': 'Romanian', 'el': 'Greek', 'he': 'Hebrew', 'uk': 'Ukrainian',
-                            'id': 'Indonesian', 'tl': 'Filipino', 'da': 'Danish', 'sv': 'Swedish',
-                            'no': 'Norwegian', 'fi': 'Finnish', 'bg': 'Bulgarian', 'sk': 'Slovak',
-                            'sl': 'Slovenian', 'et': 'Estonian', 'lv': 'Latvian', 'lt': 'Lithuanian'
-                        }
-                        detected_name = lang_code_to_name.get(detected_lang, detected_lang.upper())
-                        selected_name = lang_code_to_name.get(language_code, language_code.upper())
+                        detected_name = LANG_CODE_TO_NAME.get(detected_lang, detected_lang.upper())
+                        selected_name = LANG_CODE_TO_NAME.get(language_code, language_code.upper())
 
                         logger.warning(
                             f"Language mismatch detected by query rewriter: query is in {detected_name} but {selected_name} was selected"
                         )
                         # Get canned response for language mismatch (legacy path)
-                        from src.models.query_rewriter import CANNED_MAP
                         canned_response = CANNED_MAP.get('language_mismatch', {})
                         msg_text = canned_response.get('text', 
                             "Whoops! You wrote in a different language than the one you selected. Please choose the language you want me to respond in on the right so we can ensure the best translation for you!"
@@ -833,7 +775,6 @@ class ClimateQueryPipeline:
                     # Return canned responses for off-topic and harmful in legacy path as well
                     if classification == 'off-topic':
                         # Get canned response from query rewriter
-                        from src.models.query_rewriter import CANNED_MAP
                         canned_response = CANNED_MAP.get('off-topic', {})
                         msg_en = canned_response.get('text', 
                             "I'm a climate change assistant and can only help with questions about climate, environment, and sustainability. "
@@ -861,7 +802,6 @@ class ClimateQueryPipeline:
                     
                     if classification == 'harmful':
                         # Get canned response from query rewriter
-                        from src.models.query_rewriter import CANNED_MAP
                         canned_response = CANNED_MAP.get('harmful', {})
                         msg_en = canned_response.get('text', 
                             "I can't assist with that request. Please ask me questions about climate change, environmental issues, or sustainability."

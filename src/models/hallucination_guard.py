@@ -1,12 +1,12 @@
 import os
 import json
+import re
 import logging
 import asyncio
 from typing import List, Dict, Union, Optional
 from pydantic import BaseModel, Field, field_validator
 from src.utils.env_loader import load_environment
 from src.models.nova_flow import BedrockModel
-import cohere
 from langsmith import traceable
 
 # Configure logging
@@ -46,13 +46,17 @@ class FaithfulnessEvaluation(BaseModel):
         return v
 
 def get_or_create_event_loop():
-    """Get the current event loop or create a new one."""
+    """Get the current event loop or create a new one.
+
+    Note: Prefer asyncio.get_running_loop() in async code.
+    This helper exists for legacy sync call sites.
+    """
     try:
-        loop = asyncio.get_event_loop()
+        return asyncio.get_running_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-    return loop
+        return loop
 
 def truncate_text(text: str, max_length: int = 450) -> str:
     """Truncate text to a maximum number of words while preserving meaning."""
@@ -86,10 +90,6 @@ async def check_hallucination(
         
         with trace(name="faithfulness_check"):
             import asyncio
-            from concurrent.futures import ThreadPoolExecutor
-            
-            # Use module-level logger
-            global logger
             
             # Validate inputs
             if not answer or not question or not contexts:
@@ -167,7 +167,6 @@ Important: Return ONLY the JSON object, no other text."""
                     except (json.JSONDecodeError, ValueError) as parse_error:
                         # Extract score from text if JSON parsing fails
                         logger.debug(f"JSON parsing failed, extracting score: {str(parse_error)}")
-                        import re
                         score_match = re.search(r'(\d+\.?\d*)', response)
                         if score_match:
                             score = float(score_match.group(1))
@@ -183,7 +182,7 @@ Important: Return ONLY the JSON object, no other text."""
                 if cohere_api_key:
                     try:
                         logger.debug("Falling back to semantic similarity evaluation")
-                        import cohere
+                        import cohere  # Lazy import: only needed for fallback path
                         client = cohere.Client(api_key=cohere_api_key)
                         
                         # Get embeddings for answer and context
@@ -368,55 +367,6 @@ async def test_hallucination_guard():
             
     except Exception as e:
         print(f"Test suite failed: {str(e)}")
-    """Test the hallucination detection functionality"""
-    try:
-        print("\n=== Testing Hallucination Guard ===")
-        load_environment()
-        
-        # Get API key
-        COHERE_API_KEY = os.getenv('COHERE_API_KEY')
-        if not COHERE_API_KEY:
-            raise ValueError("COHERE_API_KEY not found in environment")
-        
-        # Test cases
-        test_cases = [
-            {
-                'question': 'What is climate change?',
-                'answer': 'Climate change is a long-term shift in global weather patterns and temperatures.',
-                'context': 'Climate change refers to long-term shifts in temperatures and weather patterns. These shifts may be natural, but since the 1800s, human activities have been the main driver of climate change, primarily due to burning fossil fuels like coal, oil and gas.',
-                'expected': 'high score'
-            },
-            {
-                'question': 'What causes climate change?',
-                'answer': 'Aliens from Mars are causing climate change by using their heat rays.',
-                'context': 'The primary driver of climate change is the burning of fossil fuels, which releases greenhouse gases into the atmosphere.',
-                'expected': 'low score'
-            },
-            {
-                'question': 'What is the greenhouse effect?',
-                'answer': 'The greenhouse effect is when gases in the atmosphere trap heat.',
-                'context': 'The greenhouse effect is a natural process that warms the Earth\'s surface. When the Sun\'s energy reaches the Earth\'s atmosphere, some of it is reflected back to space and some is absorbed and re-radiated by greenhouse gases.',
-                'expected': 'medium score'
-            }
-        ]
-        
-        for case in test_cases:
-            print(f"\nTesting case: {case['question']}")
-            print(f"Answer: {case['answer']}")
-            print(f"Expected: {case['expected']}")
-            
-            score = await check_hallucination(
-                question=case['question'],
-                answer=case['answer'],
-                contexts=case['context'],
-                cohere_api_key=COHERE_API_KEY
-            )
-            
-            print(f"Faithfulness score: {score:.2f}")
-            print('-' * 50)
-            
-    except Exception as e:
-        print(f"Test failed: {str(e)}")
 
 if __name__ == "__main__":
     asyncio.run(test_hallucination_guard())

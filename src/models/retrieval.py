@@ -20,7 +20,6 @@ import os
 import hashlib
 import time
 import logging
-import warnings
 import asyncio
 import numpy as np
 from typing import List, Dict, Any, Optional, Tuple
@@ -33,11 +32,6 @@ from src.models.title_normalizer import normalize_title
 from src.utils.env_loader import load_environment
 from langsmith import traceable
 
-# Configure logging
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
 
 class EmbeddingCache:

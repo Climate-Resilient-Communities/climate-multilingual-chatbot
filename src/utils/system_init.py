@@ -1,6 +1,7 @@
 """
 System initialization and coordination module
 """
+import os
 import asyncio
 import logging
 from typing import Dict, Any, Optional
