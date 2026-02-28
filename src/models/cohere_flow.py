@@ -1,5 +1,8 @@
 """
-Cohere Flow Module for handling generation and translation with Cohere API
+Cohere Flow Module — Tiny-Aya regional models for generation/translation.
+
+Chat, translation, classification all go through the Cohere API.
+Embeddings remain BGE-M3 (handled separately in retrieval.py).
 """
 import os
 import sys
@@ -7,7 +10,7 @@ import cohere
 import json
 import asyncio
 import logging
-from typing import Dict, Any, Optional, List, AsyncGenerator
+from typing import Dict, Any, Optional, List, AsyncGenerator, Tuple
 
 # Add the project root to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -17,23 +20,77 @@ from src.models.system_messages import CLIMATE_SYSTEM_MESSAGE
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Tiny-Aya regional language sets
+# ---------------------------------------------------------------------------
+# Fire: South Asian languages
+FIRE_LANGUAGES = frozenset({
+    'hi', 'bn', 'pa', 'ur', 'gu', 'ta', 'te', 'mr',
+    'ne', 'si', 'ml', 'kn', 'or', 'as', 'sd', 'ks',
+})
+
+# Earth: African languages
+EARTH_LANGUAGES = frozenset({
+    'sw', 'yo', 'ha', 'ig', 'am', 'so', 'rw', 'sn', 'zu', 'xh',
+    'st', 'tn', 'ny', 'lg', 'wo', 'ff', 'bm', 'ti', 'om', 'rn',
+})
+
+# Water: Asia-Pacific + Western Asia + Europe (excluding English)
+WATER_LANGUAGES = frozenset({
+    # Asia-Pacific
+    'zh', 'ja', 'ko', 'th', 'vi', 'id', 'ms', 'tl', 'my', 'km',
+    'lo', 'mn', 'ka', 'jv',
+    # Western Asia
+    'ar', 'he', 'fa', 'tr', 'ku',
+    # Europe (non-English)
+    'ru', 'uk', 'pl', 'cs', 'ro', 'el', 'bg', 'sr', 'hr', 'sk',
+    'sl', 'hu', 'lt', 'lv', 'et', 'nl', 'de', 'fr', 'it', 'pt',
+    'es', 'sv', 'da', 'no', 'fi', 'is', 'ca', 'gl', 'eu', 'sq',
+    'bs', 'mk', 'mt',
+})
+
+
+def resolve_tiny_aya_model(language_code: str) -> Tuple[str, str]:
+    """Return (model_id, region_label) for a language code.
+
+    Priority: fire → earth → water → global.
+    """
+    lc = (language_code or 'en').lower().split('-')[0]
+    if lc in FIRE_LANGUAGES:
+        return 'tiny-aya-fire', 'fire'
+    if lc in EARTH_LANGUAGES:
+        return 'tiny-aya-earth', 'earth'
+    if lc in WATER_LANGUAGES:
+        return 'tiny-aya-water', 'water'
+    return 'tiny-aya-global', 'global'
+
+
+# ---------------------------------------------------------------------------
+# CohereModel — Tiny-Aya chat via Cohere API
+# ---------------------------------------------------------------------------
 class CohereModel:
-    """Cohere Generation model using Cohere API."""
-    
-    def __init__(self, model_id="command-a-03-2025"):
+    """Cohere Generation model using Tiny-Aya regional models via Cohere API."""
+
+    def __init__(self, model_id="tiny-aya-global"):
         """Initialize CohereModel with client."""
         try:
             # Load environment variables
             load_environment()
-            # No local file logger in production path
-            
+
             # Initialize synchronous cohere client to avoid event loop issues in Streamlit
             self.client = cohere.Client(os.getenv("COHERE_API_KEY"))
             self.model_id = model_id
-            logger.info("✓ Cohere client initialized")
+            logger.info(f"✓ Cohere client initialized (model={model_id})")
         except Exception as e:
             logger.error(f"Cohere client initialization failed: {str(e)}")
             raise
+
+    def with_model(self, model_id: str) -> "CohereModel":
+        """Return a lightweight copy using a different model_id (shares the same client)."""
+        new = object.__new__(CohereModel)
+        new.client = self.client
+        new.model_id = model_id
+        return new
 
     async def classify(self, prompt: str, system_message: Optional[str] = None, options: Optional[List[str]] = None) -> str:
         """
@@ -316,6 +373,68 @@ Additional Instructions:
             formatted_lines.append(line)
                 
         return "\n".join(formatted_lines)
+
+# ---------------------------------------------------------------------------
+# HFEmbedder — BGE-M3 embeddings via HuggingFace Inference API
+# ---------------------------------------------------------------------------
+class HFEmbedder:
+    """BGE-M3 embeddings via HuggingFace Inference API.
+
+    Drop-in replacement for the local BGEM3FlagModel.  Returns the same
+    ``{'dense_vecs': ..., 'lexical_weights': ...}`` dict so downstream
+    code (retrieval.py) works unchanged.
+
+    Dense vectors are 1024-dim, matching the existing Pinecone index.
+    Sparse (lexical_weights) are empty — the pipeline already handles
+    sparse being absent via its alpha weighting.
+    """
+
+    EMBED_MODEL = "BAAI/bge-m3"
+    EMBED_DIM = 1024
+    # HF Inference API max batch size
+    _BATCH_SIZE = 32
+
+    def __init__(self, api_key: Optional[str] = None):
+        from huggingface_hub import InferenceClient
+        token = api_key or os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_TOKEN")
+        self.client = InferenceClient(token=token)
+        self.model = self.EMBED_MODEL
+        logger.info(f"HFEmbedder initialized (model={self.model}, dim={self.EMBED_DIM})")
+
+    def encode(self, texts, return_dense=True, return_sparse=True,
+               return_colbert_vecs=False, **kwargs) -> Dict[str, Any]:
+        """Mimic BGEM3FlagModel.encode() interface.
+
+        Returns:
+            dict with 'dense_vecs' (np.ndarray Nx1024) and
+            'lexical_weights' (list of empty dicts).
+        """
+        import numpy as np
+        if isinstance(texts, str):
+            texts = [texts]
+
+        all_vecs = []
+        # Process in batches to respect API limits
+        for i in range(0, len(texts), self._BATCH_SIZE):
+            batch = texts[i : i + self._BATCH_SIZE]
+            raw = self.client.feature_extraction(batch, model=self.model)
+            arr = np.array(raw, dtype=np.float32)
+            # HF may return (batch, seq_len, dim) or (batch, dim)
+            if arr.ndim == 3:
+                # Per-token embeddings → take CLS token (index 0) for each
+                arr = arr[:, 0, :]
+            elif arr.ndim == 1:
+                # Single vector for a single text
+                arr = arr.reshape(1, -1)
+            all_vecs.append(arr)
+
+        dense_vecs = np.concatenate(all_vecs, axis=0) if all_vecs else np.empty((0, self.EMBED_DIM))
+
+        return {
+            'dense_vecs': dense_vecs,
+            'lexical_weights': [{} for _ in texts],
+        }
+
 
 async def main():
     # Load environment variables

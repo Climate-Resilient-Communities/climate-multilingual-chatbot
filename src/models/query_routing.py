@@ -5,6 +5,7 @@ from typing import Dict, Any
 import re
 from src.utils.env_loader import load_environment
 from src.models.nova_flow import BedrockModel
+from src.models.cohere_flow import FIRE_LANGUAGES, EARTH_LANGUAGES, WATER_LANGUAGES, resolve_tiny_aya_model
 
 # Configure logging
 logging.basicConfig(
@@ -14,40 +15,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class LanguageSupport(Enum):
-    """Enum for language support levels"""
-    COMMAND_A = "command_a"            # Command A model support  
-    NOVA = "nova"                      # Nova model support
-    UNSUPPORTED = "unsupported"        # No support
+    """Tiny-Aya regional model tiers."""
+    TINY_AYA_GLOBAL = "tiny_aya_global"
+    TINY_AYA_FIRE = "tiny_aya_fire"      # South Asian
+    TINY_AYA_EARTH = "tiny_aya_earth"    # African
+    TINY_AYA_WATER = "tiny_aya_water"    # Asia-Pacific + Europe
+    NOVA = "nova"                         # Fallback only
 
 class MultilingualRouter:
-    """Handles language routing for queries."""
-    
-    COMMAND_A_SUPPORTED_LANGUAGES = {
-        'ar',   # Arabic
-        'bn',   # Bengali  
-        'zh',   # Chinese
-        # skip english due to latency - routes to Nova instead
-        'tl',   # Filipino (Tagalog)
-        'fr',   # French
-        'gu',   # Gujarati
-        'ko',   # Korean
-        'fa',   # Persian
-        'ru',   # Russian
-        'ta',   # Tamil
-        'ur',   # Urdu
-        'vi',   # Vietnamese
-        'pl',   # Polish
-        'tr',   # Turkish
-        'nl',   # Dutch
-        'cs',   # Czech
-        'id',   # Indonesian
-        'uk',   # Ukrainian
-        'ro',   # Romanian
-        'el',   # Greek
-        'hi',   # Hindi
-        'he',   # Hebrew
-        # Spanish, German, Italian, Portuguese, Japanese route to Nova for faster response
-    }
+    """Handles language routing to Tiny-Aya regional models."""
     
     LANGUAGE_CODE_MAP = {
         'zh-cn': 'zh', 'zh-tw': 'zh', 'pt-br': 'pt', 'pt-pt': 'pt',
@@ -210,13 +186,15 @@ class MultilingualRouter:
         return self.LANGUAGE_CODE_MAP.get(language_code.lower(), language_code.lower())
 
     def check_language_support(self, language_code: str) -> LanguageSupport:
-        """Check the level of language support using standardized language codes."""
-        standardized_code = self.standardize_language_code(language_code)
-        
-        if standardized_code in self.COMMAND_A_SUPPORTED_LANGUAGES:
-            return LanguageSupport.COMMAND_A
-        else: 
-            return LanguageSupport.NOVA
+        """Determine which Tiny-Aya regional model to use for a language."""
+        lc = self.standardize_language_code(language_code)
+        if lc in FIRE_LANGUAGES:
+            return LanguageSupport.TINY_AYA_FIRE
+        if lc in EARTH_LANGUAGES:
+            return LanguageSupport.TINY_AYA_EARTH
+        if lc in WATER_LANGUAGES:
+            return LanguageSupport.TINY_AYA_WATER
+        return LanguageSupport.TINY_AYA_GLOBAL
 
     def _get_unsupported_language_message(self, language_name: str, language_code: str) -> str:
         """Private helper to generate unsupported language messages."""
@@ -234,13 +212,18 @@ class MultilingualRouter:
             # Check language support level and determine model
             support_level = self.check_language_support(language_code)
             
-            # Determine model type based on language support
-            if support_level == LanguageSupport.COMMAND_A:
-                model_type = "cohere"
-                model_name = "Command-A"
-            else:
-                model_type = "nova"
-                model_name = "Nova"
+            # Determine model based on Tiny-Aya regional routing
+            model_id, region = resolve_tiny_aya_model(language_code)
+            _label_map = {
+                LanguageSupport.TINY_AYA_GLOBAL: ("cohere", "Tiny-Aya Global"),
+                LanguageSupport.TINY_AYA_FIRE:   ("cohere", "Tiny-Aya Fire"),
+                LanguageSupport.TINY_AYA_EARTH:  ("cohere", "Tiny-Aya Earth"),
+                LanguageSupport.TINY_AYA_WATER:  ("cohere", "Tiny-Aya Water"),
+                LanguageSupport.NOVA:            ("nova",   "Nova"),
+            }
+            model_type, model_name = _label_map.get(
+                support_level, ("cohere", "Tiny-Aya Global")
+            )
             
             logger.info(f"Language: {language_name} ({language_code}) → Model: {model_name}")
             
@@ -249,6 +232,7 @@ class MultilingualRouter:
                 'support_level': support_level.value,
                 'model_type': model_type,
                 'model_name': model_name,
+                'model_id': model_id,
                 'needs_translation': language_code != 'en',
                 'language_code': language_code,
                 'language_name': language_name,

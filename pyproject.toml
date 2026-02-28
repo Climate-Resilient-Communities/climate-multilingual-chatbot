@@ -13,10 +13,8 @@ boto3 = "^1.34.0"
 cohere = "^5.11.3"
 python-dotenv = "^1.0.0"
 streamlit = "^1.40.1"
-torch = "^2.5.1"  # Required by FlagEmbedding (BGE-M3)
-transformers = "^4.44.2"  # Required by FlagEmbedding (BGE-M3)
-flagembedding = "^1.3.2"
-huggingface-hub = "^0.23.5"
+# torch, transformers, flagembedding REMOVED — BGE-M3 now via HF Inference API
+huggingface-hub = "^0.25.0"
 langchain = "^0.3.7"
 langchain-community = "^0.3.5"
 langchain_cohere="^0.4.2"
@@ -29,11 +27,8 @@ pandas = "^2.2.3"
 tqdm = "^4.66.5"
 typing-extensions = "^4.12.2"
 jsonschema = "^4.23.0"
-tokenizers = "^0.19.1"
-opencensus = "^0.11.4"
-opencensus-ext-azure = "^1.1.15"
-opencensus-ext-logging = "^0.1.1"
-azure-storage-blob = "^12.26.0"
+# tokenizers, opencensus, opencensus-ext-azure, opencensus-ext-logging,
+# azure-storage-blob REMOVED — not imported anywhere in source code
 streamlit-user-device = "^0.1.2"
 streamlit-screen-stats = "^0.0.82"
 streamlit-javascript = "^0.1.5"

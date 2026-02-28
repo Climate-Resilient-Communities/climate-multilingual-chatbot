@@ -2,19 +2,9 @@
 Document Retrieval Module for Climate Chatbot
 ============================================
 
-This module handles document retrieval using BGE-M3 embeddings and Pinecone vector search.
-
-Performance Note - XLMRobertaTokenizerFast Warning:
---------------------------------------------------
-The XLMRobertaTokenizerFast warning from BGE-M3 is suppressed for cleaner output.
-This is a performance optimization suggestion that would need to be implemented
-in the upstream FlagEmbedding library, not in our code.
+This module handles document retrieval using BGE-M3 embeddings (via HuggingFace
+Inference API) and Pinecone vector search.
 """
-
-import warnings
-# Suppress XLMRobertaTokenizerFast warnings for cleaner output
-warnings.filterwarnings("ignore", message="You're using a XLMRobertaTokenizerFast tokenizer")
-warnings.filterwarnings("ignore", message=".*XLMRobertaTokenizerFast.*", category=UserWarning)
 
 import os
 import hashlib
@@ -26,7 +16,6 @@ from typing import List, Dict, Any, Optional, Tuple
 import re
 from urllib.parse import urlparse
 from pinecone import Pinecone
-from FlagEmbedding import BGEM3FlagModel
 from src.models.rerank import rerank_fcn
 from src.models.title_normalizer import normalize_title
 from src.utils.env_loader import load_environment
@@ -75,80 +64,30 @@ class EmbeddingCache:
 _EMB_CACHE = EmbeddingCache(max_size=int(os.getenv("EMBED_CACHE_MAX", "4000")))
 
 def get_query_embeddings(query: str, embed_model) -> tuple:
-    """
-    Get dense and sparse embeddings for a query.
+    """Get dense and sparse embeddings for a query.
 
-    Performance Note: The XLMRobertaTokenizerFast warning suggests using tokenizer.__call__()
-    instead of encode()+pad() for better performance. This is an internal optimization
-    in the BGE-M3 model that could improve speed by ~10-20%.
-
-    To potentially reduce the warning frequency, we ensure optimal input format.
+    Works with both the original BGEM3FlagModel and the new HFEmbedder —
+    both return {'dense_vecs': ..., 'lexical_weights': ...}.
     """
     import time
     t_start = time.perf_counter()
     logger.info(f"Query embedding IN: query_len={len(query)} chars, query_repr='{query[:100]}...'")
 
-    # Suppress XLMRobertaTokenizerFast warnings during embedding
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", UserWarning)
-        warnings.filterwarnings("ignore", message=".*XLMRobertaTokenizerFast.*")
-        warnings.filterwarnings("ignore", message=".*fast tokenizer.*")
-
-        # Ensure query is properly formatted for optimal tokenization
-        # Try multiple approaches to handle the array ambiguity bug in BGE-M3
-        embeddings = None
-        last_error = None
-
-        try:
-            if isinstance(query, str) and query.strip():
-                # Use list format which is more efficient for batch processing
-                embeddings = embed_model.encode(
-                    [query.strip()],
-                    return_dense=True,
-                    return_sparse=True,
-                    return_colbert_vecs=False
-                )
-            else:
-                # Fallback for edge cases
-                embeddings = embed_model.encode(
-                    [query] if isinstance(query, str) else query,
-                    return_dense=True,
-                    return_sparse=True,
-                    return_colbert_vecs=False
-                )
-        except Exception as e:
-            last_error = e
-            logger.warning(f"BGE-M3 encoding failed: {str(e)[:100]}")
-            if "ambiguous" in str(e).lower():
-                logger.warning(f"Detected array ambiguity error, attempting fallback encoding")
-                # Try with different parameters as workaround
-                try:
-                    embeddings = embed_model.encode(
-                        [str(query).strip()],  # Force string conversion
-                        return_dense=True,
-                        return_sparse=False,  # Disable sparse to avoid the bug
-                        return_colbert_vecs=False
-                    )
-                    # Create empty sparse embeddings as fallback
-                    if 'lexical_weights' not in embeddings:
-                        embeddings['lexical_weights'] = [{}]
-                    logger.info("Successfully used sparse-disabled fallback for BGE-M3")
-                except Exception as e2:
-                    logger.error(f"Both encoding attempts failed: {str(e)} -> {str(e2)}")
-                    raise last_error
-            else:
-                raise
+    embeddings = embed_model.encode(
+        [query.strip()] if isinstance(query, str) else query,
+        return_dense=True,
+        return_sparse=True,
+        return_colbert_vecs=False,
+    )
 
     elapsed_ms = int((time.perf_counter() - t_start) * 1000)
 
-    # Safe extraction of dimensions without triggering array boolean evaluation
     dense_vecs = embeddings.get('dense_vecs')
     dense_dim = len(dense_vecs[0]) if dense_vecs is not None and len(dense_vecs) > 0 else 0
 
-    # Fix lexical_weights access - it's a list of dicts, not dicts with 'indices'
     lw = embeddings.get('lexical_weights')
     if isinstance(lw, list) and lw and isinstance(lw[0], dict):
-        sparse_tokens = len(lw[0])  # number of token ids in the first query
+        sparse_tokens = len(lw[0])
     else:
         sparse_tokens = 0
 
@@ -159,9 +98,10 @@ def get_query_embeddings(query: str, embed_model) -> tuple:
 
     query_sparse_embeddings = []
     for sparse_embedding in query_sparse_embeddings_lst:
-        sparse_dict = {}
-        sparse_dict['indices'] = [int(index) for index in list(sparse_embedding.keys())]
-        sparse_dict['values'] = [float(v) for v in list(sparse_embedding.values())]
+        sparse_dict = {
+            'indices': [int(index) for index in list(sparse_embedding.keys())],
+            'values': [float(v) for v in list(sparse_embedding.values())],
+        }
         query_sparse_embeddings.append(sparse_dict)
 
     if isinstance(query_dense_embeddings, np.ndarray):
