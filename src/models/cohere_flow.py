@@ -397,9 +397,16 @@ class HFEmbedder:
     def __init__(self, api_key: Optional[str] = None):
         from huggingface_hub import InferenceClient
         token = api_key or os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_TOKEN") or os.getenv("HF_API_TOKEN")
-        self.client = InferenceClient(token=token)
+        token_source = (
+            "api_key param" if api_key else
+            "HF_TOKEN" if os.getenv("HF_TOKEN") else
+            "HUGGINGFACE_TOKEN" if os.getenv("HUGGINGFACE_TOKEN") else
+            "HF_API_TOKEN" if os.getenv("HF_API_TOKEN") else
+            "NONE (unauthenticated — rate-limited!)"
+        )
+        self.client = InferenceClient(token=token, timeout=15)
         self.model = self.EMBED_MODEL
-        logger.info(f"HFEmbedder initialized (model={self.model}, dim={self.EMBED_DIM})")
+        logger.info(f"HFEmbedder initialized (model={self.model}, dim={self.EMBED_DIM}, token_source={token_source})")
 
     def encode(self, texts, return_dense=True, return_sparse=True,
                return_colbert_vecs=False, **kwargs) -> Dict[str, Any]:

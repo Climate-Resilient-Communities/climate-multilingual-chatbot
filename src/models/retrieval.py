@@ -433,7 +433,11 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
         # ⚡ PERFORMANCE FIX: Pre-compute query embeddings once and reuse
         # This prevents 5+ redundant embedding calls seen in production
         logger.info(f"🔄 Pre-computing query embeddings to avoid redundant encode() calls")
-        query_dense_embeddings, query_sparse_embeddings = get_query_embeddings(query, embed_model)
+        # Run in thread pool so the blocking HF API call doesn't freeze
+        # the event loop — allows asyncio.wait_for() to cancel at timeout.
+        query_dense_embeddings, query_sparse_embeddings = await asyncio.to_thread(
+            get_query_embeddings, query, embed_model
+        )
 
         def get_hybrid_results_cached(index, alpha: float, top_k: int, metadata_filter: Optional[Dict] = None):
             """Use cached query embeddings instead of re-encoding."""

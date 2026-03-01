@@ -12,6 +12,11 @@ from src.utils.error_handler import handle_async_errors
 
 logger = logging.getLogger(__name__)
 
+MAX_STORED_QUERIES = 1000   # Per day bucket
+MAX_STORED_TIMES = 10000    # Per day bucket
+DATA_RETENTION_DAYS = 30
+
+
 class AnalyticsTracker:
     def __init__(self):
         self.metrics = MetricsCollector()
@@ -25,28 +30,41 @@ class AnalyticsTracker:
             'cache_usage': {'hits': 0, 'misses': 0}
         })
         
+    def _cleanup_old_data(self):
+        """Remove usage data older than DATA_RETENTION_DAYS."""
+        cutoff = (datetime.now() - timedelta(days=DATA_RETENTION_DAYS)).strftime('%Y-%m-%d')
+        stale_keys = [k for k in self.usage_patterns if k < cutoff]
+        for key in stale_keys:
+            del self.usage_patterns[key]
+
     def track_query(self, query_data: Dict[str, Any]):
         """Track a single query interaction"""
+        self._cleanup_old_data()
+
         timestamp = datetime.now()
         day_key = timestamp.strftime('%Y-%m-%d')
-        
+
         # Update daily stats
         stats = self.usage_patterns[day_key]
         stats['total_queries'] += 1
         stats['unique_users'].add(query_data.get('user_id', 'anonymous'))
         stats['language_distribution'][query_data.get('language', 'en')] += 1
         stats['query_times'].append(query_data.get('processing_time', 0))
+        if len(stats['query_times']) > MAX_STORED_TIMES:
+            stats['query_times'] = stats['query_times'][-MAX_STORED_TIMES:]
 
         # Store query text for trending topic analysis
         query_text = query_data.get('query', '')
         if query_text:
             stats['queries'].append(query_text)
+            if len(stats['queries']) > MAX_STORED_QUERIES:
+                stats['queries'] = stats['queries'][-MAX_STORED_QUERIES:]
 
         # Track errors if any
         if 'error' in query_data:
             error_type = query_data['error'].get('code', 'unknown')
             stats['error_counts'][error_type] += 1
-            
+
         # Track cache usage
         if query_data.get('cache_hit') is not None:
             if query_data['cache_hit']:
