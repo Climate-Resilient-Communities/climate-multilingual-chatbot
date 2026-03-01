@@ -128,11 +128,15 @@ def issue_hybrid_query(index, sparse_embedding: Dict, dense_embedding: List[floa
 
     kwargs = {
         'vector': scaled_dense,
-        'sparse_vector': scaled_sparse,
         'top_k': top_k,
         'include_metadata': True,
         'include_values': True,  # fetch stored dense vectors to avoid re-embedding for MMR
     }
+    # Only include sparse_vector when it has actual values — HFEmbedder
+    # returns empty lexical_weights (no sparse support via Inference API),
+    # and Pinecone rejects empty sparse vectors with a 400 error.
+    if scaled_sparse.get('indices'):
+        kwargs['sparse_vector'] = scaled_sparse
     # Optional server-side metadata filter
     if metadata_filter:
         kwargs['filter'] = metadata_filter
@@ -192,6 +196,13 @@ def get_hybrid_results(index, query: str, embed_model, alpha: float, top_k: int,
 
 def issue_sparse_query(index, sparse_embedding: Dict, top_k: int, metadata_filter: Optional[Dict] = None):
     """Execute sparse-only (BM25-like) search on Pinecone index."""
+    # If sparse_embedding has no indices (e.g. HFEmbedder returns empty
+    # lexical_weights), return an empty result instead of hitting Pinecone.
+    if not sparse_embedding.get('indices'):
+        logger.info("Sparse embedding is empty — skipping sparse-only query")
+        from types import SimpleNamespace
+        return SimpleNamespace(matches=[])
+
     # Some indexes are dense-only; when they reject sparse-only queries,
     # include a tiny zero dense vector to satisfy schema.
     kwargs = {

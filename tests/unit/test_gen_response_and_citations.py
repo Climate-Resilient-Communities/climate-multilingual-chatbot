@@ -1,6 +1,7 @@
 import pytest
-from unittest.mock import Mock, patch
-from src.models.gen_response_nova import doc_preprocessing, cohere_chat
+from unittest.mock import Mock, patch, AsyncMock
+from src.models.gen_response_nova import doc_preprocessing, generate_chat_response
+
 
 @pytest.fixture
 def sample_docs():
@@ -17,51 +18,47 @@ def sample_docs():
         }
     ]
 
+
 @pytest.fixture
-def mock_cohere_client():
-    class MockMessage:
-        def __init__(self):
-            self.content = "Based on the provided documents, climate change is a significant environmental phenomenon."
-            self.citations = [
-                {"start": 0, "end": 50, "text": "Climate change refers to long-term shifts in temperatures"},
-                {"start": 51, "end": 100, "text": "Rising sea levels are a major concern"}
-            ]
-
-    class MockResponse:
-        def __init__(self):
-            self.message = MockMessage()
-
+def mock_model():
     mock = Mock()
-    mock.chat.return_value = MockResponse()
+    mock.generate_response = AsyncMock(
+        return_value="Based on the provided documents, climate change is a significant environmental phenomenon."
+    )
     return mock
+
 
 def test_doc_preprocessing_success(sample_docs):
     processed_docs = doc_preprocessing(sample_docs)
-    
+
     assert len(processed_docs) == 2
-    assert all('data' in doc for doc in processed_docs)
-    
-    first_doc = processed_docs[0]['data']
+    assert all(isinstance(doc, dict) for doc in processed_docs)
+
+    first_doc = processed_docs[0]
     assert 'title' in first_doc
-    assert 'snippet' in first_doc
-    assert 'http://example.com/climate' in first_doc['title']
-    assert 'Climate change refers to' in first_doc['snippet']
+    assert 'content' in first_doc
+    assert 'url' in first_doc
+    assert 'Climate change refers to' in first_doc['content']
+
 
 def test_doc_preprocessing_missing_content():
     docs = [{'title': 'Test', 'url': ['http://example.com']}]
     processed = doc_preprocessing(docs)
     assert len(processed) == 0
 
+
 def test_doc_preprocessing_short_content():
     docs = [{'title': 'Test', 'content': 'Too short', 'url': ['http://example.com']}]
     processed = doc_preprocessing(docs)
     assert len(processed) == 0
 
+
 def test_doc_preprocessing_fallback_content(sample_docs):
     # Test that chunk_text is used when content is missing
     processed = doc_preprocessing([sample_docs[1]])
     assert len(processed) == 1
-    assert 'Global warming leads to' in processed[0]['data']['snippet']
+    assert 'Global warming leads to' in processed[0]['content']
+
 
 def test_doc_preprocessing_url_handling():
     docs = [
@@ -70,52 +67,58 @@ def test_doc_preprocessing_url_handling():
         {'title': 'Test3', 'content': 'Long enough content 3 that will pass the length check', 'url': []}
     ]
     processed = doc_preprocessing(docs)
-    
-    assert 'http://test1.com' in processed[0]['data']['title']
-    assert 'http://test2.com' in processed[1]['data']['title']
-    assert 'Test3' in processed[2]['data']['title']
 
-def test_cohere_chat_success(sample_docs, mock_cohere_client):
-    response, citations = cohere_chat(
+    assert len(processed) == 3
+    assert processed[0]['url'] == 'http://test1.com'
+    assert processed[1]['url'] == 'http://test2.com'
+    assert processed[2]['url'] == ''
+
+
+@pytest.mark.asyncio
+async def test_generate_chat_response_success(sample_docs, mock_model):
+    response, citations = await generate_chat_response(
         query="What is climate change?",
         documents=sample_docs,
-        cohere_client=mock_cohere_client
+        model=mock_model
     )
-    
+
     assert isinstance(response, str)
     assert isinstance(citations, list)
-    assert "climate change is a significant" in response
-    assert len(citations) == 2
-    mock_cohere_client.chat.assert_called_once()
+    mock_model.generate_response.assert_called_once()
 
-def test_cohere_chat_no_documents(mock_cohere_client):
+
+@pytest.mark.asyncio
+async def test_generate_chat_response_no_documents(mock_model):
     with pytest.raises(ValueError, match="No valid documents to process"):
-        cohere_chat(
+        await generate_chat_response(
             query="test query",
             documents=[],
-            cohere_client=mock_cohere_client
+            model=mock_model
         )
 
-def test_cohere_chat_api_error(sample_docs, mock_cohere_client):
-    mock_cohere_client.chat.side_effect = Exception("Error in response generation")
-    
-    with pytest.raises(Exception, match="Error in response generation"):
-        cohere_chat(
+
+@pytest.mark.asyncio
+async def test_generate_chat_response_api_error(sample_docs, mock_model):
+    mock_model.generate_response = AsyncMock(side_effect=Exception("API Error"))
+
+    with pytest.raises(Exception):
+        await generate_chat_response(
             query="test query",
             documents=sample_docs,
-            cohere_client=mock_cohere_client
+            model=mock_model
         )
 
-def test_cohere_chat_custom_description(sample_docs, mock_cohere_client):
+
+@pytest.mark.asyncio
+async def test_generate_chat_response_custom_description(sample_docs, mock_model):
     custom_desc = "Provide a technical response"
-    cohere_chat(
+    await generate_chat_response(
         query="What is climate change?",
         documents=sample_docs,
-        cohere_client=mock_cohere_client,
+        model=mock_model,
         description=custom_desc
     )
-    
-    # Verify custom description was used in the chat call
-    call_args = mock_cohere_client.chat.call_args[1]
-    messages = call_args['messages']
-    assert any(custom_desc in str(msg.get('content', '')) for msg in messages)
+
+    # Verify description was passed to generate_response
+    call_args = mock_model.generate_response.call_args
+    assert call_args[1].get('description') == custom_desc

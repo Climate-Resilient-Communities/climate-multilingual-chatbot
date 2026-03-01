@@ -32,20 +32,7 @@ pipeline: ClimateQueryPipeline = None
 conversation_parser: ConversationParser = None
 router: MultilingualRouter = None
 cache: ClimateCache = None
-prewarm_completed = False
-
-async def background_prewarm():
-    """Prewarm pipeline in background to avoid blocking startup"""
-    global prewarm_completed
-    try:
-        logger.info("🔥 Starting background pipeline prewarming...")
-        if pipeline:
-            await pipeline.prewarm()
-            prewarm_completed = True
-            logger.info("✅ Background prewarming completed")
-    except Exception as e:
-        logger.error(f"❌ Background prewarming failed: {str(e)}")
-        prewarm_completed = False
+prewarm_completed = True  # No prewarm needed — HF Inference API, not local model
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -61,9 +48,7 @@ async def lifespan(app: FastAPI):
         # Climate processing pipeline (main component)
         pipeline = ClimateQueryPipeline()
         
-        # Start prewarm in background to not block startup
-        asyncio.create_task(background_prewarm())
-        logger.info("✅ Climate pipeline initialized (prewarming in background)")
+        logger.info("✅ Climate pipeline initialized (HF Inference API — no prewarm needed)")
         
         # Conversation parser for history handling
         conversation_parser = ConversationParser()

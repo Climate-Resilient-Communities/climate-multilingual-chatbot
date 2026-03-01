@@ -1,5 +1,6 @@
 import os
 import sys
+import warnings
 import pytest
 from dotenv import load_dotenv
 
@@ -13,8 +14,9 @@ def pytest_configure(config):
     """Set up test environment"""
     # Load environment variables from .env file
     load_dotenv()
-    
-    # Ensure critical environment variables are available
+
+    # Warn about missing environment variables instead of failing
+    # Tests that need specific keys use @pytest.mark.skipif decorators
     required_vars = [
         'AWS_ACCESS_KEY_ID',
         'AWS_SECRET_ACCESS_KEY',
@@ -22,10 +24,14 @@ def pytest_configure(config):
         'PINECONE_API_KEY',
         'TAVILY_API_KEY'
     ]
-    
+
     missing = [var for var in required_vars if not os.getenv(var)]
     if missing:
-        pytest.fail(f"Missing required environment variables: {', '.join(missing)}")
+        warnings.warn(
+            f"Missing environment variables: {', '.join(missing)}. "
+            f"Tests requiring these services will be skipped.",
+            UserWarning
+        )
 
 @pytest.fixture(scope="session", autouse=True)
 def load_env():
@@ -35,7 +41,12 @@ def load_env():
 
 @pytest.fixture(scope="session")
 def chatbot():
-    """Fixture to provide an instance of MultilingualClimateChatbot."""
+    """Fixture to provide an instance of MultilingualClimateChatbot.
+
+    This fixture creates a real chatbot instance that connects to live services.
+    Tests using this fixture should be marked with appropriate skip decorators
+    for missing API keys.
+    """
     from src.main_nova import MultilingualClimateChatbot
     test_index_name = "climate-change-adaptation-index-10-24-prod"
     return MultilingualClimateChatbot(index_name=test_index_name)

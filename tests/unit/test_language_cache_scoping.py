@@ -3,41 +3,23 @@ import pytest
 
 from types import SimpleNamespace
 
-from src.models.gen_response_unified import UnifiedResponseGenerator, ClimateCache as RealClimateCache
-
-
-class FakeCache:
-    store = {}
-
-    def __init__(self, *args, **kwargs):
-        # simulate having a client
-        self.redis_client = True
-
-    async def get(self, key: str):
-        return self.store.get(key)
-
-    async def set(self, key: str, value):
-        self.store[key] = value
-        return True
+from src.models.gen_response_unified import UnifiedResponseGenerator
 
 
 @pytest.mark.asyncio
-async def test_language_scoped_cache_isolation(monkeypatch):
-    # Replace ClimateCache with FakeCache
-    monkeypatch.setattr(
-        "src.models.gen_response_unified.ClimateCache",
-        FakeCache,
-        raising=True,
-    )
+async def test_language_parameter_passed_to_generator(monkeypatch):
+    """Test that UnifiedResponseGenerator correctly handles different language_code params.
 
+    Note: Caching was moved to the pipeline level (ClimateQueryPipeline).
+    UnifiedResponseGenerator no longer caches internally.
+    This test verifies the generator correctly passes language_code through to generation.
+    """
     gen = UnifiedResponseGenerator()
 
-    # Stub document processing/generation to avoid external calls
-    call_log = SimpleNamespace(calls=0)
+    call_log = SimpleNamespace(calls=0, language_codes=[])
 
     async def _stub_process_and_generate(query, documents, model, model_type, description=None, conversation_history=None):
         call_log.calls += 1
-        # Return distinct payloads per invocation
         return (f"GEN_RESPONSE_{call_log.calls}", [{"title": "T", "url": "", "content": "C"}])
 
     monkeypatch.setattr(gen, "_process_and_generate", _stub_process_and_generate)
@@ -46,7 +28,7 @@ async def test_language_scoped_cache_isolation(monkeypatch):
 
     # First call under Spanish (es)
     resp1, cites1 = await gen.generate_response(
-        query="what is climate change?",  # processed English query from a Spanish input
+        query="what is climate change?",
         documents=docs,
         model_type="nova",
         language_code="es",
@@ -54,7 +36,8 @@ async def test_language_scoped_cache_isolation(monkeypatch):
     assert resp1 == "GEN_RESPONSE_1"
     assert call_log.calls == 1
 
-    # Second call for English (en) with the same query and docs should NOT hit the es cache
+    # Second call for English (en) with the same query — should still generate
+    # (no caching at generator level, caching is at pipeline level)
     resp2, cites2 = await gen.generate_response(
         query="what is climate change?",
         documents=docs,
@@ -64,22 +47,10 @@ async def test_language_scoped_cache_isolation(monkeypatch):
     assert resp2 == "GEN_RESPONSE_2"
     assert call_log.calls == 2
 
-    # Ensure keys are stored under separate language namespaces
-    keys = list(FakeCache.store.keys())
-    assert any(k.startswith("es:") for k in keys)
-    assert any(k.startswith("en:") for k in keys)
-
 
 @pytest.mark.asyncio
-async def test_cache_hit_within_same_language(monkeypatch):
-    # Fresh fake cache
-    FakeCache.store = {}
-    monkeypatch.setattr(
-        "src.models.gen_response_unified.ClimateCache",
-        FakeCache,
-        raising=True,
-    )
-
+async def test_same_language_generates_each_time(monkeypatch):
+    """Verify that without pipeline caching, generator always generates fresh responses."""
     gen = UnifiedResponseGenerator()
 
     call_log = SimpleNamespace(calls=0)
@@ -92,7 +63,7 @@ async def test_cache_hit_within_same_language(monkeypatch):
 
     docs = [{"title": "Doc1", "url": "u1", "content": "content one"}]
 
-    # First call creates cache for 'es'
+    # First call
     resp1, _ = await gen.generate_response(
         query="¿Qué es el cambio climático?",
         documents=docs,
@@ -102,14 +73,12 @@ async def test_cache_hit_within_same_language(monkeypatch):
     assert resp1 == "GEN_RESPONSE_1"
     assert call_log.calls == 1
 
-    # Second call with same language and normalized query should cache-hit
+    # Second call with same query and language — no cache at generator level
     resp2, _ = await gen.generate_response(
-        query="¿qué es el cambio climático?",  # case difference
+        query="¿qué es el cambio climático?",
         documents=docs,
         model_type="nova",
         language_code="es",
     )
-    assert resp2 == "GEN_RESPONSE_1"  # should return cached response
-    assert call_log.calls == 1  # no new generation
-
-
+    assert resp2 == "GEN_RESPONSE_2"
+    assert call_log.calls == 2  # Generator always generates (caching is at pipeline level)

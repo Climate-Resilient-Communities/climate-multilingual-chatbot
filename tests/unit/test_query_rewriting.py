@@ -1,18 +1,49 @@
-
 """
 Unit tests for the query_rewriter module rewriting logic.
+
+The query_rewriter now:
+- Accepts: (conversation_history, user_query, nova_model, selected_language_code="en")
+- Calls nova_model.content_generation(prompt=..., system_message=...) once
+- Returns a JSON string with keys: reason, language, expected_language,
+  language_match, classification, rewrite_en, canned, ask_how_to_use,
+  how_it_works, error
 """
 
-import asyncio
+import json
 from unittest.mock import AsyncMock, MagicMock
 import pytest
 
-# Make sure the src directory is in the path
-import sys
-from pathlib import Path
-sys.path.append(str(Path(__file__).resolve().parents[2]))
-
 from src.models.query_rewriter import query_rewriter
+
+
+def _make_model_json_response(
+    classification="on-topic",
+    language="en",
+    rewrite_en=None,
+    reason="test",
+    language_match=True,
+    ask_how_to_use=False,
+):
+    """Helper to build the JSON string the LLM would return."""
+    return json.dumps({
+        "reason": reason,
+        "language": language,
+        "expected_language": "en",
+        "language_match": language_match,
+        "classification": classification,
+        "rewrite_en": rewrite_en,
+        "ask_how_to_use": ask_how_to_use,
+        "how_it_works": None,
+        "error": None,
+    })
+
+
+def _mock_model(response_json: str):
+    """Create a mock BedrockModel whose content_generation returns the given JSON."""
+    model = MagicMock()
+    model.content_generation = AsyncMock(return_value=response_json)
+    return model
+
 
 # --- Test Cases for Vague Follow-ups ---
 vague_follow_up_cases = [
@@ -84,31 +115,26 @@ off_topic_rejection_cases = [
         "Off-topic: Sports",
         ["User: What is climate change?", "AI: A change in weather patterns."],
         "Who won the game last night?",
-        "Classification: off-topic"
     ),
     (
         "Off-topic: Cooking",
         ["User: Tell me about renewable energy.", "AI: It comes from sources like sun and wind."],
         "How do I bake a cake?",
-        "Classification: off-topic"
     ),
     (
         "Off-topic: Celebrity Gossip",
         ["User: What is a carbon tax?", "AI: It's a fee on carbon emissions."],
         "What's the latest news about that actor?",
-        "Classification: off-topic"
     ),
     (
         "Off-topic: Personal Advice",
         ["User: How can I help the environment?", "AI: By recycling and reducing waste."],
         "Should I change my job?",
-        "Classification: off-topic"
     ),
     (
         "Off-topic: Tech Support",
         ["User: What is geothermal energy?", "AI: It's heat from the Earth."],
         "My computer is running slow, can you help?",
-        "Classification: off-topic"
     ),
 ]
 
@@ -116,7 +142,7 @@ off_topic_rejection_cases = [
 long_history_cases = [
     (
         "Long History: Summarization",
-        ["User: A", "AI: B"] * 20, # 40 turns
+        ["User: A", "AI: B"] * 20,
         "So what's the main point?",
         "Given the long preceding discussion, what is the main point of our conversation about climate change?"
     ),
@@ -211,35 +237,54 @@ multilingual_rewriting_cases = [
 ]
 
 
-@pytest.mark.parametrize("test_name, history, query, expected_result", vague_follow_up_cases + long_history_cases + multilingual_rewriting_cases)
+@pytest.mark.parametrize("test_name, history, query, expected_rewrite", vague_follow_up_cases + long_history_cases + multilingual_rewriting_cases)
 @pytest.mark.asyncio
-async def test_on_topic_rewriting(test_name, history, query, expected_result):
-    """Tests that on-topic queries are correctly rewritten to English."""
-    # Arrange
-    mock_model = MagicMock()
-    mock_model.nova_content_generation = AsyncMock(side_effect=[
-        "Reasoning: It's a follow-up.\nClassification: on-topic",
-        expected_result
-    ])
+async def test_on_topic_rewriting(test_name, history, query, expected_rewrite):
+    """Tests that on-topic queries return JSON with the correct rewrite in rewrite_en."""
+    model_response = _make_model_json_response(
+        classification="on-topic",
+        rewrite_en=expected_rewrite,
+        reason="Follow-up question",
+    )
+    mock_model = _mock_model(model_response)
 
-    # Act
-    result = await query_rewriter(history, query, mock_model)
+    result_str = await query_rewriter(
+        conversation_history=history,
+        user_query=query,
+        nova_model=mock_model,
+        selected_language_code="en",
+    )
 
-    # Assert
-    assert result == expected_result, f"Test Failed: {test_name}"
-    assert mock_model.nova_content_generation.call_count == 2
+    result = json.loads(result_str)
+    assert result["classification"] == "on-topic", f"Failed: {test_name}"
+    assert result["rewrite_en"] == expected_rewrite, f"Rewrite mismatch: {test_name}"
+    mock_model.content_generation.assert_called_once()
 
-@pytest.mark.parametrize("test_name, history, query, expected_result", off_topic_rejection_cases)
+
+@pytest.mark.parametrize("test_name, history, query", off_topic_rejection_cases)
 @pytest.mark.asyncio
-async def test_off_topic_rejection(test_name, history, query, expected_result):
-    """Tests that off-topic queries are rejected and not rewritten."""
-    # Arrange
-    mock_model = MagicMock()
-    mock_model.nova_content_generation = AsyncMock(return_value="Reasoning: Unrelated topic.\nClassification: off-topic")
+async def test_off_topic_rejection(test_name, history, query):
+    """Tests that off-topic queries are classified as off-topic with a canned response."""
+    model_response = _make_model_json_response(
+        classification="off-topic",
+        reason="Unrelated topic",
+    )
+    mock_model = _mock_model(model_response)
 
-    # Act
-    result = await query_rewriter(history, query, mock_model)
+    result_str = await query_rewriter(
+        conversation_history=history,
+        user_query=query,
+        nova_model=mock_model,
+        selected_language_code="en",
+    )
 
-    # Assert
-    assert result == expected_result, f"Test Failed: {test_name}"
-    mock_model.nova_content_generation.assert_called_once()
+    result = json.loads(result_str)
+    assert result["classification"] == "off-topic", f"Failed: {test_name}"
+    assert result["rewrite_en"] is None
+    assert result["canned"]["enabled"] is True
+    assert result["canned"]["type"] == "off-topic"
+    mock_model.content_generation.assert_called_once()
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

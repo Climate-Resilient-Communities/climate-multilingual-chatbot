@@ -31,20 +31,12 @@ def sample_docs():
 @pytest.fixture
 def mock_cohere_client():
     mock_client = Mock()
-    mock_client.rerank.return_value = {
-        'results': [
-            {
-                'index': 0,
-                'relevance_score': 0.98,
-                'document': {'text': 'This is some test content about climate change.'}
-            },
-            {
-                'index': 1,
-                'relevance_score': 0.75,
-                'document': {'text': 'More test content about global warming.'}
-            }
-        ]
-    }
+    # Production code accesses rerank_results.results (attribute, not dict key)
+    # and each result needs .index, .relevance_score attributes
+    result_0 = Mock(index=0, relevance_score=0.98)
+    result_1 = Mock(index=1, relevance_score=0.75)
+    rerank_response = Mock(results=[result_0, result_1])
+    mock_client.rerank.return_value = rerank_response
     return mock_client
 
 def test_prepare_docs_for_rerank(sample_docs):
@@ -81,14 +73,12 @@ async def test_rerank_fcn(sample_docs, mock_cohere_client):
     assert reranked_docs[0]['score'] == 0.98
     assert reranked_docs[1]['score'] == 0.75
     
-    # Verify cohere client was called correctly
-    mock_cohere_client.rerank.assert_called_once_with(
-        query=query,
-        documents=['This is some test content about climate change.',
-                  'More test content about global warming.'],
-        top_n=2,
-        model="rerank-multilingual-v3.0"
-    )
+    # Verify cohere client was called with correct query and docs
+    mock_cohere_client.rerank.assert_called_once()
+    call_kwargs = mock_cohere_client.rerank.call_args
+    assert call_kwargs.kwargs['query'] == query
+    assert call_kwargs.kwargs['top_n'] == 2
+    assert call_kwargs.kwargs['model'] == "rerank-v4.0-fast"
 
 @pytest.mark.asyncio
 async def test_rerank_fcn_empty_docs(mock_cohere_client):

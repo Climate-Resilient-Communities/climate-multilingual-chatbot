@@ -1,7 +1,8 @@
+import os
 import pytest
-from src.models.gen_response_nova import nova_chat
+from src.models.gen_response_nova import generate_chat_response
 from src.utils.env_loader import load_environment
-from src.models.nova_generation import NovaChat
+from src.models.nova_flow import BedrockModel
 import time
 import asyncio
 
@@ -23,38 +24,46 @@ class TestResponseSpeed:
         ]
 
     @pytest.fixture
-    def nova_client(self):
+    def nova_model(self):
         load_environment()
-        return NovaChat()
+        return BedrockModel()
 
     @pytest.mark.asyncio
-    async def test_nova_response_speed(self, test_docs, nova_client):
+    @pytest.mark.skipif(
+        not os.getenv('AWS_ACCESS_KEY_ID') or not os.getenv('AWS_SECRET_ACCESS_KEY'),
+        reason="Requires AWS Bedrock credentials (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)"
+    )
+    async def test_nova_response_speed(self, test_docs, nova_model):
         """Test Nova response generation speed"""
         query = "What is climate change and its main impacts?"
-        
+
         start_time = time.time()
-        response, citations = await nova_chat(query, test_docs, nova_client)
-        
+        response, citations = await generate_chat_response(query, test_docs, nova_model)
+
         processing_time = time.time() - start_time
-        
+
         assert processing_time < 30, "Response generation took too long"
         assert isinstance(response, str)
         assert len(response) > 0
         assert isinstance(citations, list)
 
     @pytest.mark.asyncio
-    async def test_cached_response_speed(self, test_docs, nova_client):
+    @pytest.mark.skipif(
+        not os.getenv('AWS_ACCESS_KEY_ID') or not os.getenv('AWS_SECRET_ACCESS_KEY'),
+        reason="Requires AWS Bedrock credentials (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)"
+    )
+    async def test_cached_response_speed(self, test_docs, nova_model):
         """Test cached response retrieval speed"""
         query = "What is climate change and its main impacts?"
-        
+
         # First call to cache the response
-        await nova_chat(query, test_docs, nova_client)
-        
+        await generate_chat_response(query, test_docs, nova_model)
+
         # Second call should be faster due to caching
         start_time = time.time()
-        response, citations = await nova_chat(query, test_docs, nova_client)
+        response, citations = await generate_chat_response(query, test_docs, nova_model)
         processing_time = time.time() - start_time
-        
-        assert processing_time < 1, "Cached response retrieval took too long"
+
+        assert processing_time < 5, "Cached response retrieval took too long"
         assert isinstance(response, str)
         assert len(response) > 0

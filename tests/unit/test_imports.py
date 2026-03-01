@@ -1,44 +1,69 @@
+"""Test that all critical modules can be imported successfully."""
 import os
 import sys
 from pathlib import Path
 
 # Add project root to Python path
-project_root = Path(__file__).resolve().parent
+project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.append(str(project_root))
 
-print("Testing imports...")
 
-try:
-    print("\nTesting nova_flow...")
+def test_nova_flow_import():
     from src.models.nova_flow import BedrockModel
-    print("✓ nova_flow imported successfully")
+    assert BedrockModel is not None
 
-    print("\nTesting nova_generation...")
-    from src.models.nova_generation import NovaChat
-    print("✓ nova_generation imported successfully")
 
-    print("\nTesting input_guardrail...")
+def test_cohere_flow_import():
+    from src.models.cohere_flow import CohereModel, HFEmbedder
+    assert CohereModel is not None
+    assert HFEmbedder is not None
+
+
+def test_input_guardrail_import():
     from src.models.input_guardrail import topic_moderation
-    print("✓ input_guardrail imported successfully")
+    assert topic_moderation is not None
 
-    print("\nTesting retrieval...")
+
+def test_retrieval_import():
     from src.models.retrieval import get_documents, get_hybrid_results
-    print("✓ retrieval imported successfully")
+    assert get_documents is not None
+    assert get_hybrid_results is not None
 
-    print("\nTesting query_routing...")
-    from src.models.query_routing import MultilingualRouter
-    print("✓ query_routing imported successfully")
 
-    print("\nTesting hallucination_guard...")
+def test_query_routing_import():
+    from src.models.query_routing import MultilingualRouter, LanguageSupport
+    assert MultilingualRouter is not None
+    assert LanguageSupport is not None
+
+
+def test_hallucination_guard_import():
     from src.models.hallucination_guard import check_hallucination
-    print("✓ hallucination_guard imported successfully")
+    assert check_hallucination is not None
 
-    print("\nTesting redis_cache...")
+
+def test_redis_cache_import():
     from src.models.redis_cache import ClimateCache
-    print("✓ redis_cache imported successfully")
+    assert ClimateCache is not None
 
-    print("\nAll imports successful!")
 
-except Exception as e:
-    print(f"\n❌ Import error: {str(e)}")
-    raise
+def test_gen_response_nova_import():
+    from src.models.gen_response_nova import generate_chat_response, doc_preprocessing
+    assert generate_chat_response is not None
+    assert doc_preprocessing is not None
+
+
+def test_gen_response_unified_import():
+    from src.models.gen_response_unified import UnifiedResponseGenerator
+    assert UnifiedResponseGenerator is not None
+
+
+def test_tiny_aya_language_sets_import():
+    from src.models.cohere_flow import FIRE_LANGUAGES, EARTH_LANGUAGES, WATER_LANGUAGES
+    assert len(FIRE_LANGUAGES) > 0
+    assert len(EARTH_LANGUAGES) > 0
+    assert len(WATER_LANGUAGES) > 0
+
+
+def test_resolve_tiny_aya_model_import():
+    from src.models.cohere_flow import resolve_tiny_aya_model
+    assert resolve_tiny_aya_model is not None

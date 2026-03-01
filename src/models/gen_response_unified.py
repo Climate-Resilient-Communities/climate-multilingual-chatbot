@@ -84,18 +84,23 @@ class UnifiedResponseGenerator:
         model_type: str,
         language_code: str = "en",
         description: Optional[str] = None,
-        conversation_history: Optional[List[Dict]] = None
+        conversation_history: Optional[List[Dict]] = None,
+        model: Optional[Any] = None,
     ) -> Tuple[str, List[Dict[str, str]]]:
         """
         Generate response using the specified model type.
-        
+
         Args:
             query (str): The user's query
             documents (List[Dict]): Retrieved documents
             model_type (str): Either 'nova' or 'cohere'
+            language_code (str): Language code for the response
             description (str, optional): Additional context
             conversation_history (List[Dict], optional): Previous conversation
-            
+            model: Optional pre-configured model instance (e.g. regionally-routed
+                   CohereModel from the pipeline).  When provided, this overrides
+                   the generator's own internal model selection.
+
         Returns:
             Tuple[str, List[Dict]]: (response, citations)
         """
@@ -109,8 +114,10 @@ class UnifiedResponseGenerator:
                 if model_type not in ['nova', 'cohere']:
                     raise ValueError(f"Invalid model_type: {model_type}. Must be 'nova' or 'cohere'")
                 
-                # Select the appropriate model
-                model = self.nova_model if model_type == 'nova' else self.cohere_model
+                # Select the appropriate model — use caller-provided model if given,
+                # otherwise fall back to internal default (tiny-aya-global / nova-lite)
+                if model is None:
+                    model = self.nova_model if model_type == 'nova' else self.cohere_model
                 
                 # Handle empty documents
                 if not documents:

@@ -14,7 +14,7 @@ cohere = "^5.11.3"
 python-dotenv = "^1.0.0"
 streamlit = "^1.40.1"
 # torch, transformers, flagembedding REMOVED — BGE-M3 now via HF Inference API
-huggingface-hub = "^0.25.0"
+huggingface-hub = ">=0.25.0"
 langchain = "^0.3.7"
 langchain-community = "^0.3.5"
 langchain_cohere="^0.4.2"

@@ -202,14 +202,24 @@ class ClimateQueryPipeline:
                 }
 
             # Map Tavily results to document format
+            # TavilySearchResults may return dicts or strings depending on version
             docs_for_fallback = []
-            for r in search_results:
-                docs_for_fallback.append({
-                    "title": r.get("title", r.get("url", "")) or r.get("url", ""),
-                    "url": r.get("url", ""),
-                    "content": r.get("content", ""),
-                    "snippet": (r.get("content", "")[:200] + "...") if r.get("content") else "",
-                })
+            for idx, r in enumerate(search_results):
+                if isinstance(r, str):
+                    docs_for_fallback.append({
+                        "title": f"Web source {idx + 1}",
+                        "url": "",
+                        "content": r,
+                        "snippet": r[:200] + "..." if len(r) > 200 else r,
+                    })
+                else:
+                    title = r.get("title") or r.get("url") or f"Web source {idx + 1}"
+                    docs_for_fallback.append({
+                        "title": title,
+                        "url": r.get("url", ""),
+                        "content": r.get("content", ""),
+                        "snippet": (r.get("content", "")[:200] + "...") if r.get("content") else "",
+                    })
 
             # Generate via Tiny-Aya (primary) for Tavily fallback
             response, citations = await self.response_generator.generate_response(
@@ -218,6 +228,7 @@ class ClimateQueryPipeline:
                 model_type="cohere",
                 language_code="en",
                 conversation_history=None,
+                model=self.cohere_model,
             )
 
             # Faithfulness check on fallback
@@ -411,9 +422,13 @@ class ClimateQueryPipeline:
             model_type = routing_info['model_type']
             model_id = routing_info.get('model_id', 'tiny-aya-global')
 
-            # Switch cohere_model to the regionally-appropriate Tiny-Aya model
+            # Create a request-local copy with the regionally-appropriate Tiny-Aya model.
+            # IMPORTANT: Do NOT mutate self.cohere_model — the pipeline is a shared
+            # singleton and concurrent requests would race on the instance attribute.
             if model_type == 'cohere':
-                self.cohere_model = self.cohere_model.with_model(model_id)
+                cohere_model = self.cohere_model.with_model(model_id)
+            else:
+                cohere_model = self.cohere_model
 
             logger.info(f"✓ Routed to {routing_info['model_name']} (model_id={model_id})")
             route_ms = (time.time() - _route_start) * 1000
@@ -424,7 +439,7 @@ class ClimateQueryPipeline:
                 if model_type == 'nova':
                     translation_func = self.nova_model.translate
                 else:
-                    translation_func = self.cohere_model.translate
+                    translation_func = cohere_model.translate
                 logger.info("Routing requires translation → provider=%s", routing_info['model_name'])
 
                 # Re-run routing with proper translation function
@@ -597,7 +612,7 @@ class ClimateQueryPipeline:
                         final_text = canned_text
                         if language_code != 'en':
                             try:
-                                final_text = await self.cohere_model.translate(canned_text, 'english', language_name)
+                                final_text = await cohere_model.translate(canned_text, 'english', language_name)
                                 logger.info("✓ Canned response translated to selected language")
                             except Exception as te:
                                 logger.warning(f"Canned translation failed, falling back to English: {te}")
@@ -629,10 +644,10 @@ class ClimateQueryPipeline:
                             target_code = detected_lang if detected_lang and detected_lang != 'unknown' else language_code
                             if target_code != 'en':
                                 target_name = LANG_CODE_TO_NAME.get(target_code, target_code)
-                                final_msg = await self.cohere_model.translate(msg_en, 'english', target_name)
+                                final_msg = await cohere_model.translate(msg_en, 'english', target_name)
                         except Exception:
                             final_msg = msg_en
-                        
+
                         return {
                             "success": True,
                             "response": final_msg,
@@ -645,21 +660,21 @@ class ClimateQueryPipeline:
                             "retrieval_source": "canned",
                             "fallback_reason": "off_topic_canned",
                         }
-                    
+
                     if classification == 'harmful':
                         # Get canned response from query rewriter
                         canned_response = CANNED_MAP.get('harmful', {})
-                        msg_en = canned_response.get('text', 
+                        msg_en = canned_response.get('text',
                             "I can't assist with that request. Please ask me questions about climate change, environmental issues, or sustainability."
                         )
-                        
+
                         # Translate using detected language if available; fall back to selected language
                         final_msg = msg_en
                         try:
                             target_code = detected_lang if detected_lang and detected_lang != 'unknown' else language_code
                             if target_code != 'en':
                                 target_name = LANG_CODE_TO_NAME.get(target_code, target_code)
-                                final_msg = await self.cohere_model.translate(msg_en, 'english', target_name)
+                                final_msg = await cohere_model.translate(msg_en, 'english', target_name)
                         except Exception:
                             final_msg = msg_en
                         
@@ -747,7 +762,7 @@ class ClimateQueryPipeline:
                         final_msg = msg_en
                         if language_code != 'en':
                             try:
-                                final_msg = await self.cohere_model.translate(msg_en, 'english', language_name)
+                                final_msg = await cohere_model.translate(msg_en, 'english', language_name)
                             except Exception:
                                 final_msg = msg_en
                         
@@ -773,7 +788,7 @@ class ClimateQueryPipeline:
                         final_msg = msg_en
                         if language_code != 'en':
                             try:
-                                final_msg = await self.cohere_model.translate(msg_en, 'english', language_name)
+                                final_msg = await cohere_model.translate(msg_en, 'english', language_name)
                             except Exception:
                                 final_msg = msg_en
                         
@@ -804,7 +819,8 @@ class ClimateQueryPipeline:
                 return self._create_error_response(
                     "Query failed content moderation checks",
                     language_code,
-                    time.time() - start_time
+                    time.time() - start_time,
+                    routing_info=routing_info,
                 )
             logger.info("✓ Input guards passed")
             guards_ms = (time.time() - _guards_start) * 1000
@@ -854,7 +870,7 @@ class ClimateQueryPipeline:
                     final_resp = fb["response"]
                     if self.get_language_code(language_name) != "en":
                         try:
-                            final_resp = await self.cohere_model.translate(final_resp, "english", language_name)
+                            final_resp = await cohere_model.translate(final_resp, "english", language_name)
                         except Exception:
                             pass
                     retrieval_source = fb.get("retrieval_source", "tavily")
@@ -884,7 +900,8 @@ class ClimateQueryPipeline:
                         documents=documents,
                         model_type=model_type,
                         language_code='en',  # Always generate in English first
-                        conversation_history=conversation_history
+                        conversation_history=conversation_history,
+                        model=cohere_model if model_type == 'cohere' else None,
                     ),
                     timeout=45.0  # 45 seconds total for the entire generation process
                 )
@@ -894,7 +911,8 @@ class ClimateQueryPipeline:
                 return self._create_error_response(
                     f"Response generation failed: {str(e)}",
                     language_code,
-                    time.time() - start_time
+                    time.time() - start_time,
+                    routing_info=routing_info,
                 )
             generation_ms = (time.time() - _gen_start) * 1000
             logger.info(f"Timing: generation={generation_ms:.1f}ms")
@@ -949,7 +967,7 @@ class ClimateQueryPipeline:
                 try:
                     _trans_start = time.time()
                     # Use Nova translator for all languages including Filipino
-                    translated_response = await self.cohere_model.translate(
+                    translated_response = await cohere_model.translate(
                         response,
                         'english',
                         language_name
@@ -1001,6 +1019,10 @@ class ClimateQueryPipeline:
                         english_result = result.copy()
                         english_result['response'] = original_english_response
                         english_result['language_code'] = 'en'
+                        # Fix: update model routing metadata to reflect English model
+                        en_model_id, en_region = resolve_tiny_aya_model('en')
+                        english_result['model_used'] = f"Tiny-Aya {en_region.capitalize()}"
+                        english_result['model_type'] = 'cohere'
                         await self.cache.set(english_cache_key, english_result)
                         logger.info("✓ English version also cached")
 
@@ -1041,9 +1063,9 @@ class ClimateQueryPipeline:
         """Process input moderation guards."""
         return {"passed": True, "reason": "query_rewriter_classification_passed"}
 
-    def _create_error_response(self, error_message: str, language_code: str, processing_time: float) -> Dict[
-        str, Any]:
-        """Create standardized error response."""
+    def _create_error_response(self, error_message: str, language_code: str, processing_time: float,
+                               routing_info: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Create standardized error response, preserving routing info if available."""
         return {
             "success": False,
             "response": error_message,
@@ -1051,8 +1073,8 @@ class ClimateQueryPipeline:
             "faithfulness_score": 0.0,
             "processing_time": processing_time,
             "language_code": language_code,
-            "model_used": "N/A",
-            "model_type": "N/A"
+            "model_used": routing_info['model_name'] if routing_info else "N/A",
+            "model_type": routing_info['model_type'] if routing_info else "N/A",
         }
 
     def _add_processing_time(self, cached_result: Dict[str, Any], start_time: float) -> Dict[str, Any]:

@@ -209,6 +209,9 @@ class MultilingualRouter:
     ) -> Dict[str, Any]:
         """Route and process query based on language - central decision maker."""
         try:
+            # Standardize language code early so all downstream logic uses 2-letter form
+            language_code = self.standardize_language_code(language_code)
+
             # Check language support level and determine model
             support_level = self.check_language_support(language_code)
             

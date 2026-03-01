@@ -71,7 +71,10 @@ async def test_query_processing_chain_with_callbacks():
     
     # Verify callback interactions
     mock_callback_manager.on_text.assert_any_call("Starting ClimateChat Query Processing")
-    mock_callback_manager.on_text.assert_any_call(f"Completed processing with result: {result}")
+    # Production code calls on_text with faithfulness score message on success
+    mock_callback_manager.on_text.assert_any_call(
+        f"Successfully generated response with faithfulness score: {result['faithfulness_score']}"
+    )
     
     # Verify results
     assert result["success"] is True

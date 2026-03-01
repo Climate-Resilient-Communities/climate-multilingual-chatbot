@@ -385,8 +385,8 @@ class HFEmbedder:
     code (retrieval.py) works unchanged.
 
     Dense vectors are 1024-dim, matching the existing Pinecone index.
-    Sparse (lexical_weights) are empty — the pipeline already handles
-    sparse being absent via its alpha weighting.
+    Sparse (lexical_weights) are empty — retrieval.py skips sparse
+    vectors when indices are absent and falls back to dense-only search.
     """
 
     EMBED_MODEL = "BAAI/bge-m3"
@@ -396,7 +396,7 @@ class HFEmbedder:
 
     def __init__(self, api_key: Optional[str] = None):
         from huggingface_hub import InferenceClient
-        token = api_key or os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_TOKEN")
+        token = api_key or os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_TOKEN") or os.getenv("HF_API_TOKEN")
         self.client = InferenceClient(token=token)
         self.model = self.EMBED_MODEL
         logger.info(f"HFEmbedder initialized (model={self.model}, dim={self.EMBED_DIM})")

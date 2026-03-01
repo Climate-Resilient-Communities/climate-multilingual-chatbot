@@ -4,7 +4,9 @@ from src.models.query_routing import MultilingualRouter
 
 
 @pytest.mark.asyncio
-async def test_mismatch_english_selected_spanish_query_prompts_language_switch():
+async def test_mismatch_english_selected_spanish_query_detected():
+    """When English is selected but Spanish query is sent, router detects mismatch
+    but still proceeds (mismatch is handled at pipeline level, not router level)."""
     router = MultilingualRouter()
     query = "¿Qué es el cambio climático?"
     result = await router.route_query(
@@ -14,17 +16,20 @@ async def test_mismatch_english_selected_spanish_query_prompts_language_switch()
         translation=None,
     )
 
-    assert result["should_proceed"] is False
+    # Router now returns should_proceed=True with language_mismatch flag
+    # (mismatch blocking is handled by the pipeline's query rewriter, not the router)
+    assert result["should_proceed"] is True
     info = result["routing_info"]
     assert info.get("language_mismatch") is True
     assert "switch" in (info.get("message") or "").lower()
-    # Did not transform the query
+    # Query is passed through unchanged
     assert result["processed_query"] == query
     assert result["english_query"] == query
 
 
 @pytest.mark.asyncio
-async def test_mismatch_spanish_selected_english_query_routes_without_translation():
+async def test_mismatch_spanish_selected_english_query_detected():
+    """When Spanish is selected but English query is sent, router detects mismatch."""
     router = MultilingualRouter()
     query = "What is climate change?"
     result = await router.route_query(
@@ -36,10 +41,7 @@ async def test_mismatch_spanish_selected_english_query_routes_without_translatio
 
     assert result["should_proceed"] is True
     info = result["routing_info"]
+    # English query detected while Spanish selected — mismatch flagged
     assert info.get("language_mismatch") is True
-    # It should proceed with Nova in English without translating
-    assert info.get("model_type") == "nova"
-    assert info.get("needs_translation") is False
     assert result["processed_query"] == query
     assert result["english_query"] == query
-

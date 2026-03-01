@@ -37,10 +37,7 @@ def mock_langsmith_client():
 def mock_nova_chatbot():
     """Create a mock chatbot with mocked components for testing."""
     with patch("src.main_nova.MultilingualClimateChatbot._initialize_api_keys"), \
-         patch("src.main_nova.MultilingualClimateChatbot._initialize_retrieval"), \
-         patch("src.main_nova.MultilingualClimateChatbot._initialize_language_router"), \
-         patch("src.main_nova.MultilingualClimateChatbot._initialize_nova_flow"), \
-         patch("src.main_nova.MultilingualClimateChatbot._initialize_redis"), \
+         patch("src.main_nova.MultilingualClimateChatbot._initialize_components"), \
          patch("src.main_nova.MultilingualClimateChatbot._initialize_langsmith"):
         
         chatbot = MultilingualClimateChatbot("test-index")
@@ -61,18 +58,8 @@ def mock_nova_chatbot():
         
         # Set up nova_model with proper AsyncMock methods
         chatbot.nova_model = MagicMock()
-        
-        # Create proper async mock for query_normalizer
-        query_normalizer_future = asyncio.Future()
-        query_normalizer_future.set_result("what is climate change?")
-        chatbot.nova_model.query_normalizer = AsyncMock()
-        chatbot.nova_model.query_normalizer.return_value = "what is climate change?"
-        
-        # Create proper async mock for nova_translation
-        nova_translation_future = asyncio.Future()
-        nova_translation_future.set_result("what is climate change?")
-        chatbot.nova_model.nova_translation = AsyncMock()
-        chatbot.nova_model.nova_translation.return_value = "what is climate change?"
+        chatbot.nova_model.query_normalizer = AsyncMock(return_value="what is climate change?")
+        chatbot.nova_model.nova_translation = AsyncMock(return_value="what is climate change?")
         
         # Set up redis_client mock
         chatbot.redis_client = AsyncMock()
@@ -434,7 +421,7 @@ async def test_response_generation_tracing(mock_nova_chatbot):
     })
 
     with patch('langsmith.traceable', mock_traceable), \
-         patch('src.models.gen_response_nova.nova_chat') as mock_nova_chat:
+         patch('src.models.gen_response_nova.generate_chat_response') as mock_nova_chat:
         
         # Set up mock return values
         future = asyncio.Future()
@@ -617,7 +604,8 @@ async def test_complete_pipeline_tracing(mock_nova_chatbot):
          patch('langsmith.trace', mock_trace), \
          patch('src.models.retrieval.get_hybrid_results', mock_hybrid_results), \
          patch('src.models.retrieval.get_documents', mock_get_documents), \
-         patch('src.models.gen_response_nova.nova_chat', mock_nova_chat), \
+         patch('src.main_nova.get_documents', mock_get_documents), \
+         patch('src.models.gen_response_nova.generate_chat_response', mock_nova_chat), \
          patch('src.models.hallucination_guard.check_hallucination', mock_check_hallucination), \
          patch('src.models.retrieval.rerank_fcn', mock_rerank):  # Patch where it's imported!
 

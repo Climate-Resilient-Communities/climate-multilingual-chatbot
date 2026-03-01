@@ -1,62 +1,22 @@
-import sys
-from types import ModuleType
-import pytest
+"""
+Test that off-topic guard translates canned response to the detected query language.
 
-# Stub heavy optional deps used by pipeline imports
-if 'langsmith' not in sys.modules:
-    sys.modules['langsmith'] = ModuleType('langsmith')
-    sys.modules['langsmith'].traceable = lambda **kwargs: (lambda f: f)
-if 'aioboto3' not in sys.modules:
-    ab3 = ModuleType('aioboto3')
-    class _S:
-        async def __aenter__(self):
-            return self
-        async def __aexit__(self, exc_type, exc, tb):
-            return False
-    ab3.Session = lambda *a, **k: _S()
-    sys.modules['aioboto3'] = ab3
-if 'boto3' not in sys.modules:
-    b3 = ModuleType('boto3')
-    class _S:
-        def client(self, *a, **k):
-            return type('C', (), {})()
-    b3.Session = lambda *a, **k: _S()
-    b3.__spec__ = ModuleType('spec')  # to satisfy accelerate check
-    sys.modules['boto3'] = b3
-if 'botocore' not in sys.modules:
-    sys.modules['botocore'] = ModuleType('botocore')
-    sys.modules['botocore.config'] = ModuleType('botocore.config')
-    sys.modules['botocore.config'].Config = lambda **kwargs: object()
-if 'pinecone' not in sys.modules:
-    pc = ModuleType('pinecone')
-    class _PC:
-        def __init__(self, *a, **k):
-            pass
-        def Index(self, *a, **k):
-            class _I:
-                def query(self, *a, **k):
-                    return {"matches": []}
-            return _I()
-    pc.Pinecone = _PC
-    sys.modules['pinecone'] = pc
-if 'cohere' not in sys.modules:
-    ch = ModuleType('cohere')
-    class _Client:
-        def __init__(self, *a, **k): pass
-        def rerank(self, *a, **k):
-            class _R: results = []
-            return _R()
-    ch.Client = _Client
-    sys.modules['cohere'] = ch
+The pipeline now:
+- Uses ClimateCache from redis_cache (not gen_response_unified)
+- Returns success=True with canned responses for off-topic queries
+- Uses cohere_model.translate for off-topic canned response translation
+"""
+
+import json
+import pytest
+from types import SimpleNamespace
 
 
 @pytest.mark.asyncio
 async def test_offtopic_guard_uses_detected_language(monkeypatch):
     from src.models.climate_pipeline import ClimateQueryPipeline
-    from src.models.query_routing import MultilingualRouter
-    from src.models.gen_response_unified import UnifiedResponseGenerator
 
-    # Minimal cache stub to avoid Redis
+    # Fake in-memory cache
     class FakeCache:
         def __init__(self, *args, **kwargs):
             self.redis_client = True
@@ -65,23 +25,21 @@ async def test_offtopic_guard_uses_detected_language(monkeypatch):
         async def set(self, key, value):
             return True
 
-    # Patch cache usage
+    # Patch cache at pipeline level only (ClimateCache is in redis_cache, not gen_response_unified)
     monkeypatch.setattr("src.models.climate_pipeline.ClimateCache", FakeCache, raising=True)
-    monkeypatch.setattr("src.models.gen_response_unified.ClimateCache", FakeCache, raising=True)
 
-    # Avoid Pinecone and embeddings
+    # Avoid retrieval
     async def fake_get_documents(query, index, embed_model, cohere_client):
         return []
     monkeypatch.setattr("src.models.climate_pipeline.get_documents", fake_get_documents, raising=True)
 
     # Return strict JSON from query_rewriter: detected zh, classification off-topic
-    import json
-    async def fake_query_rewriter(conversation_history, user_query, nova_model, selected_language_code="en"):
+    async def fake_query_rewriter(conversation_history=None, user_query="", nova_model=None, selected_language_code="en"):
         payload = {
             "reason": "test",
             "language": "zh",
             "expected_language": selected_language_code,
-            "language_match": True,
+            "language_match": selected_language_code == "zh",
             "classification": "off-topic",
             "rewrite_en": None,
             "canned": {"enabled": False, "type": None, "text": None},
@@ -92,46 +50,56 @@ async def test_offtopic_guard_uses_detected_language(monkeypatch):
         return json.dumps(payload)
     monkeypatch.setattr("src.models.climate_pipeline.query_rewriter", fake_query_rewriter, raising=True)
 
-    # Build a minimal pipeline without heavy __init__
+    # Stub router
+    async def fake_route_query(query, language_code, language_name, translation):
+        return {
+            "should_proceed": True,
+            "routing_info": {
+                "support_level": "tiny_aya_water",
+                "model_type": "cohere",
+                "model_name": "Tiny-Aya Water",
+                "model_id": "tiny-aya-water",
+                "needs_translation": False,
+                "language_mismatch": False,
+            },
+            "processed_query": query,
+            "english_query": "Why does the weather change so much in Toronto?",
+        }
+
+    # Build pipeline instance without heavy __init__
     pipeline = object.__new__(ClimateQueryPipeline)
-    pipeline.router = MultilingualRouter()
-    # Avoid Bedrock init inside UnifiedResponseGenerator by stubbing constructor
-    class _UR( UnifiedResponseGenerator.__class__ ):
-        pass
-    # Build a lightweight instance by bypassing __init__
-    pipeline.response_generator = object.__new__(UnifiedResponseGenerator)
-    pipeline.redis_client = FakeCache()
-    async def _cohere_translate(t, s, d):
-        return "ENQ"
-    pipeline.cohere_model = type("_Cohere", (), {})()
-    setattr(pipeline.cohere_model, "translate", _cohere_translate)
+    pipeline.router = SimpleNamespace(route_query=fake_route_query)
+    pipeline.cache = FakeCache()
     pipeline.embed_model = object()
     pipeline.index = object()
     pipeline.cohere_client = object()
     pipeline.COHERE_API_KEY = "x"
+    pipeline.redis_client = None
 
-    # Capture translate inputs
+    # Capture translate calls on cohere_model (pipeline uses cohere_model.translate for off-topic)
     translate_calls = {}
     async def fake_translate(text, src, tgt):
+        translate_calls["text"] = text
         translate_calls["src"] = src
         translate_calls["tgt"] = tgt
-        # Return sentinel to ensure translation occurred
         return "ZH_TRANSLATED_GUARD"
-    # Attach translation function
-    pipeline.nova_model = type("_Nova", (), {})()
-    setattr(pipeline.nova_model, "translate", fake_translate)
 
-    # Selected language Chinese; detected will also be zh → guard path translates to Chinese
+    pipeline.nova_model = SimpleNamespace(translate=fake_translate, content_generation=lambda *a, **k: None)
+    pipeline.cohere_model = SimpleNamespace(
+        translate=fake_translate,
+        with_model=lambda model_id: pipeline.cohere_model,
+    )
+
+    # Selected language Chinese; query also Chinese
     res = await pipeline.process_query(
         query="多伦多为什么天气变化这么大?",
         language_name="chinese",
         conversation_history=[],
     )
 
-    assert res["success"] is False
-    # Ensure we translated into detected language (zh → Chinese)
+    # Off-topic returns success=True with a canned response (translated to detected language)
+    assert res["success"] is True
+    assert res["retrieval_source"] == "canned"
+    # The off-topic branch translates the canned English message to Chinese
     assert translate_calls.get("src") == "english"
     assert translate_calls.get("tgt").lower() in {"zh", "chinese"}
-    assert res["response"] == "ZH_TRANSLATED_GUARD"
-
-

@@ -1,8 +1,8 @@
 """
 Conversation regression tests for the end-to-end pipeline.
 
-- Default (fast) mode uses mocks to validate control flow and ensure the
-  pipeline treats clearly on-topic questions as success.
+- Default (fast) mode mocks pipeline.process_query to validate that the
+  chatbot correctly forwards multi-turn conversations and accumulates history.
 - Live mode (set RUN_LIVE=1) runs the real pipeline to surface latency
   or routing issues across multiple-turn histories.
 """
@@ -12,10 +12,37 @@ import asyncio
 import time
 import pytest
 from typing import List, Dict
+from unittest.mock import AsyncMock
 
 from src.main_nova import MultilingualClimateChatbot
 
 LIVE = str(os.getenv("RUN_LIVE", "0")).strip().lower() in ("1", "true", "yes")
+
+
+def _success_result(query, language_code="en", model_used="tiny-aya-global"):
+    """Build a pipeline-format success result for fast mode."""
+    return {
+        "success": True,
+        "response": f"Answer for: {query}",
+        "citations": ["https://example.com"],
+        "faithfulness_score": 0.95,
+        "processing_time": 0.1,
+        "language_code": language_code,
+        "model_used": model_used,
+        "model_type": "cohere",
+        "retrieval_source": "pinecone",
+        "fallback_reason": None,
+        "original_query": query,
+        "debug_info": {},
+    }
+
+
+# Language code mapping (matches MultilingualRouter)
+_LANG_CODES = {
+    "english": "en", "spanish": "es", "french": "fr", "german": "de",
+    "chinese": "zh", "arabic": "ar", "hindi": "hi", "swahili": "sw",
+    "bengali": "bn", "portuguese": "pt", "yoruba": "yo",
+}
 
 
 # --- Scenario definitions (20 total) ---
@@ -98,7 +125,7 @@ SCENARIOS: List[Dict] = [
         "language": "english",
         "turns": [
             "How can diet changes lower my carbon footprint?",
-            "What else can I do that’s impactful?",
+            "What else can I do that's impactful?",
         ],
     },
     # Non-English (should route + translate)
@@ -186,56 +213,27 @@ SCENARIOS: List[Dict] = [
 
 
 @pytest.fixture(scope="module")
-def event_loop():
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture(scope="module")
 def chatbot() -> MultilingualClimateChatbot:
-    # Use real pipeline; tests will mock selectively if LIVE is False
-    return MultilingualClimateChatbot(index_name=os.getenv("PINECONE_INDEX", "climate-change-adaptation-index-10-24-prod"))
+    return MultilingualClimateChatbot(
+        index_name=os.getenv("PINECONE_INDEX", "climate-change-adaptation-index-10-24-prod")
+    )
 
 
 @pytest.mark.asyncio
-async def test_conversation_regression(chatbot, monkeypatch):
+async def test_conversation_regression(chatbot):
     """Run 20 multi-turn scenarios and assert all succeed (on-topic)."""
 
     failures: List[str] = []
 
     if not LIVE:
-        # Fast mode: stub heavy deps
-        from src.models import retrieval as retrieval_mod
-        from src.models import hallucination_guard as hg_mod
-        from src.models import gen_response_unified as gen_mod
-        from src.models import query_rewriter as qr_mod
+        # Fast mode: mock pipeline.process_query so we don't hit external APIs.
+        # The monkeypatch-module-functions approach doesn't work because the
+        # pipeline calls its own internal methods, not module-level functions.
+        async def _mock_process_query(query, language_name, conversation_history=None, **kw):
+            lang_code = _LANG_CODES.get(language_name, "en")
+            return _success_result(query, language_code=lang_code)
 
-        async def fake_get_documents(query, index, embed_model, cohere_client, *a, **k):
-            # minimal doc set
-            return [
-                {"title": "Doc", "content": f"Information about: {query}", "score": 0.9, "url": ["https://example.com"]}
-            ]
-
-        def fake_qr(*a, **k):
-            # treat as on-topic and keep query
-            return {
-                "language": "en",
-                "classification": "on-topic",
-                "language_match": True,
-                "rewrite_en": a[0] if a else None,
-            }
-
-        async def fake_gen_response(query, documents, model, conversation_history=None):
-            return (f"Answer for: {query}", ["https://example.com"])
-
-        async def fake_check_hallucination(*a, **k):
-            return 0.95
-
-        monkeypatch.setattr(retrieval_mod, "get_documents", fake_get_documents)
-        monkeypatch.setattr(qr_mod, "query_rewriter", fake_qr)
-        monkeypatch.setattr(gen_mod, "generate_chat_response", fake_gen_response)
-        monkeypatch.setattr(hg_mod, "check_hallucination", fake_check_hallucination)
+        chatbot.pipeline.process_query = _mock_process_query
 
     for sc in SCENARIOS:
         language = sc["language"]
@@ -259,5 +257,3 @@ async def test_conversation_regression(chatbot, monkeypatch):
         # Don't fail CI on live flakiness; log summary
         if failures:
             print("LIVE FAILURES:\n" + "\n".join(failures))
-
-

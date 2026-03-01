@@ -1,7 +1,5 @@
-import os
 import logging
 from typing import Dict, Any, List, Optional
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -211,32 +209,6 @@ async def topic_moderation(
 async def safe_guard_input(question: str, pipe) -> Dict[str, Any]:
     """Execute topic moderation in a safe way with retries."""
     return await topic_moderation(question, pipe)
-
-def check_dir(path, description="directory"):
-    """Utility function to check directory existence and list contents"""
-    dir_path = Path(path)
-    if dir_path.exists() and dir_path.is_dir():  # Fixed: Changed is_dir() to dir_path.is_dir()
-        try:
-            contents = list(dir_path.iterdir())
-            logger.info(f"{description} at {path} exists with {len(contents)} items")
-            
-            # Log first few items
-            if contents:
-                item_names = [item.name for item in contents[:5]]
-                logger.info(f"First few items: {', '.join(item_names)}")
-                
-            return True, contents
-        except Exception as e:
-            logger.error(f"Error checking {description} at {path}: {str(e)}")
-            return False, []
-    else:
-        logger.warning(f"{description} at {path} does not exist or is not a directory")
-        return False, []
-
-def _is_running_in_azure() -> bool:
-    """Check if running in Azure App Service."""
-    return bool(os.getenv("WEBSITE_SITE_NAME"))
-
 
 if __name__ == "__main__":
     # Test the topic moderation functionality (no ClimateBERT needed)

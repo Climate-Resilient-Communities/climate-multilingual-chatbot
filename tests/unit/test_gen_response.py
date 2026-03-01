@@ -1,14 +1,14 @@
-from src.models.gen_response_nova import nova_chat
-from src.models.nova_generation import NovaChat
+from src.models.gen_response_nova import generate_chat_response
+from src.models.nova_flow import BedrockModel
 from src.utils.env_loader import load_environment
 
 def test_gen_response():
     print("\n=== Testing Response Generation ===")
-    
+
     # Load environment and initialize client
     load_environment()
-    nova_client = NovaChat()
-    
+    nova_client = BedrockModel()
+
     # Test documents
     test_docs = [
         {
@@ -22,24 +22,24 @@ def test_gen_response():
             'url': ['https://example.com/impacts']
         }
     ]
-    
+
     print("\nGenerating response...")
     try:
         import asyncio
-        response, citations = asyncio.run(nova_chat(
+        response, citations = asyncio.run(generate_chat_response(
             query="What is climate change and its main impacts?",
             documents=test_docs,
-            nova_client=nova_client
+            model=nova_client
         ))
-        
+
         print("\nResponse:")
         print(response)
         print("\nCitations:")
         for citation in citations:
             print(f"- {citation}")
-            
+
         print("\n✓ Response generation successful!")
-        
+
     except Exception as e:
         print(f"\n✗ Error: {str(e)}")
 
