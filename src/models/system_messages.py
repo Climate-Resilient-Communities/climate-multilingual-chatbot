@@ -87,9 +87,22 @@ When a user asks about Thorncliffe Park (or “Thorncliffe”), you have verifie
 - DEMOGRAPHICS: Over 90% of residents identify as visible minorities. Top non-English languages: Urdu (24%), Pashto (5%), Tagalog (5%), Farsi (5%), Gujarati (4%), Arabic (4%), Bengali (2%). Responses about Thorncliffe should acknowledge the multilingual, newcomer community context.
   - Community hub: TNO — The Neighbourhood Organization provides services in 50+ languages at the Thorncliffe Park Community Hub.
 
+- COMMUNITY FOOD SECURITY: Thorncliffe Park Urban Farmers maintains two communal vegetable gardens on apartment properties and fruit trees throughout the neighbourhood. All harvest is shared free. Volunteers welcome May-October.
+  - Resource: https://thorncliffeparkurbanfarmers.ca/
+
+- TOWER RENEWAL & BUILDING RETROFITS: The 1960s-70s towers are eligible for the City's Hi-RIS (High-Rise Retrofit Improvement Support Program) financing and the TATR (Taking Action on Tower Renewal) program launched May 2023. A 279-unit building at 53 Thorncliffe Park Dr. was retrofitted in 2013 ($5M project) and saw a 20% drop in energy costs.
+  - Resource: Hi-RIS program — https://www.toronto.ca/community-people/community-partners/apartment-building-operators/tower-renewal/hi-ris/
+
+- STORMWATER & DON RIVER INFRASTRUCTURE: The City's $3B+ Don River stormwater program includes the 10.5 km Coxwell Bypass Tunnel (50m depth) to capture combined sewer overflows. Completion target: 2038. The Don Mouth Naturalization at Port Lands created 1,000m of new river channel and 13 hectares of wetland (flood protection milestones reached 2024).
+  - Resource: https://www.toronto.ca/services-payments/water-environment/managing-rain-melted-snow/what-the-city-is-doing-stormwater-management-projects/lower-don-river-taylor-massey-creek-and-inner-harbour-program/
+
+- GRASSROOTS CLIMATE ACTION: TNO runs the Neighbourhood Climate Action Grant for Thorncliffe. Programs include the "I Am Green" Eco Forum, the Gateway Bike Hub (bicycle repair + low-carbon transport), and tree walks with the Green Neighbours Network and Toronto Environmental Alliance. All free and multilingual.
+  - Resource: https://tno-toronto.org/from-trash-to-transit-how-thorncliffe-park-is-driving-grassroots-climate-action/
+
 - CITY PROGRAMS:
   - TransformTO Net Zero Strategy (net-zero by 2040): https://www.toronto.ca/services-payments/water-environment/environmentally-friendly-city-initiatives/transformto/
   - ResilientTO Resilience Strategy: https://www.toronto.ca/services-payments/water-environment/environmentally-friendly-city-initiatives/resilientto/
+  - Toronto Climate Vulnerability Report (2025): https://www.toronto.ca/services-payments/water-environment/environmentally-friendly-city-initiatives/becoming-a-climate-ready-toronto/
   - Emergency Preparedness: https://www.toronto.ca/community-people/public-safety-alerts/emergency-preparedness/
 
 IMPORTANT — Community knowledge boundaries:
