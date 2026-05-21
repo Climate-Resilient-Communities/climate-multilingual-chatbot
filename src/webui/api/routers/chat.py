@@ -66,6 +66,16 @@ class ErrorResponse(BaseModel):
 from ..main import get_pipeline, get_conversation_parser, get_router, get_cache
 from ..utils.link_validator import validate_and_fix_inline_links
 
+async def _background_link_validation(request_id: str, response_text: str):
+    """Validate links in background, log results only."""
+    try:
+        _, report = await validate_and_fix_inline_links(response_text)
+        if report.get('broken', 0) > 0:
+            logger.warning(f"Background link check id={request_id}: {report}")
+    except Exception as e:
+        logger.debug(f"Background link validation failed: {e}")
+
+
 @router.post("/chat/query", response_model=ChatResponse)
 async def process_chat_query(
     request: ChatRequest,
@@ -143,7 +153,7 @@ async def process_chat_query(
                         conversation_history=standardized_history,
                         skip_cache=request.skip_cache
                     ),
-                    timeout=60.0  # 60 second timeout to prevent hangs
+                    timeout=45.0  # 45 second timeout — pipeline should complete in ~15s
                 )
             except asyncio.TimeoutError:
                 logger.error(f"Pipeline processing timeout: id={request_id}")
@@ -153,7 +163,7 @@ async def process_chat_query(
                         "error": {
                             "code": "PROCESSING_TIMEOUT",
                             "type": "timeout_error",
-                            "message": "Request timed out after 60 seconds",
+                            "message": "Request timed out after 45 seconds",
                             "retryable": True,
                             "request_id": request_id
                         }
@@ -179,15 +189,12 @@ async def process_chat_query(
                 else:
                     citations = []
                 
-                # Validate and fix inline links in the response text
+                # Return response immediately — validate links in background
                 raw_response = result.get('response', '')
-                try:
-                    validated_response, link_validation_report = await validate_and_fix_inline_links(raw_response)
-                    if link_validation_report.get('fixed', 0) > 0:
-                        logger.info(f"Fixed {link_validation_report['fixed']} broken inline links in response")
-                except Exception as e:
-                    logger.error(f"Link validation failed: {str(e)}")
-                    validated_response = raw_response  # Use original response if validation fails
+                validated_response = raw_response
+                asyncio.create_task(
+                    _background_link_validation(request_id, raw_response)
+                )
                 
                 response = ChatResponse(
                     success=True,

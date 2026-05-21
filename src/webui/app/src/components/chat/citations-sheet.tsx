@@ -60,6 +60,10 @@ const SourceIcon = ({ url }: { url: string }) => {
             width={16}
             height={16}
             className="rounded-full border border-border bg-white"
+            onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+            }}
+            unoptimized
         />
     );
 };
@@ -114,6 +118,10 @@ export function CitationsSheet({ sources }: CitationsSheetProps) {
                                           width={16}
                                           height={16}
                                           className="rounded-full"
+                                          onError={(e) => {
+                                              (e.target as HTMLImageElement).style.display = 'none';
+                                          }}
+                                          unoptimized
                                       />
                                   ) : (
                                       <FileText className="h-4 w-4 text-muted-foreground" />
