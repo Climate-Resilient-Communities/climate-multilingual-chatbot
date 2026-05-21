@@ -181,6 +181,59 @@ class ClimateQueryPipeline:
             logger.error(f"Failed to initialize Cohere client: {str(e)}")
             raise
 
+    async def _tavily_supplement(self, english_query: str, existing_docs: List[Dict]) -> List[Dict]:
+        """Supplement RAG docs with fresh Tavily web results for Toronto/community queries.
+        Returns merged document list (RAG docs first, then web docs).
+        """
+        community_terms = [
+            "thorncliffe", "flemingdon", "don river", "don valley",
+            "toronto", "scarborough", "etobicoke", "north york",
+        ]
+        query_lower = english_query.lower()
+        if not any(term in query_lower for term in community_terms):
+            return existing_docs
+
+        try:
+            from langchain_community.tools.tavily_search import TavilySearchResults
+            logger.info("Tavily supplement: querying for fresh Toronto/community sources")
+            tavily_search = TavilySearchResults(
+                max_results=3,
+                include_domains=[
+                    "toronto.ca", "ontario.ca", "canada.ca",
+                    "trca.ca", "tno-toronto.org", "cbc.ca",
+                    "thestar.com", "cp24.com",
+                ],
+            )
+            search_results = await tavily_search.ainvoke(english_query)
+            if not search_results:
+                return existing_docs
+
+            existing_urls = {d.get("url", "") for d in existing_docs}
+            web_docs = []
+            for r in search_results:
+                if isinstance(r, str):
+                    continue
+                url = r.get("url", "")
+                if url in existing_urls:
+                    continue
+                content = r.get("content", "")
+                if len(content) < 50:
+                    continue
+                web_docs.append({
+                    "title": r.get("title", url),
+                    "url": url,
+                    "content": content,
+                    "chunk_text": content,
+                    "score": 0.5,
+                    "source": "tavily_supplement",
+                })
+            if web_docs:
+                logger.info(f"Tavily supplement: added {len(web_docs)} fresh web sources")
+            return existing_docs + web_docs
+        except Exception as e:
+            logger.warning(f"Tavily supplement skipped: {e}")
+            return existing_docs
+
     async def _try_tavily_fallback(self, original_query: str, english_query: str, language_name: str) -> Dict[str, Any]:
         """Fallback to Tavily web search when RAG has no strong/relevant documents.
         Returns a result dict similar to process_query with response/citations.
@@ -190,7 +243,7 @@ class ClimateQueryPipeline:
             from langchain_community.tools.tavily_search import TavilySearchResults
             logger.info("Attempting Tavily fallback search (pipeline)")
 
-            tavily_search = TavilySearchResults()
+            tavily_search = TavilySearchResults(max_results=5)
             search_results = await tavily_search.ainvoke(original_query)
             if not search_results:
                 logger.warning("No results from Tavily search (pipeline)")
@@ -860,6 +913,10 @@ class ClimateQueryPipeline:
             retrieval_ms = (time.time() - _retr_start) * 1000
             logger.info(f"Timing: retrieval={retrieval_ms:.1f}ms")
             report("Documents retrieved", 0.6)
+
+            # Supplement RAG docs with fresh Tavily web results for community queries
+            if documents:
+                documents = await self._tavily_supplement(english_query, documents)
 
             # Early fallback: if no RAG documents, try Tavily before generation
             if not documents:
