@@ -1,0 +1,8 @@
+# Dependencies for the Tiny-Aya translation bake-off (tiny_aya_bakeoff.py)
+cohere==5.13.12        # matches repo pin; provides cohere.Client(...).chat(...)
+pandas==2.2.3
+sacrebleu>=2.4.0       # BLEU + chrF, no network/HuggingFace needed
+python-dotenv==1.0.1
+# Optional — only for chart output:
+matplotlib>=3.7
+seaborn>=0.12
