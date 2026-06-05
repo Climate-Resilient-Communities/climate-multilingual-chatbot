@@ -37,6 +37,9 @@ build/
 .cache/
 .pytest_cache/
 
+# Tiny-Aya bake-off run cache (regenerable; large)
+Multilingual testing/tiny_aya_cache.json
+
 # Development-only folders that shouldn't be deployed
 .cursor/
 .history/
