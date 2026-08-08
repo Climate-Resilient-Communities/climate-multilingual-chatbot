@@ -326,6 +326,21 @@ class ClimateQueryPipeline:
             })
             setattr(self, "_lang_code_set", set(languages.keys()))
 
+    def _language_name_for(self, code: str) -> str:
+        """Resolve a language code to a translator-friendly English name.
+
+        Falls back to the router's complete 183-language map so codes outside
+        LANG_CODE_TO_NAME (e.g. 'pa', 'ps', 'sw') still translate correctly.
+        """
+        code = (code or "en").lower()
+        name = LANG_CODE_TO_NAME.get(code)
+        if name:
+            return name
+        name = MultilingualRouter.LANGUAGE_NAME_MAP.get(code)
+        if name:
+            return name.title()
+        return code
+
     def get_language_code(self, language_name: str) -> str:
         """Convert a UI language name or code to ISO 639-1 code using languages.json.
 
@@ -496,10 +511,9 @@ class ClimateQueryPipeline:
             # Spanish", "answer in French"). The LLM rewriter can refine this
             # below; the regex detector covers the timeout/fallback paths.
             requested_code = detect_language_request(query)
+            explicit_language_request = requested_code is not None
             respond_language_code = requested_code or language_code
-            respond_language_name = LANG_CODE_TO_NAME.get(
-                respond_language_code, respond_language_code
-            )
+            respond_language_name = self._language_name_for(respond_language_code)
             if requested_code:
                 logger.info(
                     f"Explicit language request detected in query → responding in "
@@ -613,9 +627,9 @@ class ClimateQueryPipeline:
                     qr_requested = qr.get("requested_language")
                     if isinstance(qr_requested, str) and len(qr_requested.strip()) == 2:
                         respond_language_code = qr_requested.strip().lower()
-                        respond_language_name = LANG_CODE_TO_NAME.get(
-                            respond_language_code, respond_language_code
-                        )
+                        respond_language_name = self._language_name_for(respond_language_code)
+                        requested_code = respond_language_code
+                        explicit_language_request = True
                         logger.info(
                             f"Rewriter detected language request → responding in {respond_language_name}"
                         )
@@ -1064,8 +1078,14 @@ class ClimateQueryPipeline:
                     await self.cache.set(cache_key, result)
                     logger.info(f"✓ Response cached in {respond_language_name} (model: {model_type})")
 
-                    # Also cache the English version if different
-                    if respond_language_code != 'en' and _has_alphabetic_content(original_english_response):
+                    # Also cache an English mirror so English users asking the
+                    # same question hit cache — but never when the query itself
+                    # requests a specific output language: this exact query text
+                    # must always produce that language, and an English mirror
+                    # would be replayed to future callers whose read key was
+                    # computed before the LLM detected the request.
+                    if (respond_language_code != 'en' and not explicit_language_request
+                            and _has_alphabetic_content(original_english_response)):
                         english_cache_key = self._make_cache_key('en', normalized)
                         english_result = result.copy()
                         english_result['response'] = original_english_response

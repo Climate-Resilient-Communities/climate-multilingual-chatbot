@@ -93,8 +93,14 @@ async def generate_chat_stream(
                 timeout=60.0
             )
             
-            if result.get('success', False):
-                response_text = result.get('response', '')
+            response_text = result.get('response', '')
+            has_real_text = isinstance(response_text, str) and any(ch.isalpha() for ch in response_text)
+            if result.get('success', False) and not has_real_text:
+                # Same guard as chat.py: never stream a letterless (e.g.
+                # digits-only) body as the answer.
+                logger.error(f"Pipeline returned invalid response body on stream: id={request_id}")
+                yield f"data: {json.dumps({'type': 'error', 'error': 'The generated response was invalid. Please try again.', 'request_id': request_id})}\n\n"
+            elif result.get('success', False):
                 raw_citations = result.get('citations', [])
                 faithfulness_score = result.get('faithfulness_score', 0.0)
 
@@ -129,7 +135,7 @@ async def generate_chat_stream(
                 # Send completion. 'response' mirrors the non-streaming ChatResponse
                 # contract; numeric metadata is namespaced under 'meta' so display
                 # code never mixes it into the answer text.
-                yield f"data: {json.dumps({'type': 'complete', 'final_response': response_text, 'response': response_text, 'citations': citations, 'meta': {'faithfulness_score': faithfulness_score, 'model_used': model_used, 'language_used': detected_language}, 'request_id': request_id})}\n\n"
+                yield f"data: {json.dumps({'type': 'complete', 'final_response': response_text, 'response': response_text, 'citations': citations, 'retrieval_source': result.get('retrieval_source'), 'meta': {'faithfulness_score': faithfulness_score, 'model_used': model_used, 'language_used': detected_language}, 'request_id': request_id})}\n\n"
 
             else:
                 # Pipeline error — the pipeline puts the message in 'response'

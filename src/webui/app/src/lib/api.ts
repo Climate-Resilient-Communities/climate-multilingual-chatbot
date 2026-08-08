@@ -267,6 +267,7 @@ class ApiClient {
                   language_used: data.meta?.language_used ?? data.language_used ?? 'en',
                   model_used: data.meta?.model_used ?? data.model_used,
                   request_id: data.request_id ?? '',
+                  retrieval_source: data.retrieval_source,
                 });
               } else if (data.type === 'error') {
                 onError(new Error(data.error ?? data.message ?? 'Stream failed'));

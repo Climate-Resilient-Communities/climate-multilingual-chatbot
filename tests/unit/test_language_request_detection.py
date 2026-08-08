@@ -45,11 +45,33 @@ class TestDetectLanguageRequest:
         "tell me about the Spanish approach to climate adaptation",
         "how do heat waves affect people in French Polynesia?",
         "write about flood risks for people in Germany",
+        # Adjectival uses of language names must not trigger
+        "Explain heat waves in Chinese cities",
+        "What do scientists say about flooding in German cities?",
+        "Explain climate impacts in French Polynesia",
+        "Explain climate migration in French-speaking countries",
         "",
         None,
     ])
     def test_no_false_positives(self, text):
         assert detect_language_request(text) is None
+
+    def test_the_language_construction(self):
+        assert detect_language_request(
+            "Can you reply to me in the Spanish language please? What is a heat pump?"
+        ) == "es"
+
+    def test_translate_to_target_outranks_source_language(self):
+        # 'in English' is the SOURCE here; the target is Spanish
+        assert detect_language_request("translate this text in English to Spanish") == "es"
+
+    def test_cjk_target_marker_outranks_source_endonym(self):
+        # 中文 is the source, 英文 (after 翻译成) is the target
+        assert detect_language_request("把这段中文翻译成英文") == "en"
+
+    def test_hangul_intent_char_not_inside_words(self):
+        # 벌써 contains 써 but is the word 'already', not a write request
+        assert detect_language_request("벌써 날씨가 더워요") is None
 
 
 class TestScriptDetection:

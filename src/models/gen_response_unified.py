@@ -23,7 +23,7 @@ def _is_predominantly_non_latin(text: str, threshold: float = 0.5) -> bool:
     if not text:
         return False
     letters = [ch for ch in text if ch.isalpha()]
-    if len(letters) < 20:
+    if len(letters) < 12:
         return False
     non_latin = sum(1 for ch in letters if ord(ch) > 0x024F)
     return (non_latin / len(letters)) > threshold

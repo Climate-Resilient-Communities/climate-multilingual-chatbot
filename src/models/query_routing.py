@@ -261,10 +261,14 @@ class MultilingualRouter:
 
             # Translate the query to English whenever it is (or appears to be)
             # non-English, so retrieval and generation always work from English.
-            source_is_non_english = (
-                routing_info['needs_translation']
-                or (language_mismatch and detected_code != 'en')
-            )
+            # A mismatch with detected English means the text is already English
+            # — no translation, regardless of the selected language.
+            if language_mismatch and detected_code == 'en':
+                source_is_non_english = False
+            elif language_mismatch:
+                source_is_non_english = detected_code != 'unknown' or routing_info['needs_translation']
+            else:
+                source_is_non_english = routing_info['needs_translation']
             if source_is_non_english and translation:
                 # Use the detected language as the source when it disagrees with
                 # the selection — that is the language the text is actually in.

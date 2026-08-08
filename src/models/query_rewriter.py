@@ -123,21 +123,38 @@ _BARE_LANG_NAMES_ALT = "|".join(
     if any(ord(ch) > 0x024F for ch in name) or name.startswith("по-")
 )
 
-# Reject partial-word matches like "german" inside "Germany" (Latin scripts only,
-# so CJK names followed by CJK text still match).
-_LATIN_BOUNDARY = r"(?![a-zA-ZÀ-ɏ])"
+# Guard against adjectival uses: "in Chinese cities", "in French Polynesia",
+# "in German towns" name a place/people, not an output language. The language
+# name must not run into more letters ("german" in "Germany") and must not be
+# followed by another Latin word unless it is one that keeps the phrase about
+# the language itself ("in Spanish about flooding", "in the Spanish language").
+_LANG_FOLLOW_GUARD = (
+    r"(?![a-zA-ZÀ-ɏ\-‐-―])"
+    r"(?!\s+(?!(?:about|on|regarding|concerning|for|to|please|language|version|text|"
+    r"so|that|when|if|and|or|not|instead|only|"
+    r"sobre|acerca|por|favor|para|idioma|"
+    r"à|a|au|sur|svp|langue|über|bitte|про|пожалуйста|请)\b)[A-Za-zÀ-ɏ])"
+)
 
 # Prepositional: "in Spanish", "en español", "auf Deutsch", "in het Nederlands", "用中文"
 _LANG_PREP_RE = re.compile(
-    r"(?:\b(?:in|into|en|em|auf|na|به|بال)\s+(?:het\s+|el\s+|le\s+|die\s+)?|(?:用|以))"
-    rf"({_ALL_LANG_NAMES_ALT}){_LATIN_BOUNDARY}",
+    r"(?:\b(?:in|into|en|em|auf|na|به|بال)\s+(?:the\s+|het\s+|el\s+|le\s+|die\s+)?|(?:用|以))"
+    rf"({_ALL_LANG_NAMES_ALT}){_LANG_FOLLOW_GUARD}",
     re.IGNORECASE | re.UNICODE,
 )
-# "translate (this/it/that) to German" — 'to <language>' scoped to translate verbs
+# "translate (this text in English) to German" — 'to <language>' scoped to translate verbs
 _LANG_TRANSLATE_TO_RE = re.compile(
-    rf"\btranslat\w*\s+(?:\w+\s+){{0,3}}?to\s+({_ALL_LANG_NAMES_ALT}){_LATIN_BOUNDARY}",
+    rf"\btranslat\w*\s+(?:\w+\s+){{0,5}}?(?:in)?to\s+({_ALL_LANG_NAMES_ALT}){_LANG_FOLLOW_GUARD}",
     re.IGNORECASE | re.UNICODE,
 )
+# Target-marked CJK forms: "翻译成英文", "訳して日本語に" — the endonym after the
+# target marker is the OUTPUT language (checked before the bare matcher, which
+# would otherwise pick the SOURCE endonym in "把中文翻译成英文").
+_LANG_CJK_TARGET_RE = re.compile(
+    rf"(?:译成|翻譯成|翻译成|译为|成|为|に訳|に翻訳|로 번역|으로 번역)\s*({_BARE_LANG_NAMES_ALT})",
+    re.UNICODE,
+) if _BARE_LANG_NAMES_ALT else None
+
 # Bare/suffix forms for non-Latin endonyms: "日本語で", "한국어로", "напиши по-русски"
 _LANG_BARE_RE = re.compile(
     rf"({_BARE_LANG_NAMES_ALT})(?:で|に|로|으로)?", re.IGNORECASE | re.UNICODE
@@ -147,9 +164,11 @@ _LANG_BARE_RE = re.compile(
 _LANG_REQUEST_INTENT_RE = re.compile(
     r"\b(write|writing|respond|reply|answer|translate|say|explain|compose|draft|message|text|"
     r"escribe|escribir|escríbeme|responde|contesta|traduce|réponds|répondez|écris|écrivez|traduis|"
-    r"schreibe?|antworte|übersetze|scrivi|rispondi|traduci|escreva|responda|traduza|"
-    r"напиши|напишите|ответь|переведи)\b|"
-    r"写|回答|回复|翻译|書いて|答えて|번역|써|답해",
+    r"écrire|répondre|traduire|schreibe?|schreiben|antworte|antworten|beantworten|übersetze|übersetzen|"
+    r"scrivi|rispondi|traduci|escreva|responda|traduza|"
+    r"напиши|напишите|ответь|ответьте|переведи|переведите|"
+    r"اكتب|ترجم|أجب|جواب|لکھو|لکھیں|لکھ|ترجمہ|लिखो|लिखें|लिखिए|अनुवाद|উত্তর|লিখুন)\b|"
+    r"写|回答|回复|翻译|書いて|答えて|訳して|번역|답해|(?<![가-힣])써",
     re.IGNORECASE | re.UNICODE,
 )
 
@@ -169,7 +188,14 @@ def detect_language_request(text: str) -> str | None:
     t = unicodedata.normalize("NFKC", text)
     if not _LANG_REQUEST_INTENT_RE.search(t):
         return None
-    m = _LANG_PREP_RE.search(t) or _LANG_TRANSLATE_TO_RE.search(t)
+    # Translate-to and CJK target-marked forms outrank the plain prepositional
+    # match: in "translate this text in English to Spanish" / "把中文翻译成英文"
+    # the marked language is the TARGET, the other is the source.
+    m = _LANG_TRANSLATE_TO_RE.search(t)
+    if not m and _LANG_CJK_TARGET_RE:
+        m = _LANG_CJK_TARGET_RE.search(t)
+    if not m:
+        m = _LANG_PREP_RE.search(t)
     if m:
         return _LANG_REQUEST_NAMES.get(m.group(1).lower())
     if _LANG_BARE_RE:
