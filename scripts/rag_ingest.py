@@ -213,6 +213,10 @@ def build_vectors(docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     for doc in docs:
         chunks = chunk_text(doc["text"])
         multi = len(chunks) > 1
+        # A doc that carried a legacy vector_id but now splits into multiple
+        # chunks gets fresh deterministic IDs — mark the legacy vector stale
+        # so prune can remove it instead of leaving outdated content behind.
+        doc["stale_legacy_id"] = doc["vector_id"] if (doc["vector_id"] and multi) else None
         for i, chunk in enumerate(chunks):
             # Retrieval dedups by exact title and keeps only the first hit,
             # so multi-chunk documents need unique per-chunk titles.
@@ -283,6 +287,14 @@ def upsert_records(index, records: List[Dict[str, Any]]) -> None:
 
 def prune_stale_chunks(index, docs: List[Dict[str, Any]], records: List[Dict[str, Any]]) -> None:
     """Delete leftover chunks from docs that shrank since the last ingest."""
+    stale_legacy = [d["stale_legacy_id"] for d in docs if d.get("stale_legacy_id")]
+    if stale_legacy:
+        try:
+            index.delete(ids=stale_legacy)
+            logger.info(f"  Pruned {len(stale_legacy)} superseded legacy vector(s)")
+        except Exception as e:
+            logger.warning(f"  Legacy-vector prune skipped: {e}")
+
     counts: Dict[str, int] = {}
     for r in records:
         sid = r["metadata"]["source_id"]

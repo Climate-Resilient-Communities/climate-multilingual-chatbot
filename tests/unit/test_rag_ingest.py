@@ -116,6 +116,19 @@ class TestVectorBuilding:
         doc = validate_document(_doc(vector_id="tp-legacy123"), origin="test")
         records = build_vectors([doc])
         assert records[0]["id"] == "tp-legacy123"
+        assert doc.get("stale_legacy_id") is None
+
+    def test_grown_legacy_doc_marks_old_vector_stale(self):
+        # A doc with a legacy vector_id that now chunks into multiple parts
+        # must flag the legacy vector for pruning, not leave it behind
+        long_text = "\n\n".join(
+            f"Paragraph {i}. " + ("Longer content sentence here. " * 40) for i in range(10)
+        )
+        doc = validate_document(_doc(text=long_text, vector_id="tp-legacy123"), origin="test")
+        records = build_vectors([doc])
+        assert len(records) > 1
+        assert all(r["id"].startswith("rag-") for r in records)
+        assert doc["stale_legacy_id"] == "tp-legacy123"
 
     def test_make_vector_id_format(self):
         vid = make_vector_id("my-source", 3)
