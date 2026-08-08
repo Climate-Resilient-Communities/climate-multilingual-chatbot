@@ -1,6 +1,6 @@
 ## System Architecture
 
-The diagram below reflects the current production architecture (updated Feb 2026) with FastAPI backend, Next.js frontend, Cohere Tiny-Aya regional model routing, HuggingFace-hosted embeddings, and community-specific RAG with Tavily web supplement.
+The diagram below reflects the current production architecture (updated Aug 2026) with FastAPI backend, Next.js frontend, Cohere Tiny-Aya regional model routing, HuggingFace-hosted embeddings, and a general-purpose RAG knowledge base updated via the ingestion pipeline (`scripts/rag_ingest.py`).
 
 ```mermaid
 flowchart TD
@@ -21,8 +21,7 @@ flowchart TD
 
   PRE_COH --> RET["Retrieval\n`src/models/retrieval.py`\n- BGE-M3 via HuggingFace Inference API\n- Pinecone hybrid search"]
   PRE_NOVA --> RET
-  RET --> TAV_SUP["Tavily Web Supplement\n(community queries only)\n- Up to 3 fresh .ca sources"]
-  TAV_SUP --> RR["Rerank\n`src/models/rerank.py`\n- Cohere rerank-v4.0-fast"]
+  RET --> RR["Rerank\n`src/models/rerank.py`\n- Cohere rerank-v4.0-fast"]
   RR --> GEN["Response Generation\n`src/models/gen_response_unified.py`\n- Tiny-Aya regional model\n- Nova Lite fallback"]
 
   GEN --> QG["Quality Checks\n`src/models/hallucination_guard.py`\n- Faithfulness scoring (Nova Lite)"]
@@ -65,8 +64,9 @@ flowchart TD
 - **Safety Filtering**: Off-topic/harmful queries return helpful guidance messages
 - **Cache Bypass**: Retry functionality skips cache for fresh responses
 - **Manual Language Selection**: Users can anchor language selection to prevent auto-detection
-- **Community-Specific Knowledge**: System prompt includes verified Thorncliffe Park data with hallucination guard for other communities
-- **Tavily Web Supplement**: Community queries automatically pull fresh web results from trusted .ca domains
+- **In-Query Language Requests**: "Write me a message in Spanish about flooding" is honored — the explicit request overrides the dropdown for that response
+- **Community Knowledge via RAG**: Community-specific documents (e.g. Thorncliffe Park) live in the Pinecone knowledge base and are retrieved like any other source; the system prompt forbids fabricating neighbourhood-level data (see `docs/RAG_PIPELINE.md`)
+- **Tavily Fallback**: When retrieval returns no documents or the answer fails the faithfulness check, a Tavily web search provides fallback sources
 
 ### Model Routing (Cohere Tiny-Aya Regional)
 - **Tiny-Aya Fire (South Asian)**: Hindi, Bengali, Punjabi, Urdu, Gujarati, Tamil, Telugu, Marathi, Nepali, Sinhala, Malayalam, Kannada, Odia, Assamese, Sindhi, Kashmiri

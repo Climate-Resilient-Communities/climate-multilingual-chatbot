@@ -215,9 +215,9 @@ class TestEnglishGuard:
     """Test the hard guard that strips non-ASCII from English responses."""
 
     @pytest.mark.asyncio
-    async def test_english_response_strips_non_latin(self, generator, sample_docs):
-        """When language_code is 'en', non-ASCII characters should be removed."""
-        # Model returns response with Chinese characters mixed in
+    async def test_english_response_preserves_mixed_content(self, generator, sample_docs):
+        """A mostly-English response with a few non-Latin characters (e.g. a
+        proper noun or quote) must be preserved verbatim \u2014 never stripped."""
         mixed_response = "Climate change is real. \u6c14\u5019\u53d8\u5316 This is important."
         generator.cohere_model.generate_response = AsyncMock(return_value=mixed_response)
 
@@ -228,9 +228,31 @@ class TestEnglishGuard:
             language_code="en",
         )
 
-        # Chinese characters should be stripped
-        assert "\u6c14\u5019\u53d8\u5316" not in response
-        assert "Climate change is real." in response
+        # Nothing is stripped: stripping non-Latin scripts used to reduce whole
+        # answers to digits/punctuation (the "just numbers" bug)
+        assert response == mixed_response
+
+    @pytest.mark.asyncio
+    async def test_english_response_translates_wrong_script(self, generator, sample_docs):
+        """A predominantly non-Latin answer when English was requested is
+        translated to English instead of having its characters deleted."""
+        chinese_response = (
+            "\u6c14\u5019\u53d8\u5316\u662f\u6307\u957f\u671f\u7684\u6e29\u5ea6"
+            "\u548c\u5929\u6c14\u6a21\u5f0f\u53d8\u5316\u3002" * 3
+        )
+        translated = "Climate change refers to long-term shifts in temperatures."
+        generator.cohere_model.generate_response = AsyncMock(return_value=chinese_response)
+        generator.cohere_model.translate = AsyncMock(return_value=translated)
+
+        response, _ = await generator.generate_response(
+            query="What is climate change?",
+            documents=sample_docs,
+            model_type="cohere",
+            language_code="en",
+        )
+
+        generator.cohere_model.translate.assert_awaited_once()
+        assert response == translated
 
     @pytest.mark.asyncio
     async def test_non_english_response_preserves_characters(self, generator, sample_docs):

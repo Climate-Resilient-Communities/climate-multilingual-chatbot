@@ -65,14 +65,14 @@ async def test_session_flags_initialized_without_attribute_error(monkeypatch):
     )
     dummy_components_v1 = types.SimpleNamespace(html=lambda *a, **k: None)
     dummy_components = types.SimpleNamespace(v1=dummy_components_v1)
-    sys.modules['streamlit'] = dummy_streamlit
-    sys.modules['streamlit.components'] = dummy_components
-    sys.modules['streamlit.components.v1'] = dummy_components_v1
+    monkeypatch.setitem(sys.modules, 'streamlit', dummy_streamlit)
+    monkeypatch.setitem(sys.modules, 'streamlit.components', dummy_components)
+    monkeypatch.setitem(sys.modules, 'streamlit.components.v1', dummy_components_v1)
 
     # Stub heavy external deps so importing main_nova doesn't fail
     def stub(mod_name: str):
         if mod_name not in sys.modules:
-            sys.modules[mod_name] = types.ModuleType(mod_name)
+            monkeypatch.setitem(sys.modules, mod_name, types.ModuleType(mod_name))
 
     for name in [
         'cohere', 'redis', 'aioboto3', 'boto3', 'botocore',
@@ -85,13 +85,13 @@ async def test_session_flags_initialized_without_attribute_error(monkeypatch):
     # Add numpy specifically with required attributes
     numpy_stub = types.ModuleType('numpy')
     numpy_stub.ndarray = type('ndarray', (), {})
-    sys.modules['numpy'] = numpy_stub
+    monkeypatch.setitem(sys.modules, 'numpy', numpy_stub)
 
     # Add tqdm specifically with required exports
     tqdm_stub = types.ModuleType('tqdm')
     tqdm_stub.tqdm = lambda x, **kwargs: x  # Return iterable as-is
     tqdm_stub.trange = lambda *args, **kwargs: range(*args)  # Return range as-is
-    sys.modules['tqdm'] = tqdm_stub
+    monkeypatch.setitem(sys.modules, 'tqdm', tqdm_stub)
 
     # Special stub for transformers with required exports
     transformers_stub = types.ModuleType('transformers')
@@ -112,24 +112,24 @@ async def test_session_flags_initialized_without_attribute_error(monkeypatch):
     transformers_stub.AutoModel = AutoModelStub
     transformers_stub.AutoTokenizer = AutoTokenizerStub
     transformers_stub.TrainingArguments = type('TrainingArguments', (), {})
-    sys.modules['transformers'] = transformers_stub
+    monkeypatch.setitem(sys.modules, 'transformers', transformers_stub)
 
     # Special stub for pinecone with Pinecone class
     pinecone_stub = types.ModuleType('pinecone')
     pinecone_stub.Pinecone = type('Pinecone', (), {'__init__': lambda self, **kwargs: None})
-    sys.modules['pinecone'] = pinecone_stub
+    monkeypatch.setitem(sys.modules, 'pinecone', pinecone_stub)
 
     # Special stub for botocore.config with Config class
     botocore_config_stub = types.ModuleType('botocore.config')
     botocore_config_stub.Config = type('Config', (), {'__init__': lambda self, **kwargs: None})
-    sys.modules['botocore.config'] = botocore_config_stub
+    monkeypatch.setitem(sys.modules, 'botocore.config', botocore_config_stub)
 
     # Special stub for langsmith with required exports
     langsmith_stub = types.ModuleType('langsmith')
     langsmith_stub.Client = type('Client', (), {})  # Dummy class
     langsmith_stub.traceable = lambda f=None, **k: (f or (lambda x: x))  # Decorator stub
     langsmith_stub.trace = lambda *a, **k: None  # Function stub
-    sys.modules['langsmith'] = langsmith_stub
+    monkeypatch.setitem(sys.modules, 'langsmith', langsmith_stub)
 
     # Provide a minimal torch stub with required attributes
     import types as _t
@@ -171,19 +171,30 @@ async def test_session_flags_initialized_without_attribute_error(monkeypatch):
     # Attach to torch stub as attributes as well
     torch_stub.utils = utils_mod
     torch_stub.distributed = distributed_mod
-    sys.modules['torch'] = torch_stub
-    sys.modules['torch.utils'] = utils_mod
-    sys.modules['torch.utils.data'] = utils_data_mod
-    sys.modules['torch.distributed'] = distributed_mod
+    monkeypatch.setitem(sys.modules, 'torch', torch_stub)
+    monkeypatch.setitem(sys.modules, 'torch.utils', utils_mod)
+    monkeypatch.setitem(sys.modules, 'torch.utils.data', utils_data_mod)
+    monkeypatch.setitem(sys.modules, 'torch.distributed', distributed_mod)
 
     # Ensure env loader and azure_config import paths resolve
     from types import SimpleNamespace
-    sys.modules.setdefault('src.utils.env_loader', SimpleNamespace(load_environment=lambda: None, validate_environment=lambda: {"all_present": True, "is_azure": False}))
-    sys.modules.setdefault('src.data.config.azure_config', SimpleNamespace(is_running_in_azure=lambda: False, configure_for_azure=lambda: None, get_azure_settings=lambda: {}))
+    if 'src.utils.env_loader' not in sys.modules:
+        monkeypatch.setitem(sys.modules, 'src.utils.env_loader', SimpleNamespace(load_environment=lambda: None, validate_environment=lambda: {"all_present": True, "is_azure": False}))
+    if 'src.data.config.azure_config' not in sys.modules:
+        monkeypatch.setitem(sys.modules, 'src.data.config.azure_config', SimpleNamespace(is_running_in_azure=lambda: False, configure_for_azure=lambda: None, get_azure_settings=lambda: {}))
 
-    # Import the module under test (main_nova.py, not app_nova.py which was removed)
+    # Import the module under test (main_nova.py, not app_nova.py which was removed).
+    # It is imported against the stubs above, so evict it from the module cache
+    # afterwards — leaking it would poison every test that runs later.
     import importlib
-    mod = importlib.import_module('src.main_nova')
+    prior_main_nova = sys.modules.pop('src.main_nova', None)
+    try:
+        mod = importlib.import_module('src.main_nova')
+    finally:
+        if prior_main_nova is not None:
+            sys.modules['src.main_nova'] = prior_main_nova
+        else:
+            sys.modules.pop('src.main_nova', None)
 
     # Ensure main is importable and callable without AttributeError
     assert hasattr(mod, 'main')

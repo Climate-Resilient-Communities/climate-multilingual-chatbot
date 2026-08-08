@@ -251,32 +251,35 @@ class MultilingualRouter:
             detected_code = self._detect_language_code_simple(query)
             if detected_code != 'unknown' and detected_code != language_code:
                 language_mismatch = True
-                detected_name = detected_code
-                # For first-run UX, do not hard-stop; allow pipeline to translate, but include mismatch flag
+                # Soft signal only — never block. The pipeline still answers in
+                # the selected language; we just record what was detected.
                 routing_info['message'] = (
-                    f"Detected {detected_name} text while language selected is {language_name}. "
+                    f"Detected {detected_code} text while language selected is {language_name}. "
                     "You can switch the language in the sidebar."
                 )
                 routing_info['detected_language'] = detected_code
-                # Proceed but mark mismatch; pipeline can decide to translate
-                return {
-                    'should_proceed': True,
-                    'routing_info': {**routing_info, 'language_mismatch': language_mismatch},
-                    'processed_query': query,
-                    'english_query': query
-                }
 
-            # Handle non-English queries if translation function provided and no mismatch
-            if routing_info['needs_translation'] and translation and not language_mismatch:
+            # Translate the query to English whenever it is (or appears to be)
+            # non-English, so retrieval and generation always work from English.
+            source_is_non_english = (
+                routing_info['needs_translation']
+                or (language_mismatch and detected_code != 'en')
+            )
+            if source_is_non_english and translation:
+                # Use the detected language as the source when it disagrees with
+                # the selection — that is the language the text is actually in.
+                source_name = language_name
+                if language_mismatch and detected_code != 'unknown':
+                    source_name = self.LANGUAGE_NAME_MAP.get(detected_code, language_name)
                 try:
-                    logger.info(f"Translating query from {language_name} to English")
+                    logger.info(f"Translating query from {source_name} to English")
                     try:
                         # Net debug before translation
                         logger.info("Router NET IN → query repr=%r", query[:200])
                     except Exception:
                         pass
                     # Translate to English using the provided translation function
-                    english_query = await translation(query, language_name, 'english')
+                    english_query = await translation(query, source_name, 'english')
                     processed_query = english_query
                     logger.info("Translation successful")
                     try:

@@ -119,41 +119,45 @@ class ApiClient {
     });
 
     if (!response.ok) {
+      // Only the JSON parse itself is guarded — the structured-error throws
+      // below must propagate to the caller, not be swallowed by a catch.
+      let errorData: any = null;
       try {
-        const errorData = await response.json();
-        
+        errorData = await response.json();
+      } catch {
+        errorData = null;
+      }
+
+      if (errorData) {
         // Handle FastAPI validation errors (422)
         if (errorData.detail && Array.isArray(errorData.detail)) {
           const errorMessages = errorData.detail.map((err: any) => err.msg).join(', ');
           throw new Error(`Validation error: ${errorMessages}`);
         }
-        
+
         // Handle FastAPI detail.error structure (our custom format)
         if (errorData.detail && errorData.detail.error && errorData.detail.error.message) {
           throw new Error(errorData.detail.error.message);
         }
-        
+
         // Handle custom API errors
         if (errorData.error && errorData.error.message) {
           throw new Error(errorData.error.message);
         }
-        
+
         // Handle generic error messages
         if (errorData.message) {
           throw new Error(errorData.message);
         }
-        
+
         // Handle detail string errors
         if (typeof errorData.detail === 'string') {
           throw new Error(errorData.detail);
         }
-        
-        // Fallback to HTTP status
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      } catch (parseError) {
-        // If JSON parsing fails, use HTTP status
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
+
+      // Fallback to HTTP status
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
     return response.json();
@@ -208,20 +212,6 @@ class ApiClient {
   }
 
   /**
-   * Create an EventSource for streaming chat responses
-   */
-  createStreamingConnection(request: ChatRequest): EventSource {
-    const url = new URL(`${this.baseUrl}/api/v1/chat/stream`);
-    
-    // For GET request with query params, we'd need to serialize the request
-    // But our API expects POST, so we'll need to implement this differently
-    // For now, return a placeholder - we'll implement proper SSE later
-    
-    const eventSource = new EventSource(url.toString());
-    return eventSource;
-  }
-
-  /**
    * Stream chat responses using fetch with ReadableStream
    */
   async streamChatQuery(
@@ -265,11 +255,21 @@ class ApiClient {
           if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.slice(6));
-              
+
               if (data.type === 'complete') {
-                onComplete(data);
+                // Map the SSE complete event into the ChatResponse contract
+                onComplete({
+                  success: true,
+                  response: data.response ?? data.final_response ?? '',
+                  citations: data.citations ?? [],
+                  faithfulness_score: data.meta?.faithfulness_score ?? data.faithfulness_score ?? 0,
+                  processing_time: 0,
+                  language_used: data.meta?.language_used ?? data.language_used ?? 'en',
+                  model_used: data.meta?.model_used ?? data.model_used,
+                  request_id: data.request_id ?? '',
+                });
               } else if (data.type === 'error') {
-                onError(new Error(data.message));
+                onError(new Error(data.error ?? data.message ?? 'Stream failed'));
               } else {
                 onProgress(data);
               }

@@ -10,7 +10,13 @@ from langsmith import traceable
 
 from src.utils.env_loader import load_environment
 from src.models.query_routing import MultilingualRouter
-from src.models.query_rewriter import query_rewriter, CANNED_MAP, _looks_climate_any
+from src.models.query_rewriter import (
+    query_rewriter,
+    CANNED_MAP,
+    _looks_climate_any,
+    detect_language_request,
+    HOW_IT_WORKS_TEXT as HOW_IT_WORKS_FALLBACK,
+)
 from src.models.retrieval import get_documents
 from src.models.gen_response_unified import UnifiedResponseGenerator
 from src.models.hallucination_guard import check_hallucination, extract_contexts, evaluate_faithfulness_threshold
@@ -38,6 +44,14 @@ LANG_CODE_TO_NAME = {
 }
 
 
+def _has_alphabetic_content(text: Any, min_letters: int = 5) -> bool:
+    """True when the text contains real words in any script — guards against
+    caching/serving digits-and-punctuation-only garbage responses."""
+    if not isinstance(text, str):
+        return False
+    return sum(1 for ch in text if ch.isalpha()) >= min_letters
+
+
 class ClimateQueryPipeline:
     """New unified processing pipeline for climate queries."""
 
@@ -59,7 +73,12 @@ class ClimateQueryPipeline:
             self.cohere_model = CohereModel()  # default: tiny-aya-global
 
             # Embeddings: BGE-M3 via HuggingFace Inference API (no local torch)
-            self.index_name = index_name or "climate-change-adaptation-index-10-24-prod"
+            # PINECONE_INDEX_NAME keeps runtime and ingestion pointed at the same index
+            self.index_name = (
+                index_name
+                or os.getenv("PINECONE_INDEX_NAME")
+                or "climate-change-adaptation-index-10-24-prod"
+            )
             _t0 = time.time()
             self.embed_model = self._initialize_embedding_model()
             logger.info(f"Init: BGE-M3 embedder (HF API) ready in {time.time() - _t0:.2f}s")
@@ -180,59 +199,6 @@ class ClimateQueryPipeline:
         except Exception as e:
             logger.error(f"Failed to initialize Cohere client: {str(e)}")
             raise
-
-    async def _tavily_supplement(self, english_query: str, existing_docs: List[Dict]) -> List[Dict]:
-        """Supplement RAG docs with fresh Tavily web results for Toronto/community queries.
-        Returns merged document list (RAG docs first, then web docs).
-        """
-        community_terms = [
-            "thorncliffe", "flemingdon", "don river", "don valley",
-            "toronto", "scarborough", "etobicoke", "north york",
-        ]
-        query_lower = english_query.lower()
-        if not any(term in query_lower for term in community_terms):
-            return existing_docs
-
-        try:
-            from langchain_community.tools.tavily_search import TavilySearchResults
-            logger.info("Tavily supplement: querying for fresh Toronto/community sources")
-            tavily_search = TavilySearchResults(
-                max_results=3,
-                include_domains=[
-                    "toronto.ca", "ontario.ca", "canada.ca",
-                    "trca.ca", "tno-toronto.org", "cbc.ca",
-                    "thestar.com", "cp24.com",
-                ],
-            )
-            search_results = await tavily_search.ainvoke(english_query)
-            if not search_results:
-                return existing_docs
-
-            existing_urls = {d.get("url", "") for d in existing_docs}
-            web_docs = []
-            for r in search_results:
-                if isinstance(r, str):
-                    continue
-                url = r.get("url", "")
-                if url in existing_urls:
-                    continue
-                content = r.get("content", "")
-                if len(content) < 50:
-                    continue
-                web_docs.append({
-                    "title": r.get("title", url),
-                    "url": url,
-                    "content": content,
-                    "chunk_text": content,
-                    "score": 0.5,
-                    "source": "tavily_supplement",
-                })
-            if web_docs:
-                logger.info(f"Tavily supplement: added {len(web_docs)} fresh web sources")
-            return existing_docs + web_docs
-        except Exception as e:
-            logger.warning(f"Tavily supplement skipped: {e}")
-            return existing_docs
 
     async def _try_tavily_fallback(self, original_query: str, english_query: str, language_name: str) -> Dict[str, Any]:
         """Fallback to Tavily web search when RAG has no strong/relevant documents.
@@ -487,8 +453,11 @@ class ClimateQueryPipeline:
             route_ms = (time.time() - _route_start) * 1000
             logger.info(f"Timing: routing={route_ms:.1f}ms")
 
-            # Set translation function — Tiny-Aya handles translation via Cohere
-            if routing_info['needs_translation']:
+            # Set translation function — Tiny-Aya handles translation via Cohere.
+            # Also re-run with translation when a language mismatch was detected:
+            # the query text is non-English even though English was selected, and
+            # retrieval/generation need an English query to work well.
+            if routing_info['needs_translation'] or routing_info.get('language_mismatch'):
                 if model_type == 'nova':
                     translation_func = self.nova_model.translate
                 else:
@@ -521,6 +490,21 @@ class ClimateQueryPipeline:
 
             processed_query = route_result['processed_query']
             english_query = route_result['english_query']
+
+            # Response language: the user's dropdown selection, unless the query
+            # itself explicitly asks for another language ("write me a message in
+            # Spanish", "answer in French"). The LLM rewriter can refine this
+            # below; the regex detector covers the timeout/fallback paths.
+            requested_code = detect_language_request(query)
+            respond_language_code = requested_code or language_code
+            respond_language_name = LANG_CODE_TO_NAME.get(
+                respond_language_code, respond_language_code
+            )
+            if requested_code:
+                logger.info(
+                    f"Explicit language request detected in query → responding in "
+                    f"{respond_language_name} ({respond_language_code})"
+                )
             try:
                 # Net part: log bytes and unicode lengths for debugging mojibake
                 b = query.encode('utf-8', errors='replace')
@@ -538,10 +522,11 @@ class ClimateQueryPipeline:
             _cache_start = time.time()
             normalized = self._normalize_query(english_query)
 
-            # FIX: Create language-specific cache keys for non-English queries
-            # This ensures Filipino queries get Filipino responses from cache
+            # Cache keys use the RESPONSE language (selected language, or the
+            # explicitly requested one) so "write this in Spanish" never collides
+            # with the English entry for the same underlying question.
             # Note: model_type NOT in key - allows cache sharing across model changes
-            cache_key = self._make_cache_key(language_code, normalized)
+            cache_key = self._make_cache_key(respond_language_code, normalized)
 
             if self.cache and not skip_cache:
                 try:
@@ -549,16 +534,16 @@ class ClimateQueryPipeline:
                     cached_result = await self.cache.get(cache_key) if self.cache else None
 
                     if cached_result:
-                        logger.info(f"✓ Cache hit for {language_name} - returning cached response")
+                        logger.info(f"✓ Cache hit for {respond_language_name} - returning cached response")
                         # Cached result should already be in the correct language
                         return self._add_processing_time(cached_result, start_time)
                     else:
-                        logger.info(f"Cache miss for {language_name} query")
+                        logger.info(f"Cache miss for {respond_language_name} query")
 
                         # Try fuzzy match for this specific language
                         fuzzy_hit = await self._try_fuzzy_cache_match(
                             normalized,
-                            language_code=language_code
+                            language_code=respond_language_code
                         )
                         if fuzzy_hit is not None:
                             logger.info(f"✓ Cache hit via fuzzy match (score={fuzzy_hit['score']:.2f})")
@@ -624,6 +609,17 @@ class ClimateQueryPipeline:
                             logger.info("Safety net: detected climate query despite rewriter error → forcing on-topic")
                             classification = "on-topic"
 
+                    # Honor an explicit output-language request found by the LLM
+                    qr_requested = qr.get("requested_language")
+                    if isinstance(qr_requested, str) and len(qr_requested.strip()) == 2:
+                        respond_language_code = qr_requested.strip().lower()
+                        respond_language_name = LANG_CODE_TO_NAME.get(
+                            respond_language_code, respond_language_code
+                        )
+                        logger.info(
+                            f"Rewriter detected language request → responding in {respond_language_name}"
+                        )
+
                     try:
                         logger.info(
                             "Rewriter OUT → detected_lang='%s', classification='%s', language_match='%s', canned=%s",
@@ -633,40 +629,26 @@ class ClimateQueryPipeline:
                     except Exception:
                         pass
 
-                    # Restore prior UX: block when the detected query language is non-English and mismatches selection
+                    # Language mismatch is a soft signal only: the user typed in a
+                    # different language than they selected. We still answer — in
+                    # the selected (or explicitly requested) language — instead of
+                    # blocking with a canned "Whoops" message.
                     if (language_match_result == 'no' or (detected_lang != 'unknown' and detected_lang != language_code)):
                         detected_name = LANG_CODE_TO_NAME.get(detected_lang, detected_lang.upper())
                         selected_name = LANG_CODE_TO_NAME.get(language_code, language_code.upper())
-                        logger.warning(
-                            f"Language mismatch detected by query rewriter: query is in {detected_name} but {selected_name} was selected"
+                        logger.info(
+                            f"Language mismatch (soft): query is in {detected_name} but {selected_name} "
+                            f"was selected — answering in {respond_language_name}"
                         )
-                        # Get canned response for language mismatch
-                        canned_response = CANNED_MAP.get('language_mismatch', {})
-                        msg_text = canned_response.get('text', 
-                            "Whoops! You wrote in a different language than the one you selected. Please choose the language you want me to respond in on the right so we can ensure the best translation for you!"
-                        )
-                        
-                        return {
-                            "success": True,
-                            "response": msg_text,
-                            "citations": [],
-                            "faithfulness_score": 1.0,
-                            "processing_time": time.time() - start_time,
-                            "language_code": language_code,
-                            "model_used": routing_info['model_name'],
-                            "model_type": model_type,
-                            "retrieval_source": "canned",
-                            "fallback_reason": "language_mismatch_canned",
-                        }
 
-                    # Short-circuit canned (translate to selected language if needed)
+                    # Short-circuit canned (translate to the response language if needed)
                     if canned_enabled and canned_text:
                         logger.info("✓ Canned intent detected by query rewriter (JSON); preparing canned response")
                         final_text = canned_text
-                        if language_code != 'en':
+                        if respond_language_code != 'en':
                             try:
-                                final_text = await cohere_model.translate(canned_text, 'english', language_name)
-                                logger.info("✓ Canned response translated to selected language")
+                                final_text = await cohere_model.translate(canned_text, 'english', respond_language_name)
+                                logger.info("✓ Canned response translated to response language")
                             except Exception as te:
                                 logger.warning(f"Canned translation failed, falling back to English: {te}")
                         return {
@@ -675,7 +657,7 @@ class ClimateQueryPipeline:
                             "citations": [],
                             "faithfulness_score": 1.0,
                             "processing_time": time.time() - start_time,
-                            "language_code": language_code,
+                            "language_code": respond_language_code,
                             "model_used": routing_info['model_name'],
                             "model_type": model_type,
                             "retrieval_source": "canned",
@@ -686,15 +668,17 @@ class ClimateQueryPipeline:
                     if classification == 'off-topic':
                         # Get canned response from query rewriter
                         canned_response = CANNED_MAP.get('off-topic', {})
-                        msg_en = canned_response.get('text', 
+                        msg_en = canned_response.get('text',
                             "I'm a climate change assistant and can only help with questions about climate, environment, and sustainability. "
                             "Please ask me about topics like climate change causes, effects, or solutions."
                         )
-                        
-                        # Translate using detected language if available; fall back to selected language
+
+                        # Translate: explicit request > detected language > selected language
                         final_msg = msg_en
                         try:
-                            target_code = detected_lang if detected_lang and detected_lang != 'unknown' else language_code
+                            target_code = respond_language_code
+                            if target_code == language_code and detected_lang and detected_lang != 'unknown':
+                                target_code = detected_lang
                             if target_code != 'en':
                                 target_name = LANG_CODE_TO_NAME.get(target_code, target_code)
                                 final_msg = await cohere_model.translate(msg_en, 'english', target_name)
@@ -707,7 +691,7 @@ class ClimateQueryPipeline:
                             "citations": [],
                             "faithfulness_score": 1.0,
                             "processing_time": time.time() - start_time,
-                            "language_code": language_code,
+                            "language_code": respond_language_code,
                             "model_used": routing_info['model_name'],
                             "model_type": model_type,
                             "retrieval_source": "canned",
@@ -721,27 +705,51 @@ class ClimateQueryPipeline:
                             "I can't assist with that request. Please ask me questions about climate change, environmental issues, or sustainability."
                         )
 
-                        # Translate using detected language if available; fall back to selected language
+                        # Translate: explicit request > detected language > selected language
                         final_msg = msg_en
                         try:
-                            target_code = detected_lang if detected_lang and detected_lang != 'unknown' else language_code
+                            target_code = respond_language_code
+                            if target_code == language_code and detected_lang and detected_lang != 'unknown':
+                                target_code = detected_lang
                             if target_code != 'en':
                                 target_name = LANG_CODE_TO_NAME.get(target_code, target_code)
                                 final_msg = await cohere_model.translate(msg_en, 'english', target_name)
                         except Exception:
                             final_msg = msg_en
-                        
+
                         return {
                             "success": True,
                             "response": final_msg,
                             "citations": [],
                             "faithfulness_score": 1.0,
                             "processing_time": time.time() - start_time,
-                            "language_code": language_code,
+                            "language_code": respond_language_code,
                             "model_used": routing_info['model_name'],
                             "model_type": model_type,
                             "retrieval_source": "canned",
                             "fallback_reason": "harmful_canned",
+                        }
+
+                    # "How do I use this chatbot?" → return the help text directly
+                    if classification == 'instruction' or qr.get("ask_how_to_use"):
+                        help_text = qr.get("how_it_works") or HOW_IT_WORKS_FALLBACK
+                        final_help = help_text
+                        if respond_language_code != 'en':
+                            try:
+                                final_help = await cohere_model.translate(help_text, 'english', respond_language_name)
+                            except Exception:
+                                final_help = help_text
+                        return {
+                            "success": True,
+                            "response": final_help,
+                            "citations": [],
+                            "faithfulness_score": 1.0,
+                            "processing_time": time.time() - start_time,
+                            "language_code": respond_language_code,
+                            "model_used": routing_info['model_name'],
+                            "model_type": model_type,
+                            "retrieval_source": "canned",
+                            "fallback_reason": "instruction_canned",
                         }
 
                     # Use rewrite if provided
@@ -776,82 +784,65 @@ class ClimateQueryPipeline:
                     else:
                         logger.info("✓ Query rewriting skipped - no enhancement needed")
 
-                    # Check for language mismatch: block when detected query language is non-English and mismatches selection
+                    # Language mismatch is a soft signal in the legacy path too —
+                    # log it and keep answering in the response language.
                     if (language_match_result == 'no' or (
                             detected_lang != 'unknown' and detected_lang != language_code)):
                         detected_name = LANG_CODE_TO_NAME.get(detected_lang, detected_lang.upper())
                         selected_name = LANG_CODE_TO_NAME.get(language_code, language_code.upper())
-
-                        logger.warning(
-                            f"Language mismatch detected by query rewriter: query is in {detected_name} but {selected_name} was selected"
+                        logger.info(
+                            f"Language mismatch (soft, legacy): query is in {detected_name} but "
+                            f"{selected_name} was selected — answering in {respond_language_name}"
                         )
-                        # Get canned response for language mismatch (legacy path)
-                        canned_response = CANNED_MAP.get('language_mismatch', {})
-                        msg_text = canned_response.get('text', 
-                            "Whoops! You wrote in a different language than the one you selected. Please choose the language you want me to respond in on the right so we can ensure the best translation for you!"
-                        )
-                        
-                        return {
-                            "success": True,
-                            "response": msg_text,
-                            "citations": [],
-                            "faithfulness_score": 1.0,
-                            "processing_time": time.time() - start_time,
-                            "language_code": language_code,
-                            "model_used": "legacy_rewriter",
-                            "model_type": "legacy",
-                            "retrieval_source": "canned",
-                            "fallback_reason": "language_mismatch_canned_legacy",
-                        }
 
                     # Return canned responses for off-topic and harmful in legacy path as well
                     if classification == 'off-topic':
                         # Get canned response from query rewriter
                         canned_response = CANNED_MAP.get('off-topic', {})
-                        msg_en = canned_response.get('text', 
+                        msg_en = canned_response.get('text',
                             "I'm a climate change assistant and can only help with questions about climate, environment, and sustainability. "
                             "Please ask me about topics like climate change causes, effects, or solutions."
                         )
                         final_msg = msg_en
-                        if language_code != 'en':
+                        if respond_language_code != 'en':
                             try:
-                                final_msg = await cohere_model.translate(msg_en, 'english', language_name)
+                                final_msg = await cohere_model.translate(msg_en, 'english', respond_language_name)
                             except Exception:
                                 final_msg = msg_en
-                        
+
                         return {
                             "success": True,
                             "response": final_msg,
                             "citations": [],
                             "faithfulness_score": 1.0,
                             "processing_time": time.time() - start_time,
-                            "language_code": language_code,
+                            "language_code": respond_language_code,
                             "model_used": "legacy_rewriter",
                             "model_type": "legacy",
                             "retrieval_source": "canned",
                             "fallback_reason": "off_topic_canned_legacy",
                         }
-                    
+
                     if classification == 'harmful':
                         # Get canned response from query rewriter
                         canned_response = CANNED_MAP.get('harmful', {})
-                        msg_en = canned_response.get('text', 
+                        msg_en = canned_response.get('text',
                             "I can't assist with that request. Please ask me questions about climate change, environmental issues, or sustainability."
                         )
                         final_msg = msg_en
-                        if language_code != 'en':
+                        if respond_language_code != 'en':
                             try:
-                                final_msg = await cohere_model.translate(msg_en, 'english', language_name)
+                                final_msg = await cohere_model.translate(msg_en, 'english', respond_language_name)
                             except Exception:
                                 final_msg = msg_en
-                        
+
                         return {
                             "success": True,
                             "response": final_msg,
                             "citations": [],
                             "faithfulness_score": 1.0,
                             "processing_time": time.time() - start_time,
-                            "language_code": language_code,
+                            "language_code": respond_language_code,
                             "model_used": "legacy_rewriter",
                             "model_type": "legacy",
                             "retrieval_source": "canned",
@@ -914,20 +905,16 @@ class ClimateQueryPipeline:
             logger.info(f"Timing: retrieval={retrieval_ms:.1f}ms")
             report("Documents retrieved", 0.6)
 
-            # Supplement RAG docs with fresh Tavily web results for community queries
-            if documents:
-                documents = await self._tavily_supplement(english_query, documents)
-
             # Early fallback: if no RAG documents, try Tavily before generation
             if not documents:
                 fb = await self._try_tavily_fallback(original_query=query, english_query=english_query,
                                                      language_name=language_name)
                 if fb.get("success"):
-                    # Translate fallback response if needed
+                    # Translate fallback response into the response language if needed
                     final_resp = fb["response"]
-                    if self.get_language_code(language_name) != "en":
+                    if respond_language_code != "en":
                         try:
-                            final_resp = await cohere_model.translate(final_resp, "english", language_name)
+                            final_resp = await cohere_model.translate(final_resp, "english", respond_language_name)
                         except Exception:
                             pass
                     retrieval_source = fb.get("retrieval_source", "tavily")
@@ -938,7 +925,7 @@ class ClimateQueryPipeline:
                         "citations": fb.get("citations", []),
                         "faithfulness_score": fb.get("faithfulness_score", 0.0),
                         "processing_time": time.time() - start_time,
-                        "language_code": language_code,
+                        "language_code": respond_language_code,
                         "model_used": routing_info['model_name'],
                         "model_type": model_type,
                         "retrieval_source": retrieval_source,
@@ -1016,23 +1003,24 @@ class ClimateQueryPipeline:
                     fallback_reason = "low_faithfulness"
 
             # STEP 8: TRANSLATE RESPONSE IF NEEDED
+            # Target = the response language: the user's dropdown selection, or the
+            # language they explicitly asked for in the query itself.
             _trans_time = 0.0
             original_english_response = response  # Keep English version for caching
 
-            if language_code != 'en':
-                logger.info(f"Step 8: Translating response to {language_name} (code={language_code})")
+            if respond_language_code != 'en':
+                logger.info(f"Step 8: Translating response to {respond_language_name} (code={respond_language_code})")
                 try:
                     _trans_start = time.time()
-                    # Use Nova translator for all languages including Filipino
                     translated_response = await cohere_model.translate(
                         response,
                         'english',
-                        language_name
+                        respond_language_name
                     )
                     response = translated_response
-                    logger.info(f"✓ Response translated successfully to {language_name}")
+                    logger.info(f"✓ Response translated successfully to {respond_language_name}")
                 except Exception as e:
-                    logger.error(f"Response translation to {language_name} failed: {str(e)}")
+                    logger.error(f"Response translation to {respond_language_name} failed: {str(e)}")
                     # Keep English response if translation fails
                 else:
                     _trans_time = (time.time() - _trans_start) * 1000
@@ -1047,7 +1035,7 @@ class ClimateQueryPipeline:
                 "citations": citations,
                 "faithfulness_score": faithfulness_score,
                 "processing_time": time.time() - start_time,
-                "language_code": language_code,
+                "language_code": respond_language_code,
                 "model_used": routing_info['model_name'],
                 "model_type": model_type,
                 "retrieval_source": retrieval_source,
@@ -1058,20 +1046,26 @@ class ClimateQueryPipeline:
                     "classification": classification if 'classification' in locals() else 'not_processed',
                     "detected_language": detected_lang if 'detected_lang' in locals() else 'not_detected',
                     "language_match": language_match_result if 'language_match_result' in locals() else 'not_checked',
+                    "requested_language": requested_code,
+                    "respond_language": respond_language_code,
                     "query_rewritten": processed_query != query if 'processed_query' in locals() else False,
                 },
             }
 
             # STEP 10: CACHE THE RESULT IN THE CORRECT LANGUAGE
-            if self.cache:
+            # Never cache a response with no real text (e.g. digits-only garbage):
+            # a poisoned entry would be replayed on every future exact/fuzzy hit.
+            if self.cache and _has_alphabetic_content(response):
                 try:
-                    # Cache the response in the requested language
-                    # Note: result contains model_type for attribution (line 1073)
+                    # The rewriter may have refined the response language after the
+                    # step-2 key was computed — recompute so key and content agree.
+                    cache_key = self._make_cache_key(respond_language_code, normalized)
+                    # Note: result contains model_type for attribution
                     await self.cache.set(cache_key, result)
-                    logger.info(f"✓ Response cached in {language_name} (model: {model_type})")
+                    logger.info(f"✓ Response cached in {respond_language_name} (model: {model_type})")
 
                     # Also cache the English version if different
-                    if language_code != 'en':
+                    if respond_language_code != 'en' and _has_alphabetic_content(original_english_response):
                         english_cache_key = self._make_cache_key('en', normalized)
                         english_result = result.copy()
                         english_result['response'] = original_english_response
@@ -1086,14 +1080,16 @@ class ClimateQueryPipeline:
                     # Maintain recent queries list
                     try:
                         if self.cache and hasattr(self.cache, 'add_to_list'):
-                            entry = f"{cache_key}|{normalized}|{language_code}"
-                            await self.cache.add_to_list("q:recent", entry)
+                            entry = f"{cache_key}|{normalized}|{respond_language_code}"
+                            await self.cache.add_to_list("q:recent:v2", entry)
                             # Trim to keep only last 100 entries - implement via Redis commands if needed
                     except Exception as list_err:
                         logger.debug(f"Recent list update skipped: {list_err}")
 
                 except Exception as e:
                     logger.warning(f"Failed to cache result: {str(e)}")
+            elif self.cache:
+                logger.warning("Skipping cache write: response has no alphabetic content")
 
             # Log timing summary
             logger.info(
@@ -1148,7 +1144,9 @@ class ClimateQueryPipeline:
         """
         key_material = f"{language_code}:{base_query}".encode("utf-8")
         digest = hashlib.sha256(key_material).hexdigest()
-        return f"q:{language_code}:{digest}"  # Include language code in key prefix
+        # v2 prefix: orphans pre-fix cache entries that may contain digits-only
+        # responses produced by the old non-ASCII-stripping bug.
+        return f"q:v2:{language_code}:{digest}"  # Include language code in key prefix
 
     def _normalize_query(self, text: str) -> str:
         """Normalize text for cache key generation."""
@@ -1174,7 +1172,7 @@ class ClimateQueryPipeline:
             if not self.cache:
                 return None
                 
-            recent_entries = await self.cache.get_list("q:recent", 0, 49)
+            recent_entries = await self.cache.get_list("q:recent:v2", 0, 49)
             if not recent_entries:
                 return None
 

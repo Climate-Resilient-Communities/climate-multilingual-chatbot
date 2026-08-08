@@ -267,22 +267,28 @@ export default function Home() {
       // Clear any remaining stage timeouts
       stageTimeouts.forEach(timeout => clearTimeout(timeout));
       
-      if (response.success) {
+      // Defensive: a response with no letters (digits/punctuation only) means
+      // generation failed upstream — surface a retryable error, never render it.
+      const hasRealText = typeof response.response === 'string' && /\p{L}/u.test(response.response);
+
+      if (response.success && hasRealText) {
         // Convert API citations to Source objects for the citations popover
-        const sources: Source[] = response.citations.length > 0 
+        const sources: Source[] = response.citations.length > 0
           ? convertCitationsToSources(response.citations)
           : [];
-        
+
         const assistantMessageId = `assistant_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        setMessages((prev) => [...prev, { 
-          role: "assistant", 
+        setMessages((prev) => [...prev, {
+          role: "assistant",
           content: response.response, // Keep original response without appended citations
           id: assistantMessageId,
           sources: sources, // Add sources separately for citations popover
           retrieval_source: response.retrieval_source // Add retrieval source for canned response detection
         }]);
-        
+
         // Success toast removed - no popup needed for successful responses
+      } else if (response.success) {
+        throw new Error("The generated response was invalid. Please try again.");
       } else {
         throw new Error("API returned unsuccessful response");
       }
@@ -293,14 +299,15 @@ export default function Home() {
       stageTimeouts.forEach(timeout => clearTimeout(timeout));
       
       const errorMessage = error instanceof Error ? error.message : "Failed to get response";
-      
+
       // Check if this is a user error (off-topic, harmful, language mismatch) vs system error
-      const isUserError = errorMessage.includes("climate change assistant") || 
-                         errorMessage.includes("only help with questions about climate") ||
-                         errorMessage.includes("i can't assist with that request") ||
-                         errorMessage.includes("i can't help with that") ||
-                         errorMessage.includes("language mismatch") ||
-                         errorMessage.includes("different language");
+      const msgLower = errorMessage.toLowerCase();
+      const isUserError = msgLower.includes("climate change assistant") ||
+                         msgLower.includes("only help with questions about climate") ||
+                         msgLower.includes("i can't assist with that request") ||
+                         msgLower.includes("i can't help with that") ||
+                         msgLower.includes("language mismatch") ||
+                         msgLower.includes("different language");
       
       // Add error message to chat
       const errorMessageId = `error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

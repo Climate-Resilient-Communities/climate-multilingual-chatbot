@@ -70,6 +70,114 @@ HOW_IT_WORKS_TEXT = (
 
 CATEGORIES = {"on-topic", "off-topic", "harmful", "greeting", "goodbye", "thanks", "emergency", "instruction"}
 
+# Explicit "answer me in <language>" request detection.
+# Deterministic fallback used when the LLM rewriter times out or omits the field.
+_LANG_REQUEST_NAMES = {
+    # English language names
+    "english": "en", "spanish": "es", "french": "fr", "german": "de",
+    "italian": "it", "portuguese": "pt", "dutch": "nl", "russian": "ru",
+    "chinese": "zh", "mandarin": "zh", "cantonese": "zh", "japanese": "ja",
+    "korean": "ko", "arabic": "ar", "hindi": "hi", "bengali": "bn",
+    "urdu": "ur", "tamil": "ta", "gujarati": "gu", "punjabi": "pa",
+    "pashto": "ps", "persian": "fa", "farsi": "fa", "vietnamese": "vi",
+    "thai": "th", "turkish": "tr", "polish": "pl", "czech": "cs",
+    "hungarian": "hu", "romanian": "ro", "greek": "el", "hebrew": "he",
+    "ukrainian": "uk", "indonesian": "id", "filipino": "tl", "tagalog": "tl",
+    "danish": "da", "swedish": "sv", "norwegian": "no", "finnish": "fi",
+    "bulgarian": "bg", "slovak": "sk", "slovenian": "sl", "estonian": "et",
+    "latvian": "lv", "lithuanian": "lt", "swahili": "sw", "somali": "so",
+    "amharic": "am", "yoruba": "yo", "hausa": "ha", "malay": "ms",
+    "burmese": "my", "nepali": "ne", "sinhala": "si", "khmer": "km",
+    # Common endonyms
+    "español": "es", "espanol": "es", "castellano": "es",
+    "français": "fr", "francais": "fr", "deutsch": "de",
+    "italiano": "it", "português": "pt", "portugues": "pt",
+    "nederlands": "nl", "русский": "ru", "по-русски": "ru",
+    # Cross-language names for common target languages
+    # (e.g. a Spanish speaker asking for output "en inglés")
+    "inglés": "en", "ingles": "en", "anglais": "en", "englisch": "en",
+    "inglese": "en", "inglês": "en", "英文": "en", "英语": "en", "英語": "en",
+    "영어": "en", "английский": "en", "по-английски": "en",
+    "الإنجليزية": "en", "انگریزی": "en", "अंग्रेज़ी": "en", "अंग्रेजी": "en",
+    "espagnol": "es", "espanhol": "es", "spagnolo": "es", "spanisch": "es",
+    "испанский": "es", "西班牙语": "es", "الإسبانية": "es",
+    "francés": "fr", "frances": "fr", "französisch": "fr", "francese": "fr",
+    "francês": "fr", "французский": "fr", "法语": "fr", "الفرنسية": "fr",
+    "alemán": "de", "aleman": "de", "allemand": "de", "tedesco": "de",
+    "alemão": "de", "немецкий": "de", "德语": "de", "الألمانية": "de",
+    "中文": "zh", "汉语": "zh", "漢語": "zh", "日本語": "ja",
+    "한국어": "ko", "العربية": "ar", "بالعربية": "ar",
+    "हिंदी": "hi", "हिन्दी": "hi", "اردو": "ur", "বাংলা": "bn",
+    "தமிழ்": "ta", "ગુજરાતી": "gu", "فارسی": "fa",
+    "tiếng việt": "vi", "ภาษาไทย": "th", "türkçe": "tr",
+    "polski": "pl", "ελληνικά": "el", "עברית": "he",
+    "українською": "uk", "українська": "uk", "svenska": "sv",
+}
+
+_ALL_LANG_NAMES_ALT = "|".join(
+    re.escape(name) for name in sorted(_LANG_REQUEST_NAMES, key=len, reverse=True)
+)
+# Non-Latin endonyms are unambiguous enough to match without a preposition
+_BARE_LANG_NAMES_ALT = "|".join(
+    re.escape(name) for name in sorted(_LANG_REQUEST_NAMES, key=len, reverse=True)
+    if any(ord(ch) > 0x024F for ch in name) or name.startswith("по-")
+)
+
+# Reject partial-word matches like "german" inside "Germany" (Latin scripts only,
+# so CJK names followed by CJK text still match).
+_LATIN_BOUNDARY = r"(?![a-zA-ZÀ-ɏ])"
+
+# Prepositional: "in Spanish", "en español", "auf Deutsch", "in het Nederlands", "用中文"
+_LANG_PREP_RE = re.compile(
+    r"(?:\b(?:in|into|en|em|auf|na|به|بال)\s+(?:het\s+|el\s+|le\s+|die\s+)?|(?:用|以))"
+    rf"({_ALL_LANG_NAMES_ALT}){_LATIN_BOUNDARY}",
+    re.IGNORECASE | re.UNICODE,
+)
+# "translate (this/it/that) to German" — 'to <language>' scoped to translate verbs
+_LANG_TRANSLATE_TO_RE = re.compile(
+    rf"\btranslat\w*\s+(?:\w+\s+){{0,3}}?to\s+({_ALL_LANG_NAMES_ALT}){_LATIN_BOUNDARY}",
+    re.IGNORECASE | re.UNICODE,
+)
+# Bare/suffix forms for non-Latin endonyms: "日本語で", "한국어로", "напиши по-русски"
+_LANG_BARE_RE = re.compile(
+    rf"({_BARE_LANG_NAMES_ALT})(?:で|に|로|으로)?", re.IGNORECASE | re.UNICODE
+) if _BARE_LANG_NAMES_ALT else None
+
+# Verbs that signal the user wants OUTPUT in that language (vs. merely mentioning it)
+_LANG_REQUEST_INTENT_RE = re.compile(
+    r"\b(write|writing|respond|reply|answer|translate|say|explain|compose|draft|message|text|"
+    r"escribe|escribir|escríbeme|responde|contesta|traduce|réponds|répondez|écris|écrivez|traduis|"
+    r"schreibe?|antworte|übersetze|scrivi|rispondi|traduci|escreva|responda|traduza|"
+    r"напиши|напишите|ответь|переведи)\b|"
+    r"写|回答|回复|翻译|書いて|答えて|번역|써|답해",
+    re.IGNORECASE | re.UNICODE,
+)
+
+
+def detect_language_request(text: str) -> str | None:
+    """Detect an explicit request to produce output in a specific language.
+
+    Returns the ISO 639-1 code when the query both names a language (in a
+    prepositional construction like "in Spanish" / "en español", or a bare
+    non-Latin endonym like 日本語) and shows write/answer/translate intent
+    (e.g. "write me a message in Spanish", "answer in French"). Returns None
+    otherwise, so a mere mention of a language ("is Spanish spoken in
+    Toronto?") is not treated as an output-language request.
+    """
+    if not text:
+        return None
+    t = unicodedata.normalize("NFKC", text)
+    if not _LANG_REQUEST_INTENT_RE.search(t):
+        return None
+    m = _LANG_PREP_RE.search(t) or _LANG_TRANSLATE_TO_RE.search(t)
+    if m:
+        return _LANG_REQUEST_NAMES.get(m.group(1).lower())
+    if _LANG_BARE_RE:
+        m = _LANG_BARE_RE.search(t)
+        if m:
+            return _LANG_REQUEST_NAMES.get(m.group(1).lower())
+    return None
+
 
 def _sanitize_language(code: str) -> str:
     if isinstance(code, str) and LANG_RE.match(code.strip()):
@@ -147,7 +255,7 @@ def _looks_climate_any(text: str) -> bool:
     nonlatin = nonlatin_core + nonlatin_extra
     return any(k in t for k in latin) or any(k in t for k in nonlatin)
 
-def _error_payload(message: str, expected_lang: str, user_query: str) -> Dict[str, Any]:
+def _error_payload(message: str, expected_lang: str, user_query: str = "") -> Dict[str, Any]:
     """Create error payload that preserves language and detects climate intent."""
     expected = (expected_lang or "en").lower()
     is_climate = _looks_climate_any(user_query)
@@ -158,6 +266,7 @@ def _error_payload(message: str, expected_lang: str, user_query: str) -> Dict[st
         "language_match": True,
         "classification": "on-topic" if is_climate else "off-topic",
         "rewrite_en": user_query if (expected == "en" and is_climate) else None,
+        "requested_language": detect_language_request(user_query),
         "canned": EMPTY_CANNED,
         "ask_how_to_use": False,
         "how_it_works": None,
@@ -192,6 +301,7 @@ async def query_rewriter(
             "language_match": True,
             "classification": "off-topic",
             "rewrite_en": None,
+            "requested_language": None,
             "canned": EMPTY_CANNED,
             "ask_how_to_use": False,
             "how_it_works": None,
@@ -217,6 +327,9 @@ IMPORTANT: Detect the actual language of the user query considering conversation
 
 [TASK]
  1) Detect the actual language of the user query (considering conversation history context for ambiguous cases).
+    IMPORTANT: a query that NAMES a target output language is written in the language of its surrounding
+    words — "write me a message in Spanish about flooding" is an ENGLISH query (language: "en") that
+    requests Spanish output (requested_language: "es"), not a Spanish query.
   2) Classify one of: "on-topic", "off-topic", "harmful", "greeting", "goodbye", "thanks", "emergency", "instruction".
    - On-topic: climate, environment, impacts, solutions.
    - Off-topic: clearly unrelated to climate.
@@ -248,6 +361,15 @@ IMPORTANT: Detect the actual language of the user query considering conversation
   8) Do not include canned responses in the JSON; the application will attach them.
 
   9) Keyword lists count as valid queries. If a list contains climate terms in any language, classify as "on-topic".
+
+  10) LANGUAGE REQUESTS: If the user explicitly asks for the answer or a text in a specific language
+   (e.g. "write me a message in Spanish about flooding", "answer in French", "escribe en inglés",
+   "用中文回答"), set requested_language to that language's ISO 639-1 code. Such requests are NOT a
+   language mismatch — set language_match=true. A request to write/compose/translate a message, note,
+   or explanation about a climate topic in another language is "on-topic"; rewrite_en should be the
+   underlying English task (e.g. "Write a short message about flooding preparedness."). Only set
+   requested_language when the user asks for OUTPUT in that language, not when they merely mention
+   a language or country.
 
  [EXAMPLES]
  - [on topic examples:Urban resilience, health inequities, mental health, home maintenance, flood/wildfire management, climate adaptation, paleoclimate, waste management, occupational heat stress, energy transition, renewable energy, food storage, emergency preparedness/household supplies, fires, flooding, climate anxiety]
@@ -299,6 +421,16 @@ IMPORTANT: Detect the actual language of the user query considering conversation
    language: "zh"
    classification: "on-topic"
    rewrite_en: "What adaptation measures address flooding in Toronto?"
+ - User Query: "write me a message in Spanish about flooding preparedness"
+   language: "en"
+   classification: "on-topic"
+   requested_language: "es"
+   rewrite_en: "Write a short message about flooding preparedness."
+ - User Query: "can you answer in French? what causes heat waves"
+   language: "en"
+   classification: "on-topic"
+   requested_language: "fr"
+   rewrite_en: "What causes heat waves?"
   - User Query: "are you sure?"
     language: "en"
     classification: "on-topic"   # because the recent conversation is about climate topics
@@ -312,6 +444,7 @@ IMPORTANT: Detect the actual language of the user query considering conversation
   "language_match": boolean,         // language == expected_language
   "classification": string,          // one of the 8 categories above
   "rewrite_en": string|null,         // single English question when on-topic; else null
+  "requested_language": string|null, // ISO 639-1 code when the user explicitly asks for output in a language; else null
   "ask_how_to_use": boolean,         // true when classification is instruction
   "how_it_works": string|null,       // fixed help text when ask_how_to_use=true; else null
   "error": null
@@ -328,21 +461,23 @@ ACTUAL DETECTED LANGUAGE: [You must detect this from the user query, considering
 """
 
     try:
-        # Try with short 2-second timeout first for responsiveness
+        # 8s ceiling: long enough for the classifier model to answer reliably.
+        # (The previous 2s limit timed out constantly, silently skipping
+        # classification/rewriting and degrading language handling.)
         raw = await asyncio.wait_for(
             nova_model.content_generation(
         prompt=prompt,
                 system_message="Classify safely. Output strictly valid minified JSON only.",
             ),
-            timeout=2.0,
+            timeout=8.0,
         )
         try:
             logger.info("Model raw (first 300): %s", (raw or "")[:300])
         except Exception:
             pass
     except asyncio.TimeoutError:
-        # 2-second timeout hit - fallback to original query with smart classification
-        logger.warning("REWRITER_TIMEOUT_2S → using original query fallback", extra={"expected_lang": expected_lang, "query_len": len(user_query)})
+        # Timeout hit - fallback to original query with smart classification
+        logger.warning("REWRITER_TIMEOUT → using original query fallback", extra={"expected_lang": expected_lang, "query_len": len(user_query)})
         is_climate = _looks_climate_any(user_query)
         fallback_payload = {
             "reason": "Rewriter timeout - using original query",
@@ -351,6 +486,7 @@ ACTUAL DETECTED LANGUAGE: [You must detect this from the user query, considering
             "language_match": True,
             "classification": "on-topic" if is_climate else "off-topic",
             "rewrite_en": user_query if (expected_lang == "en" and is_climate) else None,
+            "requested_language": detect_language_request(user_query),
             "canned": EMPTY_CANNED,
             "ask_how_to_use": False,
             "how_it_works": None,
@@ -382,7 +518,7 @@ ACTUAL DETECTED LANGUAGE: [You must detect this from the user query, considering
             pass
     except Exception:
         return json.dumps(
-            _error_payload("Sorry, we are having technical difficulties, please try again later.", expected_lang),
+            _error_payload("Sorry, we are having technical difficulties, please try again later.", expected_lang, user_query),
             ensure_ascii=False,
         )
 
@@ -433,6 +569,14 @@ ACTUAL DETECTED LANGUAGE: [You must detect this from the user query, considering
         detected_lang = expected_lang  # Fallback only if detection truly failed
     language_match = detected_lang == expected_lang
 
+    # Explicit output-language request: prefer the model's judgement, fall back
+    # to the deterministic detector so timeouts/omissions don't lose the request.
+    requested_language = data.get("requested_language")
+    if isinstance(requested_language, str) and LANG_RE.match(requested_language.strip()):
+        requested_language = requested_language.strip().lower()
+    else:
+        requested_language = detect_language_request(user_query)
+
     canned = CANNED_MAP.get(cls, EMPTY_CANNED)
 
     # Instruction auto-fill for safety
@@ -446,6 +590,7 @@ ACTUAL DETECTED LANGUAGE: [You must detect this from the user query, considering
         "language_match": language_match,
         "classification": cls,
         "rewrite_en": final_rewrite_en if cls == "on-topic" else None,
+        "requested_language": requested_language,
         "canned": canned,
         "ask_how_to_use": ask_how_to_use,
         "how_it_works": how_it_works,
