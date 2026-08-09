@@ -258,6 +258,25 @@ def _looks_climate_any(text: str) -> bool:
         # Preparedness / supplies / food security
         "emergency preparedness", "emergency kit", "go bag", "household preparedness",
         "food storage", "food security", "non-perishable", "stockpile",
+        # Spanish
+        "inundacion", "inundación", "sequía", "sequia", "calentamiento", "ola de calor",
+        "medio ambiente", "contaminacion", "contaminación", "reciclaje", "huella de carbono",
+        # French
+        "inondation", "sécheresse", "secheresse", "réchauffement", "rechauffement",
+        "canicule", "environnement", "empreinte carbone", "changement climatique",
+        # Portuguese
+        "enchente", "inundação", "aquecimento", "onda de calor", "meio ambiente",
+        # German
+        "überschwemmung", "hochwasser", "dürre", "duerre", "hitzewelle", "klimawandel",
+        "erwärmung", "umwelt",
+        # Italian
+        "alluvione", "siccità", "siccita", "ondata di caldo", "riscaldamento", "ambiente",
+        # Tagalog/Filipino
+        "pagbaha", "baha", "tagtuyot", "pag-init", "kapaligiran",
+        # Turkish
+        "iklim", "sel baskını", "kuraklık", "sıcak hava dalgası",
+        # Indonesian/Malay
+        "banjir", "kekeringan", "gelombang panas", "lingkungan", "pemanasan",
     )
     # Minimal, high-signal non‑Latin terms (weather/hazards) to catch clear in‑scope queries
     # without over-broad matches. This list focuses on common equivalents of
@@ -272,17 +291,36 @@ def _looks_climate_any(text: str) -> bool:
         # Korean
         "날씨", "홍수", "폭염",
         # Russian
-        "погода", "наводнение", "лесной пожар",
+        "погода", "наводнение", "лесной пожар", "жара", "засуха", "потепление",
         # Arabic
-        "طقس", "فيضانات",
+        "طقس", "فيضانات", "فيضان", "جفاف", "موجة حر", "احتباس حراري", "بيئة",
         # Hindi
-        "मौसम", "बाढ़",
+        "मौसम", "बाढ़", "सूखा", "गर्मी", "पर्यावरण", "प्रदूषण",
+        # Urdu
+        "موسمیاتی", "سیلاب", "گرمی کی لہر", "خشک سالی", "ماحول", "آلودگی",
+        # Bengali
+        "বন্যা", "খরা", "তাপপ্রবাহ", "পরিবেশ", "দূষণ",
+        # Gujarati
+        "પૂર", "દુકાળ", "ગરમી", "પર્યાવરણ", "આબોહવા",
+        # Tamil
+        "வெள்ளம்", "வறட்சி", "சூழல்", "காலநிலை",
+        # Persian/Farsi
+        "سیل", "خشکسالی", "موج گرما", "محیط زیست",
+        # Greek
+        "πλημμύρα", "ξηρασία", "καύσωνας", "περιβάλλον",
+        # Thai
+        "น้ำท่วม", "ภัยแล้ง", "คลื่นความร้อน", "สิ่งแวดล้อม",
     )
     nonlatin = nonlatin_core + nonlatin_extra
     return any(k in t for k in latin) or any(k in t for k in nonlatin)
 
 def _error_payload(message: str, expected_lang: str, user_query: str = "") -> Dict[str, Any]:
-    """Create error payload that preserves language and detects climate intent."""
+    """Create error payload that preserves language and detects climate intent.
+
+    Classification is permissive (on-topic): a classifier failure is our
+    infrastructure's fault, and the downstream generator is climate-scoped
+    anyway — better to attempt an answer than refuse the user.
+    """
     expected = (expected_lang or "en").lower()
     is_climate = _looks_climate_any(user_query)
     return {
@@ -290,7 +328,7 @@ def _error_payload(message: str, expected_lang: str, user_query: str = "") -> Di
         "language": expected,                # keep selected language, not "unknown"
         "expected_language": expected,
         "language_match": True,
-        "classification": "on-topic" if is_climate else "off-topic",
+        "classification": "on-topic",
         "rewrite_en": user_query if (expected == "en" and is_climate) else None,
         "requested_language": detect_language_request(user_query),
         "canned": EMPTY_CANNED,
@@ -369,6 +407,11 @@ IMPORTANT: Detect the actual language of the user query considering conversation
      "how to get started", "help", "support" as instruction about the chatbot unless the query clearly
      names an external tool (e.g., "Excel", "Photoshop").
    4) IMPORTANT: If the query contains climate-related terms in any language (for example: 气候/氣候/climate, 变暖/warming, 冬天/winter, 雪/snow, 加拿大/Canada, 影响/impacts, 排放/emissions, 洪水/flooding, 热浪/heat wave), classify as "on-topic" unless clearly harmful.
+   BE PERMISSIVE: when in doubt between "on-topic" and "off-topic", prefer "on-topic" if the query could
+   plausibly relate to climate, weather, environment, energy, resilience, health impacts, housing, or
+   preparedness. Short keyword queries like "local flooding", "heat waves", or "air quality today" are
+   ALWAYS "on-topic". Only use "off-topic" for queries clearly unrelated to these areas (shopping,
+   entertainment, sports, coding, etc.).
    CLIMATE EMERGENCIES: Queries about climate emergencies, flooding emergencies, wildfire help, extreme weather preparation, or climate disaster response should be classified as "on-topic", NOT "emergency". Only classify as "emergency" if it's a life-threatening medical situation requiring immediate 911 response.
   5) Short follow-ups and context: If the query is a short, generic follow-up (e.g., "are you sure?", "really?", "why?", "how so?", "what do you mean?"), infer the topic from the last messages in history.
       - If the recent conversation is climate-related, classify as "on-topic" and rewrite to a standalone, explicit English question that references the inferred topic.
@@ -502,7 +545,10 @@ ACTUAL DETECTED LANGUAGE: [You must detect this from the user query, considering
         except Exception:
             pass
     except asyncio.TimeoutError:
-        # Timeout hit - fallback to original query with smart classification
+        # Timeout hit - fall back to the original query. Classification is
+        # PERMISSIVE here: a model timeout is our infrastructure failing, and
+        # refusing the user's question over it is worse than occasionally
+        # letting a borderline query through to the climate-scoped generator.
         logger.warning("REWRITER_TIMEOUT → using original query fallback", extra={"expected_lang": expected_lang, "query_len": len(user_query)})
         is_climate = _looks_climate_any(user_query)
         fallback_payload = {
@@ -510,7 +556,7 @@ ACTUAL DETECTED LANGUAGE: [You must detect this from the user query, considering
             "language": expected_lang,
             "expected_language": expected_lang,
             "language_match": True,
-            "classification": "on-topic" if is_climate else "off-topic",
+            "classification": "on-topic",
             "rewrite_en": user_query if (expected_lang == "en" and is_climate) else None,
             "requested_language": detect_language_request(user_query),
             "canned": EMPTY_CANNED,

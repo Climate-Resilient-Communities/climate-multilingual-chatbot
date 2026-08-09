@@ -219,33 +219,12 @@ export default function Home() {
           console.log(`🔍 No language switch: detectedLanguage=${detectedLanguage}, confidence=${confidence}`);
         }
         
-        if (detectedLanguage && detectedLanguage !== 'en' && confidence <= 0.5 && confidence > 0) {
-          // Low confidence detection - stay in English but show helpful message
-          const errorMessageId = `language_help_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          setMessages((prev) => [...prev, { 
-            role: "assistant", 
-            content: "Hmm, we can't detect your language. To get started, please select your language from the menu and hit the 'Retry' button.",
-            id: errorMessageId
-          }]);
-          setLoadingMessage(null);
-          return; // Exit early to avoid making the API call
-        } else if (!detectedLanguage || detectedLanguage === 'unknown') {
-          // Backend couldn't detect language at all - check if query looks non-English
-          const hasNonLatinChars = /[^\u0000-\u007F]/.test(query);
-          const isShortQuery = query.trim().split(/\s+/).length <= 3;
-          
-          if (hasNonLatinChars || (isShortQuery && !query.toLowerCase().match(/\b(hello|hi|hey|what|how|is|the|and|of|to|in|for|with|on|at|from|by|about|into|through|during|before|after|above|below|up|down|out|off|over|under|again|further|then|once)\b/))) {
-            // Likely non-English query that couldn't be detected
-            const errorMessageId = `language_help_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            setMessages((prev) => [...prev, { 
-              role: "assistant", 
-              content: "Hmm, we can't detect your language. To get started, please select your language from the menu and hit the 'Retry' button.",
-              id: errorMessageId
-            }]);
-            setLoadingMessage(null);
-            return; // Exit early to avoid making the API call
-          }
-        }
+        // Uncertain or failed language detection is never a reason to refuse
+        // the message: send it with the currently selected language and let
+        // the backend handle any mismatch (it translates instead of blocking).
+        // The hard stop that used to live here rejected short legitimate
+        // queries like "local flooding" or "heat waves" before they ever
+        // reached the API.
       }
 
       // Convert message format for API

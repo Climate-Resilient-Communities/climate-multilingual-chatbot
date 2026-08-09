@@ -122,7 +122,24 @@ def main():
               f"tail: {body_text[-300:]!r}")
         page.screenshot(path=f"{SHOTS}/05-greeting.png", full_page=True)
 
-        # --- Scenario 4: citations UI present for RAG answers ---
+        # --- Scenario 4: short keyword query is sent even when language
+        # detection is unavailable (used to dead-end with "can't detect your
+        # language" before ever reaching the API) ---
+        page.route("**/api/v1/languages/validate", lambda route: route.abort())
+        send("local flooding")
+        for _ in range(60):
+            t = page.inner_text("body")
+            if "local flooding" in t and ("Climate Guidance" in t or "retrieved sources" in t):
+                break
+            page.wait_for_timeout(500)
+        page.unroute("**/api/v1/languages/validate")
+        body_text = page.inner_text("body")
+        check("'local flooding' answered even with language detection down",
+              "can't detect your language" not in body_text and "Climate Guidance" in body_text,
+              f"tail: {body_text[-300:]!r}")
+        page.screenshot(path=f"{SHOTS}/06-short-query.png", full_page=True)
+
+        # --- Scenario 5: citations UI present for RAG answers ---
         sources_btns = page.get_by_role("button", name=re.compile("source|citation", re.I))
         check("citations control appears for RAG answers", sources_btns.count() > 0 or "Sources" in body_text,
               "no sources/citations control found")

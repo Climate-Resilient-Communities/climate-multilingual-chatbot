@@ -243,6 +243,25 @@ def s_followup():
     assert HAS_LETTERS.search(body.get("response", ""))
 
 
+@scenario("REGRESSION: short keyword query 'local flooding' is answered, not blocked")
+def s_short_query():
+    status, body = chat("local flooding", language="en", skip_cache=True)
+    assert status == 200, f"status {status}: {body}"
+    resp = body.get("response", "")
+    assert "can't detect your language" not in resp.lower(), "language-detection dead-end returned"
+    assert "climate change assistant and can only help" not in resp, f"off-topic refused: {resp[:150]!r}"
+    assert HAS_LETTERS.search(resp) and len(resp) > 80, f"no real answer: {resp[:120]!r}"
+
+
+@scenario("Non-English climate keywords ('inundaciones locales') are not refused")
+def s_short_query_spanish():
+    status, body = chat("inundaciones locales", language="es", skip_cache=True)
+    assert status == 200, f"status {status}: {body}"
+    resp = body.get("response", "")
+    assert "can only help with questions about climate" not in resp, f"refused: {resp[:150]!r}"
+    assert HAS_LETTERS.search(resp), f"no real answer: {resp[:120]!r}"
+
+
 @scenario("Community question (Thorncliffe) served from RAG docs, not system prompt")
 def s_community_rag():
     t0 = time.time()
@@ -297,7 +316,7 @@ def main():
     for fn in [s_health, s_english_question, s_wrongscript, s_digitsonly, s_explicit_spanish,
                s_explicit_french, s_chinese_selected, s_mismatch_not_blocked, s_spanish_native,
                s_region_variant, s_greeting, s_offtopic, s_instruction, s_cache, s_followup,
-               s_community_rag, s_streaming]:
+               s_short_query, s_short_query_spanish, s_community_rag, s_streaming]:
         fn()
 
     passed = sum(1 for _, s, _ in RESULTS if s == "PASS")

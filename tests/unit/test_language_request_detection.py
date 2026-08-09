@@ -14,9 +14,40 @@ Covers:
 import json
 import pytest
 
-from src.models.query_rewriter import detect_language_request
+from src.models.query_rewriter import detect_language_request, _looks_climate_any
 from src.models.gen_response_unified import _is_predominantly_non_latin
 from src.models.climate_pipeline import _has_alphabetic_content
+
+
+class TestClimateRescueNet:
+    """_looks_climate_any rescues misclassified climate queries in the
+    languages the community actually speaks — not just English."""
+
+    @pytest.mark.parametrize("text", [
+        "local flooding",
+        "heat waves",
+        "inundaciones locales",          # Spanish
+        "inondations locales",           # French
+        "hitzewelle bei uns",            # German
+        "enchente na minha rua",         # Portuguese
+        "pagbaha sa amin",               # Tagalog
+        "banjir di toronto",             # Indonesian/Malay
+        "سیلاب سے کیسے بچیں",            # Urdu
+        "বন্যা থেকে বাঁচার উপায়",          # Bengali
+        "પૂર થી બચવું",                   # Gujarati
+        "வெள்ளம் பாதுகாப்பு",              # Tamil
+        "наводнение в городе",           # Russian
+    ])
+    def test_climate_terms_recognized(self, text):
+        assert _looks_climate_any(text)
+
+    @pytest.mark.parametrize("text", [
+        "where can I buy shoes",
+        "best pizza in toronto",
+        "who won the football game",
+    ])
+    def test_clearly_off_topic_not_matched(self, text):
+        assert not _looks_climate_any(text)
 
 
 class TestDetectLanguageRequest:
