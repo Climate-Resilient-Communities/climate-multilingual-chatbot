@@ -243,8 +243,11 @@ def _looks_climate_any(text: str) -> bool:
         "warming", "weather", "temperature", "environment", "sustain", "biodivers",
         # Hazards
         "flood", "wildfire", "heat wave", "heatwave", "air quality", "aqi",
-        # Energy and transition
-        "renewab", "solar", "wind", "ev", "energy transition",
+        # Energy and transition — bounded terms only: a bare "ev" stem used to
+        # substring-match "every"/"previous"/"reveal" and mark arbitrary text
+        # as climate-related, and "wind" matched "window".
+        "renewab", "solar", "wind power", "wind energy", "wind turbine", "windstorm",
+        " ev ", " evs ", "electric vehicle", "e-bike", "energy transition", "energy efficiency",
         # Urban and resilience
         "resilienc", "urban resilience",
         # Health and equity

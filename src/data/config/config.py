@@ -109,6 +109,19 @@ RETRIEVAL_CONFIG = {
     "final_max_docs": 5,
 }
 
+# Trusted domains for live web search (Tavily fallback). Restricting the
+# fallback to authoritative sources is the primary defense against feeding
+# poisoned/low-quality web content into generation. Override with the
+# TAVILY_TRUSTED_DOMAINS env var (comma-separated) if needed.
+TAVILY_TRUSTED_DOMAINS = [
+    d.strip() for d in os.getenv(
+        "TAVILY_TRUSTED_DOMAINS",
+        "toronto.ca,ontario.ca,canada.ca,gc.ca,trca.ca,climatedata.ca,climateatlas.ca,"
+        "ipcc.ch,unfccc.int,un.org,wmo.int,nasa.gov,noaa.gov,epa.gov,"
+        "cbc.ca,theweathernetwork.com,weather.gc.ca"
+    ).split(",") if d.strip()
+]
+
 # Redis configurations
 REDIS_CONFIG = {
     "host": os.getenv("REDIS_HOST", "localhost"),

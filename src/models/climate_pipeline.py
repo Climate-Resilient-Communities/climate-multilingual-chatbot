@@ -209,7 +209,14 @@ class ClimateQueryPipeline:
             from langchain_community.tools.tavily_search import TavilySearchResults
             logger.info("Attempting Tavily fallback search (pipeline)")
 
-            tavily_search = TavilySearchResults(max_results=5)
+            # Restrict live web search to authoritative domains — unrestricted
+            # results would flow straight into generation and are the main
+            # web-poisoning vector for a RAG chatbot.
+            try:
+                from src.data.config.config import TAVILY_TRUSTED_DOMAINS
+            except Exception:
+                TAVILY_TRUSTED_DOMAINS = ["toronto.ca", "ontario.ca", "canada.ca", "ipcc.ch"]
+            tavily_search = TavilySearchResults(max_results=5, include_domains=TAVILY_TRUSTED_DOMAINS)
             search_results = await tavily_search.ainvoke(original_query)
             if not search_results:
                 logger.warning("No results from Tavily search (pipeline)")
