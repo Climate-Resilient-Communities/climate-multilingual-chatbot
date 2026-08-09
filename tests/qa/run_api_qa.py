@@ -243,13 +243,40 @@ def s_followup():
     assert HAS_LETTERS.search(body.get("response", ""))
 
 
-@scenario("REGRESSION: short keyword query 'local flooding' is answered, not blocked")
+@scenario("AGENTIC: 'local flooding' with no known location → asks which community, doesn't guess")
 def s_short_query():
     status, body = chat("local flooding", language="en", skip_cache=True)
     assert status == 200, f"status {status}: {body}"
     resp = body.get("response", "")
     assert "can't detect your language" not in resp.lower(), "language-detection dead-end returned"
     assert "climate change assistant and can only help" not in resp, f"off-topic refused: {resp[:150]!r}"
+    assert body.get("retrieval_source") == "clarify", f"expected clarification, got: {body.get('retrieval_source')} / {resp[:150]!r}"
+    assert "which city or neighbourhood" in resp.lower(), f"not a location question: {resp[:150]!r}"
+    # It must NOT have guessed a community
+    assert "Thorncliffe" not in resp and "Scarborough" not in resp, f"guessed a community: {resp[:200]!r}"
+
+
+@scenario("AGENTIC: user answers with their community → localized answer with that community's docs")
+def s_location_followup():
+    history = [
+        {"role": "user", "content": "local flooding"},
+        {"role": "assistant", "content": "I can help with that! Which city or neighbourhood are you in?"},
+    ]
+    status, body = chat("I'm in Thorncliffe Park", language="en", history=history, skip_cache=True)
+    assert status == 200, f"status {status}: {body}"
+    resp = body.get("response", "")
+    assert body.get("retrieval_source") != "clarify", f"asked again instead of answering: {resp[:150]!r}"
+    assert HAS_LETTERS.search(resp) and len(resp) > 80, f"no real answer: {resp[:120]!r}"
+    assert any("Thorncliffe" in (c.get("title") or "") for c in body.get("citations", [])), \
+        f"no Thorncliffe citations after location was given: {[c.get('title') for c in body.get('citations', [])]}"
+
+
+@scenario("AGENTIC: location already in the query → answers directly, no clarification")
+def s_location_in_query():
+    status, body = chat("what can I do about flooding in Toronto?", language="en", skip_cache=True)
+    assert status == 200, f"status {status}: {body}"
+    resp = body.get("response", "")
+    assert body.get("retrieval_source") != "clarify", f"needless clarification: {resp[:150]!r}"
     assert HAS_LETTERS.search(resp) and len(resp) > 80, f"no real answer: {resp[:120]!r}"
 
 
@@ -331,7 +358,8 @@ def main():
     for fn in [s_health, s_english_question, s_wrongscript, s_digitsonly, s_explicit_spanish,
                s_explicit_french, s_chinese_selected, s_mismatch_not_blocked, s_spanish_native,
                s_region_variant, s_greeting, s_offtopic, s_instruction, s_cache, s_followup,
-               s_short_query, s_short_query_spanish, s_injection, s_community_rag, s_streaming]:
+               s_short_query, s_location_followup, s_location_in_query, s_short_query_spanish,
+               s_injection, s_community_rag, s_streaming]:
         fn()
 
     passed = sum(1 for _, s, _ in RESULTS if s == "PASS")

@@ -773,6 +773,34 @@ class ClimateQueryPipeline:
                             "fallback_reason": "instruction_canned",
                         }
 
+                    # Agentic clarify-or-answer: the classifier reasoned that the
+                    # answer depends on WHERE the user is, and no location is
+                    # known from the query or conversation — ask instead of
+                    # guessing a community (which surfaced random neighbourhoods).
+                    if classification == 'on-topic' and qr.get("needs_location") and not qr.get("location"):
+                        logger.info("✓ Location-dependent query without a location → asking for clarification")
+                        clarify_en = CANNED_MAP.get('clarify_location', {}).get('text',
+                            "Which city or neighbourhood are you in? Local climate guidance depends on your location."
+                        )
+                        final_clarify = clarify_en
+                        if respond_language_code != 'en':
+                            try:
+                                final_clarify = await cohere_model.translate(clarify_en, 'english', respond_language_name)
+                            except Exception:
+                                final_clarify = clarify_en
+                        return {
+                            "success": True,
+                            "response": final_clarify,
+                            "citations": [],
+                            "faithfulness_score": 1.0,
+                            "processing_time": time.time() - start_time,
+                            "language_code": respond_language_code,
+                            "model_used": routing_info['model_name'],
+                            "model_type": model_type,
+                            "retrieval_source": "clarify",
+                            "fallback_reason": "location_clarification",
+                        }
+
                     # Use rewrite if provided
                     rewritten = qr.get("rewrite_en")
                     if isinstance(rewritten, str) and rewritten.strip():

@@ -122,22 +122,42 @@ def main():
               f"tail: {body_text[-300:]!r}")
         page.screenshot(path=f"{SHOTS}/05-greeting.png", full_page=True)
 
-        # --- Scenario 4: short keyword query is sent even when language
-        # detection is unavailable (used to dead-end with "can't detect your
-        # language" before ever reaching the API) ---
+        # --- Scenario 4: agentic location clarification. Fresh chat (the user
+        # mentioned Toronto earlier in this session, which would legitimately
+        # count as their location). "local flooding" is sent even with language
+        # detection unavailable (the old client-side dead-end), and the bot
+        # ASKS which community instead of guessing one; answering with a
+        # community then yields a localized answer. ---
+        new_chat = page.get_by_role("button", name=re.compile("new chat", re.I))
+        if new_chat.count():
+            new_chat.first.click()
+            page.wait_for_timeout(600)
         page.route("**/api/v1/languages/validate", lambda route: route.abort())
         send("local flooding")
         for _ in range(60):
             t = page.inner_text("body")
-            if "local flooding" in t and ("Climate Guidance" in t or "retrieved sources" in t):
+            if "which city or neighbourhood" in t.lower() or "Climate Guidance" in t:
                 break
             page.wait_for_timeout(500)
         page.unroute("**/api/v1/languages/validate")
         body_text = page.inner_text("body")
-        check("'local flooding' answered even with language detection down",
-              "can't detect your language" not in body_text and "Climate Guidance" in body_text,
+        check("'local flooding' reaches the bot and asks for the user's community",
+              "can't detect your language" not in body_text
+              and "which city or neighbourhood" in body_text.lower(),
               f"tail: {body_text[-300:]!r}")
-        page.screenshot(path=f"{SHOTS}/06-short-query.png", full_page=True)
+        page.screenshot(path=f"{SHOTS}/06-clarify-location.png", full_page=True)
+
+        send("I'm in Thorncliffe Park")
+        for _ in range(60):
+            t = page.inner_text("body")
+            if "Thorncliffe Park Flood" in t or "Climate Guidance" in t:
+                break
+            page.wait_for_timeout(500)
+        body_text = page.inner_text("body")
+        check("community answer follows once the user says where they are",
+              "Climate Guidance" in body_text and "Thorncliffe" in body_text,
+              f"tail: {body_text[-300:]!r}")
+        page.screenshot(path=f"{SHOTS}/07-localized-answer.png", full_page=True)
 
         # --- Scenario 5: citations UI present for RAG answers ---
         sources_btns = page.get_by_role("button", name=re.compile("source|citation", re.I))

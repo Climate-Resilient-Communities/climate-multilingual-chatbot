@@ -201,6 +201,24 @@ def _classify(query_lower: str, looks_climate) -> str:
     return "off-topic"
 
 
+_KNOWN_PLACES = (
+    "thorncliffe park", "thorncliffe", "flemingdon park", "flemingdon", "scarborough",
+    "etobicoke", "north york", "east york", "rexdale", "toronto", "mississauga",
+    "brampton", "markham", "vaughan", "ontario", "canada",
+)
+_LOCAL_CONTEXT_QA_RE = re.compile(
+    r"\b(local|locally|near me|nearby|in my area|my area|my neighbourhood|my neighborhood|"
+    r"my community|my city|around here)\b", re.IGNORECASE)
+
+
+def _find_place(text: str):
+    tl = (text or "").lower()
+    for place in _KNOWN_PLACES:
+        if place in tl:
+            return place.title()
+    return None
+
+
 async def fake_nova_content_generation(self, prompt: str, system_message: str = None) -> str:
     from src.models.query_rewriter import _looks_climate_any, detect_language_request
 
@@ -215,15 +233,39 @@ async def fake_nova_content_generation(self, prompt: str, system_message: str = 
         query = m.group(1) if m else ""
         m = re.search(r'Expected Language: "(\w+)"', ctx)
         expected = (m.group(1) if m else "en").lower()
+        m = re.search(r'Conversation History \(last 3\):\s*\n(\[.*?\])\s*\n', ctx, re.DOTALL)
+        try:
+            history = json.loads(m.group(1)) if m else []
+        except Exception:
+            history = []
+        history_text = " ".join(str(h) for h in history)
+        # Location may only come from what the USER wrote — communities cited
+        # in the assistant's own answers are not the user's location.
+        user_history_text = " ".join(
+            str(h.get("content", "")) for h in history
+            if isinstance(h, dict) and h.get("role") == "user"
+        )
 
         detected = _detect_lang_heuristic(query)
         requested = detect_language_request(query)
         classification = _classify(query.lower(), _looks_climate_any)
+        # History-aware follow-up: a non-climate query continuing a climate
+        # conversation (e.g. answering "I'm in Thorncliffe Park") is on-topic
+        if classification == "off-topic" and history and _looks_climate_any(history_text):
+            classification = "on-topic"
+
+        # Location awareness: place from query, else from the USER's turns only
+        location = _find_place(query) or _find_place(user_history_text)
+        needs_location = bool(_LOCAL_CONTEXT_QA_RE.search(query)) and not location
+
         rewrite = None
         if classification == "on-topic":
             rewrite = query if detected == "en" else "What are the impacts of climate change and how can people prepare?"
             # Strip a leading language directive from the rewrite like a good model
             rewrite = re.sub(r"\b(in|en)\s+(spanish|french|german|chinese|español|inglés)\b", "", rewrite, flags=re.I).strip() or rewrite
+            if location and location.lower() not in rewrite.lower():
+                topic = "flooding" if ("flood" in query.lower() or "flood" in history_text.lower()) else "climate impacts"
+                rewrite = f"What should I know about {topic} in {location}?"
 
         payload = {
             "reason": "qa-fake heuristic classification",
@@ -233,6 +275,8 @@ async def fake_nova_content_generation(self, prompt: str, system_message: str = 
             "classification": classification,
             "rewrite_en": rewrite,
             "requested_language": requested,
+            "location": location,
+            "needs_location": needs_location,
             "ask_how_to_use": classification == "instruction",
             "how_it_works": None,
             "error": None,
