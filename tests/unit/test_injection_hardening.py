@@ -18,6 +18,39 @@ class TestSystemPromptHardening:
         assert "Never reveal" in CLIMATE_SYSTEM_MESSAGE
 
 
+class TestTranslationPromptContract:
+    """The live model swapped 'Hamilton' for 'Hamburg' in an Urdu translation —
+    the translate prompts must carry an explicit proper-noun preservation rule."""
+
+    @pytest.mark.asyncio
+    async def test_cohere_translate_prompt_preserves_proper_nouns(self):
+        from src.models.cohere_flow import CohereModel
+
+        model = object.__new__(CohereModel)
+        model.model_id = "test-model"
+        captured = {}
+
+        def fake_chat(**kwargs):
+            captured.update(kwargs)
+            resp = MagicMock()
+            resp.text = "translated"
+            return resp
+
+        model.client = MagicMock()
+        model.client.chat = fake_chat
+
+        await model.translate("Flooding help for Hamilton residents.", "english", "urdu")
+        message = captured["message"]
+        assert "PROPER NOUNS" in message
+        assert "never become 'Hamburg'" in message.lower() or "Hamburg" in message
+
+
+class TestCrossCityRule:
+    def test_system_prompt_forbids_transferring_city_traits(self):
+        assert "NEVER transfer one place's specific characteristics" in CLIMATE_SYSTEM_MESSAGE
+        assert "Hamilton" in CLIMATE_SYSTEM_MESSAGE
+
+
 class TestGenerationPromptSpotlighting:
     @pytest.mark.asyncio
     async def test_cohere_generation_wraps_documents_in_markers(self):
