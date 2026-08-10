@@ -23,7 +23,9 @@ MODEL_CONFIG = {
 
 # Retrieval configurations
 RETRIEVAL_CONFIG = {
-    "pinecone_index": "climate-change-adaptation-index-10-24-prod",
+    # PINECONE_INDEX_NAME is the single source of truth shared by runtime
+    # retrieval and the ingestion pipeline (scripts/rag_ingest.py)
+    "pinecone_index": os.getenv("PINECONE_INDEX_NAME", "climate-change-adaptation-index-10-24-prod"),
     # Base knobs
     "top_k_retrieve": 15,           # legacy top-k before rerank (kept for compatibility)
     "top_k_rerank": 5,              # cross-encoder final cap
@@ -106,6 +108,19 @@ RETRIEVAL_CONFIG = {
     "max_docs_before_rerank": 8,
     "final_max_docs": 5,
 }
+
+# Trusted domains for live web search (Tavily fallback). Restricting the
+# fallback to authoritative sources is the primary defense against feeding
+# poisoned/low-quality web content into generation. Override with the
+# TAVILY_TRUSTED_DOMAINS env var (comma-separated) if needed.
+TAVILY_TRUSTED_DOMAINS = [
+    d.strip() for d in os.getenv(
+        "TAVILY_TRUSTED_DOMAINS",
+        "toronto.ca,ontario.ca,canada.ca,gc.ca,trca.ca,climatedata.ca,climateatlas.ca,"
+        "ipcc.ch,unfccc.int,un.org,wmo.int,nasa.gov,noaa.gov,epa.gov,"
+        "cbc.ca,theweathernetwork.com,weather.gc.ca"
+    ).split(",") if d.strip()
+]
 
 # Redis configurations
 REDIS_CONFIG = {

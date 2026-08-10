@@ -167,7 +167,15 @@ async def topic_moderation(
             'jewelry', 'watch', 'electronics', 'phone', 'computer', 'laptop', 'retail'
         ]
         
-        # First check: Is it explicitly about shopping? If yes, reject immediately
+        # First check: Does it contain explicit climate keywords? Allow before
+        # the off-topic blocklist so mixed queries like "where can I buy solar
+        # panels" or "what to wear in a heat wave" are not rejected for the
+        # shopping words they contain.
+        if any(keyword in query.lower() for keyword in climate_keywords):
+            logger.info("Query contains explicit climate keywords - allowing")
+            return {"passed": True, "reason": "climate_keywords", "score": 0.95}
+
+        # Second check: Is it explicitly about shopping? If yes, reject
         if any(keyword in query.lower() for keyword in off_topic_keywords):
             logger.info(f"Query contains explicit off-topic keywords - rejecting")
             return {"passed": False, "reason": "explicitly_off_topic", "score": 0.1}
@@ -192,10 +200,6 @@ async def topic_moderation(
                     logger.info("Query is a follow-up question (heuristic) - allowing")
                     return {"passed": True, "reason": "follow_up_question_heuristic", "score": 0.7}
         
-        # Third check: Does it contain explicit climate keywords?
-        if any(keyword in query.lower() for keyword in climate_keywords):
-            logger.info("Query contains explicit climate keywords - allowing")
-            return {"passed": True, "reason": "climate_keywords", "score": 0.95}
         
         # Default to rejecting if none of the above checks passed
         logger.info(f"Query does not appear climate-related - rejecting")

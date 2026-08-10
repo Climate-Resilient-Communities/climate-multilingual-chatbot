@@ -219,33 +219,12 @@ export default function Home() {
           console.log(`🔍 No language switch: detectedLanguage=${detectedLanguage}, confidence=${confidence}`);
         }
         
-        if (detectedLanguage && detectedLanguage !== 'en' && confidence <= 0.5 && confidence > 0) {
-          // Low confidence detection - stay in English but show helpful message
-          const errorMessageId = `language_help_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          setMessages((prev) => [...prev, { 
-            role: "assistant", 
-            content: "Hmm, we can't detect your language. To get started, please select your language from the menu and hit the 'Retry' button.",
-            id: errorMessageId
-          }]);
-          setLoadingMessage(null);
-          return; // Exit early to avoid making the API call
-        } else if (!detectedLanguage || detectedLanguage === 'unknown') {
-          // Backend couldn't detect language at all - check if query looks non-English
-          const hasNonLatinChars = /[^\u0000-\u007F]/.test(query);
-          const isShortQuery = query.trim().split(/\s+/).length <= 3;
-          
-          if (hasNonLatinChars || (isShortQuery && !query.toLowerCase().match(/\b(hello|hi|hey|what|how|is|the|and|of|to|in|for|with|on|at|from|by|about|into|through|during|before|after|above|below|up|down|out|off|over|under|again|further|then|once)\b/))) {
-            // Likely non-English query that couldn't be detected
-            const errorMessageId = `language_help_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            setMessages((prev) => [...prev, { 
-              role: "assistant", 
-              content: "Hmm, we can't detect your language. To get started, please select your language from the menu and hit the 'Retry' button.",
-              id: errorMessageId
-            }]);
-            setLoadingMessage(null);
-            return; // Exit early to avoid making the API call
-          }
-        }
+        // Uncertain or failed language detection is never a reason to refuse
+        // the message: send it with the currently selected language and let
+        // the backend handle any mismatch (it translates instead of blocking).
+        // The hard stop that used to live here rejected short legitimate
+        // queries like "local flooding" or "heat waves" before they ever
+        // reached the API.
       }
 
       // Convert message format for API
@@ -267,22 +246,28 @@ export default function Home() {
       // Clear any remaining stage timeouts
       stageTimeouts.forEach(timeout => clearTimeout(timeout));
       
-      if (response.success) {
+      // Defensive: a response with no letters (digits/punctuation only) means
+      // generation failed upstream — surface a retryable error, never render it.
+      const hasRealText = typeof response.response === 'string' && /\p{L}/u.test(response.response);
+
+      if (response.success && hasRealText) {
         // Convert API citations to Source objects for the citations popover
-        const sources: Source[] = response.citations.length > 0 
+        const sources: Source[] = response.citations.length > 0
           ? convertCitationsToSources(response.citations)
           : [];
-        
+
         const assistantMessageId = `assistant_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        setMessages((prev) => [...prev, { 
-          role: "assistant", 
+        setMessages((prev) => [...prev, {
+          role: "assistant",
           content: response.response, // Keep original response without appended citations
           id: assistantMessageId,
           sources: sources, // Add sources separately for citations popover
           retrieval_source: response.retrieval_source // Add retrieval source for canned response detection
         }]);
-        
+
         // Success toast removed - no popup needed for successful responses
+      } else if (response.success) {
+        throw new Error("The generated response was invalid. Please try again.");
       } else {
         throw new Error("API returned unsuccessful response");
       }
@@ -293,14 +278,15 @@ export default function Home() {
       stageTimeouts.forEach(timeout => clearTimeout(timeout));
       
       const errorMessage = error instanceof Error ? error.message : "Failed to get response";
-      
+
       // Check if this is a user error (off-topic, harmful, language mismatch) vs system error
-      const isUserError = errorMessage.includes("climate change assistant") || 
-                         errorMessage.includes("only help with questions about climate") ||
-                         errorMessage.includes("i can't assist with that request") ||
-                         errorMessage.includes("i can't help with that") ||
-                         errorMessage.includes("language mismatch") ||
-                         errorMessage.includes("different language");
+      const msgLower = errorMessage.toLowerCase();
+      const isUserError = msgLower.includes("climate change assistant") ||
+                         msgLower.includes("only help with questions about climate") ||
+                         msgLower.includes("i can't assist with that request") ||
+                         msgLower.includes("i can't help with that") ||
+                         msgLower.includes("language mismatch") ||
+                         msgLower.includes("different language");
       
       // Add error message to chat
       const errorMessageId = `error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

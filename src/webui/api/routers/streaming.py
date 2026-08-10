@@ -5,8 +5,9 @@ Server-Sent Events (SSE) streaming endpoint for real-time chat responses
 import asyncio
 import json
 import logging
+import re
 import time
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Request, HTTPException
@@ -23,7 +24,7 @@ router = APIRouter()
 
 class StreamChatRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=2000)
-    language: str = Field(default="en")
+    language: Optional[str] = Field(default=None)
     conversation_history: list = Field(default=[])
 
 # Import dependencies
@@ -52,35 +53,34 @@ async def generate_chat_stream(
             except Exception as e:
                 logger.warning(f"Failed to parse conversation history: {str(e)}")
         
-        # Language detection
+        # Language selection mirrors chat.py: honor the user's explicit choice,
+        # auto-detect only when no language was provided.
         yield f"data: {json.dumps({'type': 'progress', 'stage': 'detecting_language', 'request_id': request_id})}\n\n"
-        
-        detected_language = request.language
+
+        detected_language = request.language or "en"
         model_used = "tiny_aya_global"
 
         try:
-            language_info = lang_router.detect_language(request.query)
-            detected_language = language_info.get('language_code', detected_language)
+            if not request.language:
+                language_info = lang_router.detect_language(request.query)
+                detected_language = language_info.get('language_code', detected_language)
             support = lang_router.check_language_support(detected_language)
             model_used = support.value
-                
+
         except Exception as e:
             logger.warning(f"Language routing failed: {str(e)}")
-        
+
         # Send language info
         yield f"data: {json.dumps({'type': 'language_detected', 'language': detected_language, 'model': model_used, 'request_id': request_id})}\n\n"
-        
+
         # Processing stages
         yield f"data: {json.dumps({'type': 'progress', 'stage': 'retrieving_documents', 'request_id': request_id})}\n\n"
-        await asyncio.sleep(0.5)  # Simulate processing time
-        
-        yield f"data: {json.dumps({'type': 'progress', 'stage': 'reranking_results', 'request_id': request_id})}\n\n"
-        await asyncio.sleep(0.3)
-        
+
         yield f"data: {json.dumps({'type': 'progress', 'stage': 'generating_response', 'request_id': request_id})}\n\n"
-        
-        # Get language name for pipeline
-        language_name = lang_router.LANGUAGE_CODE_MAP.get(detected_language, 'english')
+
+        # Get language name for pipeline (standardize region variants like zh-cn first)
+        std_code = lang_router.standardize_language_code(detected_language)
+        language_name = lang_router.LANGUAGE_NAME_MAP.get(std_code, 'english')
         
         # Process through pipeline with timeout
         try:
@@ -93,34 +93,53 @@ async def generate_chat_stream(
                 timeout=60.0
             )
             
-            if result.get('success', False):
-                response_text = result.get('response', '')
-                citations = result.get('citations', [])
+            response_text = result.get('response', '')
+            has_real_text = isinstance(response_text, str) and any(ch.isalpha() for ch in response_text)
+            if result.get('success', False) and not has_real_text:
+                # Same guard as chat.py: never stream a letterless (e.g.
+                # digits-only) body as the answer.
+                logger.error(f"Pipeline returned invalid response body on stream: id={request_id}")
+                yield f"data: {json.dumps({'type': 'error', 'error': 'The generated response was invalid. Please try again.', 'request_id': request_id})}\n\n"
+            elif result.get('success', False):
+                raw_citations = result.get('citations', [])
                 faithfulness_score = result.get('faithfulness_score', 0.0)
-                
-                # Stream response token by token (simulate)
-                words = response_text.split()
+
+                # Normalize citations to the same shape chat.py guarantees
+                citations = [
+                    {
+                        'title': str((c or {}).get('title', 'Untitled Source')),
+                        'url': str((c or {}).get('url', '') or ''),
+                        'content': str((c or {}).get('content', '') or ''),
+                        'snippet': str((c or {}).get('snippet', '') or ''),
+                    }
+                    for c in raw_citations if isinstance(c, dict)
+                ]
+
+                # Stream in chunks that preserve whitespace/markdown structure,
+                # so partial_response is always a true prefix of the answer.
                 partial_response = ""
-                
-                for i, word in enumerate(words):
-                    partial_response += word + " "
-                    
-                    yield f"data: {json.dumps({'type': 'token', 'content': word + ' ', 'partial_response': partial_response.strip(), 'request_id': request_id})}\n\n"
-                    
+                for i, m in enumerate(re.finditer(r'\S+\s*', response_text)):
+                    chunk = m.group(0)
+                    partial_response += chunk
+
+                    yield f"data: {json.dumps({'type': 'token', 'content': chunk, 'partial_response': partial_response, 'request_id': request_id})}\n\n"
+
                     # Small delay to simulate streaming without slowing too much
                     if i % 8 == 0:
                         await asyncio.sleep(0.02)
-                
+
                 # Send citations
                 for citation in citations:
                     yield f"data: {json.dumps({'type': 'citation', 'citation': citation, 'request_id': request_id})}\n\n"
-                
-                # Send completion
-                yield f"data: {json.dumps({'type': 'complete', 'final_response': response_text, 'citations': citations, 'faithfulness_score': faithfulness_score, 'model_used': model_used, 'language_used': detected_language, 'request_id': request_id})}\n\n"
-                
+
+                # Send completion. 'response' mirrors the non-streaming ChatResponse
+                # contract; numeric metadata is namespaced under 'meta' so display
+                # code never mixes it into the answer text.
+                yield f"data: {json.dumps({'type': 'complete', 'final_response': response_text, 'response': response_text, 'citations': citations, 'retrieval_source': result.get('retrieval_source'), 'meta': {'faithfulness_score': faithfulness_score, 'model_used': model_used, 'language_used': detected_language}, 'request_id': request_id})}\n\n"
+
             else:
-                # Pipeline error
-                error_msg = result.get('message', 'Processing failed')
+                # Pipeline error — the pipeline puts the message in 'response'
+                error_msg = result.get('response', result.get('message', 'Processing failed'))
                 yield f"data: {json.dumps({'type': 'error', 'error': error_msg, 'request_id': request_id})}\n\n"
                 
         except asyncio.TimeoutError:

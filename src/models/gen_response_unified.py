@@ -13,6 +13,22 @@ from src.models.title_normalizer import normalize_title
 
 logger = logging.getLogger(__name__)
 
+
+def _is_predominantly_non_latin(text: str, threshold: float = 0.5) -> bool:
+    """Return True when most alphabetic characters are outside the Latin script.
+
+    Used to detect answers produced in the wrong script (e.g. Chinese or Urdu
+    when English was requested) so they can be translated rather than mangled.
+    """
+    if not text:
+        return False
+    letters = [ch for ch in text if ch.isalpha()]
+    if len(letters) < 12:
+        return False
+    non_latin = sum(1 for ch in letters if ord(ch) > 0x024F)
+    return (non_latin / len(letters)) > threshold
+
+
 class UnifiedResponseGenerator:
     """Unified interface for generating responses using either Nova or Cohere models."""
     
@@ -145,23 +161,24 @@ class UnifiedResponseGenerator:
                         conversation_history=conversation_history
                     )
 
-                # Hard guard: if language_code is English, strip any non-ASCII/Latin scripts that are not part of URLs or citations
+                # Language integrity guard: the pipeline generates in English first and
+                # translates afterwards. If the model answered in a non-Latin script
+                # anyway, translate the answer to English — never strip characters,
+                # which deletes entire non-Latin answers and leaves only digits.
                 if (language_code or "en").lower().startswith("en") and isinstance(response, str):
-                    # Allow basic punctuation, spaces, latin letters/numbers
-                    # Keep URLs and markdown links intact
-                    def _clean_non_english(text: str) -> str:
-                        # Preserve markdown links and URLs as-is
-                        url_pattern = r"(https?://\S+|\[[^\]]+\]\([^\)]+\))"
-                        parts = re.split(url_pattern, text)
-                        cleaned = []
-                        for part in parts:
-                            if re.match(url_pattern, part or ""):
-                                cleaned.append(part)
-                            else:
-                                # Remove characters outside basic Latin and common punctuation
-                                cleaned.append(re.sub(r"[^\x09\x0A\x0D\x20-\x7E]", "", part or ""))
-                        return "".join(cleaned)
-                    response = _clean_non_english(response)
+                    if _is_predominantly_non_latin(response):
+                        logger.warning(
+                            "Generation returned mostly non-Latin text while English was expected; translating to English"
+                        )
+                        try:
+                            translated = await asyncio.wait_for(
+                                model.translate(response, None, 'english'),
+                                timeout=30.0
+                            )
+                            if isinstance(translated, str) and translated.strip():
+                                response = translated
+                        except Exception as te:
+                            logger.warning(f"English re-translation failed, keeping original text: {te}")
 
                 logger.info(f"{model_type} response generation complete")
                 return response, citations
@@ -226,7 +243,7 @@ class UnifiedResponseGenerator:
                     else:  # cohere
                         # Add timeout protection to prevent 5+ minute hangs
                         relevance_result = await asyncio.wait_for(
-                            model.generate(
+                            model.content_generation(
                                 prompt=context_prompt,
                                 system_message="Rate the relevance of conversation turns to the current query"
                             ),

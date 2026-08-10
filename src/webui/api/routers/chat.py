@@ -139,8 +139,10 @@ async def process_chat_query(
         
         # Step 3: Process through main pipeline
         try:
-            # Use router's language name mapping for pipeline processing
-            language_name = lang_router.LANGUAGE_NAME_MAP.get(detected_language, 'english')
+            # Standardize region variants (es-MX → es, zh-CN → zh) before the
+            # code→name lookup so valid selections never fall back to English.
+            std_code = lang_router.standardize_language_code(detected_language)
+            language_name = lang_router.LANGUAGE_NAME_MAP.get(std_code, 'english')
             if not language_name:
                 language_name = 'english'  # Fallback
             
@@ -189,8 +191,29 @@ async def process_chat_query(
                 else:
                     citations = []
                 
-                # Return response immediately — validate links in background
+                # Guard: the response must be real text. A non-string (e.g. a
+                # score leaking into the field) or a digits-only body must never
+                # reach the user as the answer.
                 raw_response = result.get('response', '')
+                if not isinstance(raw_response, str) or not raw_response.strip() or not any(ch.isalpha() for ch in raw_response):
+                    logger.error(
+                        f"Pipeline returned invalid response body: id={request_id} "
+                        f"type={type(raw_response).__name__} preview={str(raw_response)[:80]!r}"
+                    )
+                    raise HTTPException(
+                        status_code=500,
+                        detail={
+                            "error": {
+                                "code": "INVALID_RESPONSE_BODY",
+                                "type": "server_error",
+                                "message": "The generated response was invalid. Please try again.",
+                                "retryable": True,
+                                "request_id": request_id
+                            }
+                        }
+                    )
+
+                # Return response immediately — validate links in background
                 validated_response = raw_response
                 asyncio.create_task(
                     _background_link_validation(request_id, raw_response)

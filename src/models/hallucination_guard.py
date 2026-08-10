@@ -165,15 +165,21 @@ Important: Return ONLY the JSON object, no other text."""
                         return evaluation.faithfulness_score
                         
                     except (json.JSONDecodeError, ValueError) as parse_error:
-                        # Extract score from text if JSON parsing fails
-                        logger.debug(f"JSON parsing failed, extracting score: {str(parse_error)}")
-                        score_match = re.search(r'(\d+\.?\d*)', response)
+                        # JSON parsing failed — only accept a score explicitly
+                        # labeled as faithfulness_score. Matching the first bare
+                        # number would grab years/percentages from prose and
+                        # produce a bogus score.
+                        logger.debug(f"JSON parsing failed, extracting labeled score: {str(parse_error)}")
+                        score_match = re.search(
+                            r'"?faithfulness[_\s]?score"?\s*[:=]\s*(\d*\.?\d+)', response, re.IGNORECASE
+                        )
                         if score_match:
                             score = float(score_match.group(1))
-                            if score > 1.0:  # If score is out of range, normalize it
-                                score = score / 100.0 if score <= 100 else 0.5
-                            logger.info(f"Extracted faithfulness score: {score}")
-                            return max(0.0, min(1.0, score))
+                            if 0.0 <= score <= 1.0:
+                                logger.info(f"Extracted faithfulness score: {score}")
+                                return score
+                        logger.warning("Could not extract a labeled faithfulness score; using conservative default 0.3")
+                        return 0.3
                             
             except Exception as eval_error:
                 logger.warning(f"Nova Lite faithfulness evaluation failed: {str(eval_error)}")

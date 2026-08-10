@@ -8,10 +8,10 @@ type SampleQuestionsProps = {
 };
 
 const questions = [
-    "How does flooding from the Don River affect Thorncliffe Park?",
-    "What cooling resources exist near Thorncliffe Park during heat waves?",
-    "How does air quality near the DVP impact Thorncliffe residents?",
-    "What tree planting programs are available in Thorncliffe Park?",
+    "What are the local impacts of climate change in Toronto?",
+    "Why is summer so hot now in Toronto?",
+    "What can I do about flooding in Toronto?",
+    "How to reduce my carbon footprint?",
 ];
 
 export function SampleQuestions({ onQuestionClick }: SampleQuestionsProps) {

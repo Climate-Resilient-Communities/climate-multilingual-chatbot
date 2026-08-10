@@ -1,0 +1,53 @@
+# RAG Document Ingestion Pipeline
+# Keeps the Pinecone index in sync with the documents in data/rag_docs/.
+# Runs automatically when docs change on main, or on demand from the Actions tab.
+
+name: RAG Docs Ingest
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "data/rag_docs/**"
+      - "scripts/rag_ingest.py"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (embed and log, but skip Pinecone writes)"
+        type: boolean
+        default: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    environment: Production
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install numpy "pinecone>=5" huggingface_hub python-dotenv
+
+      - name: Validate documents (dry run)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        env:
+          PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+          PINECONE_INDEX_NAME: ${{ vars.PINECONE_INDEX_NAME }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: python -m scripts.rag_ingest --dry-run
+
+      - name: Ingest documents into Pinecone
+        if: ${{ github.event_name != 'workflow_dispatch' || !inputs.dry_run }}
+        env:
+          PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+          PINECONE_INDEX_NAME: ${{ vars.PINECONE_INDEX_NAME }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: python -m scripts.rag_ingest
