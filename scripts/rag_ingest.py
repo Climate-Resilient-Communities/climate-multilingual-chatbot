@@ -9,10 +9,15 @@ place and unchanged documents are simply overwritten with identical data.
 
 Usage:
     python -m scripts.rag_ingest                       # ingest data/rag_docs/
-    python -m scripts.rag_ingest --dir path/to/docs    # ingest another folder
-    python -m scripts.rag_ingest --file doc.json       # ingest a single file
     python -m scripts.rag_ingest --dry-run             # embed + print, no upsert
+    python -m scripts.rag_ingest --file doc.json       # ingest a single repo file
     python -m scripts.rag_ingest --delete-source ID    # remove a doc's vectors
+
+Large/local documents (PDFs etc.) that must NOT go through git:
+    python -m scripts.rag_ingest --dir ~/climate-pdfs --collection pdfs
+    # requires: pip install pypdf, and PINECONE_API_KEY/HF_TOKEN in your env.
+    # Each named collection gets its own vector-ID namespace, so the repo
+    # corpus sync (GitHub Action) can never delete locally ingested vectors.
 
 Document format (JSON list / JSONL, one object per document):
     {
@@ -113,12 +118,82 @@ def _doc_from_text_file(path: Path) -> Dict[str, Any]:
     return doc
 
 
+def _doc_from_pdf_file(path: Path) -> Dict[str, Any]:
+    """Extract a document from a PDF (born-digital text PDFs; OCR not included).
+
+    Large PDFs should never be committed to git — run the pipeline locally
+    against the folder that holds them. Optional sidecar metadata can be
+    provided in "<name>.pdf.meta.json" next to the file:
+        {"title": ..., "url": ..., "doc_keywords": [...], "segment_keywords": [...],
+         "section_title": ..., "lang": ..., "source_id": ...}
+    """
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        raise SystemExit(
+            "PDF support requires the 'pypdf' package: pip install pypdf"
+        )
+
+    reader = PdfReader(str(path))
+    pages = []
+    for page in reader.pages:
+        try:
+            text = page.extract_text() or ""
+        except Exception:
+            text = ""
+        text = text.strip()
+        if text:
+            pages.append(text)
+    body = re.sub(r"\n{3,}", "\n\n", "\n\n".join(pages)).strip()
+
+    if len(body) < MIN_CHUNK_CHARS:
+        raise SystemExit(
+            f"PDF '{path}' has no extractable text ({len(body)} chars). "
+            "Scanned/image-only PDFs need OCR first (e.g. ocrmypdf) — "
+            "this pipeline only reads born-digital text PDFs."
+        )
+
+    # Title: sidecar > PDF metadata > prettified filename
+    pdf_title = None
+    try:
+        meta_title = (reader.metadata or {}).get("/Title")
+        if meta_title and len(str(meta_title).strip()) >= 8:
+            pdf_title = str(meta_title).strip()
+    except Exception:
+        pass
+
+    doc: Dict[str, Any] = {
+        "title": pdf_title or path.stem.replace("-", " ").replace("_", " ").strip().title(),
+        "text": body,
+        "url": "",
+        "section_title": "",
+        "lang": "en",
+        "source_id": path.stem,
+    }
+
+    sidecar = path.with_name(path.name + ".meta.json")
+    if sidecar.exists():
+        try:
+            overrides = json.loads(sidecar.read_text(encoding="utf-8"))
+            for key in ("title", "url", "doc_keywords", "segment_keywords",
+                        "section_title", "lang", "source_id"):
+                if overrides.get(key):
+                    doc[key] = overrides[key]
+        except Exception as e:
+            raise SystemExit(f"Invalid sidecar {sidecar}: {e}")
+
+    logger.info(f"  PDF '{path.name}': {len(reader.pages)} page(s), {len(body)} chars extracted")
+    return doc
+
+
 def load_documents(paths: Iterable[Path]) -> List[tuple[str, Dict[str, Any]]]:
     """Return (origin, raw_doc) pairs from every supported file."""
     docs: List[tuple[str, Dict[str, Any]]] = []
     for path in paths:
         try:
             if path.suffix.lower() == ".json":
+                if path.name.lower().endswith(".pdf.meta.json"):
+                    continue  # sidecar metadata is read alongside its PDF
                 data = json.loads(path.read_text(encoding="utf-8"))
                 items = data if isinstance(data, list) else [data]
                 docs.extend((str(path), item) for item in items)
@@ -129,10 +204,14 @@ def load_documents(paths: Iterable[Path]) -> List[tuple[str, Dict[str, Any]]]:
                         docs.append((str(path), json.loads(line)))
             elif path.suffix.lower() in (".md", ".txt"):
                 docs.append((str(path), _doc_from_text_file(path)))
+            elif path.suffix.lower() == ".pdf":
+                docs.append((str(path), _doc_from_pdf_file(path)))
             else:
                 logger.debug(f"Skipping unsupported file: {path}")
                 continue
             logger.info(f"Loaded {path}")
+        except SystemExit:
+            raise
         except Exception as e:
             raise SystemExit(f"Failed to load {path}: {e}")
     return docs
@@ -204,11 +283,43 @@ def chunk_text(text: str, target: int = CHUNK_TARGET_CHARS, overlap: int = CHUNK
 # Vector building
 # ---------------------------------------------------------------------------
 
-def make_vector_id(source_id: str, chunk_index: int) -> str:
-    return f"rag-{hashlib.sha256(source_id.encode('utf-8')).hexdigest()[:16]}-{chunk_index}"
+def _source_hash(source_id: str) -> str:
+    return hashlib.sha256(source_id.encode("utf-8")).hexdigest()[:16]
 
 
-def build_vectors(docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def slugify_collection(name: str) -> str:
+    """Collection slug: lowercase alphanumerics only (no hyphens — they would
+    break ID parsing), max 24 chars."""
+    slug = re.sub(r"[^a-z0-9]", "", (name or "").lower())[:24]
+    if not slug:
+        raise SystemExit(f"Invalid collection name {name!r}: must contain letters/digits.")
+    return slug
+
+
+def make_vector_id(source_id: str, chunk_index: int, collection: Optional[str] = None) -> str:
+    """Deterministic vector ID.
+
+    Repo corpus (collection=None):  rag-<sha16>-<chunk>
+    Named collection:               rag-<slug>-<sha16>-<chunk>
+
+    The distinct shapes keep each collection's removed-source sweep from ever
+    touching another collection's vectors.
+    """
+    if collection:
+        return f"rag-{slugify_collection(collection)}-{_source_hash(source_id)}-{chunk_index}"
+    return f"rag-{_source_hash(source_id)}-{chunk_index}"
+
+
+def _source_prefix(source_id: str, collection: Optional[str] = None) -> str:
+    if collection:
+        return f"rag-{slugify_collection(collection)}-{_source_hash(source_id)}-"
+    return f"rag-{_source_hash(source_id)}-"
+
+
+_HASH16_RE = re.compile(r"^[0-9a-f]{16}$")
+
+
+def build_vectors(docs: List[Dict[str, Any]], collection: Optional[str] = None) -> List[Dict[str, Any]]:
     records: List[Dict[str, Any]] = []
     for doc in docs:
         chunks = chunk_text(doc["text"])
@@ -221,7 +332,7 @@ def build_vectors(docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             # Retrieval dedups by exact title and keeps only the first hit,
             # so multi-chunk documents need unique per-chunk titles.
             title = f"{doc['title']} — part {i + 1}" if multi else doc["title"]
-            vec_id = doc["vector_id"] if (doc["vector_id"] and not multi) else make_vector_id(doc["source_id"], i)
+            vec_id = doc["vector_id"] if (doc["vector_id"] and not multi) else make_vector_id(doc["source_id"], i, collection)
             records.append({
                 "id": vec_id,
                 "chunk": chunk,
@@ -285,7 +396,8 @@ def upsert_records(index, records: List[Dict[str, Any]]) -> None:
         logger.info(f"  Upserted {min(i + UPSERT_BATCH, len(payload))}/{len(payload)}")
 
 
-def prune_stale_chunks(index, docs: List[Dict[str, Any]], records: List[Dict[str, Any]]) -> None:
+def prune_stale_chunks(index, docs: List[Dict[str, Any]], records: List[Dict[str, Any]],
+                       collection: Optional[str] = None) -> None:
     """Delete leftover chunks from docs that shrank since the last ingest."""
     stale_legacy = [d["stale_legacy_id"] for d in docs if d.get("stale_legacy_id")]
     if stale_legacy:
@@ -301,7 +413,7 @@ def prune_stale_chunks(index, docs: List[Dict[str, Any]], records: List[Dict[str
         counts[sid] = max(counts.get(sid, 0), r["metadata"]["chunk_index"] + 1)
     for doc in docs:
         sid = doc["source_id"]
-        prefix = f"rag-{hashlib.sha256(sid.encode('utf-8')).hexdigest()[:16]}-"
+        prefix = _source_prefix(sid, collection)
         try:
             stale = [
                 vid for page in index.list(prefix=prefix) for vid in page
@@ -314,24 +426,37 @@ def prune_stale_chunks(index, docs: List[Dict[str, Any]], records: List[Dict[str
             logger.warning(f"  Prune skipped for '{sid}' (list API unavailable?): {e}")
 
 
-def prune_removed_sources(index, docs: List[Dict[str, Any]]) -> None:
+def prune_removed_sources(index, docs: List[Dict[str, Any]], collection: Optional[str] = None) -> None:
     """Delete vectors whose source document was removed from the corpus.
 
-    The deterministic ID scheme (rag-<sha16(source_id)>-<chunk>) doubles as the
-    manifest: any rag-* vector whose source-hash segment is absent from the
-    current corpus belongs to a deleted document. Only run this for a FULL
-    corpus ingest — a single-file run must never delete other files' vectors.
+    The deterministic ID scheme doubles as the manifest — but the sweep is
+    strictly scoped to ITS OWN collection's ID shape:
+
+      repo corpus:       rag-<sha16>-<chunk>          (exactly 3 segments)
+      named collection:  rag-<slug>-<sha16>-<chunk>   (exactly 4 segments)
+
+    A repo sweep therefore never touches collection vectors (their second
+    segment is a slug, not a 16-hex hash, and they have 4 segments), and a
+    collection sweep only lists its own rag-<slug>- prefix. Only run this for
+    a FULL corpus ingest — a single-file run must never delete other files'
+    vectors.
     """
-    current_hashes = {
-        hashlib.sha256(d["source_id"].encode("utf-8")).hexdigest()[:16] for d in docs
-    }
+    current_hashes = {_source_hash(d["source_id"]) for d in docs}
+    slug = slugify_collection(collection) if collection else None
+    prefix = f"rag-{slug}-" if slug else "rag-"
     try:
         stale_ids = []
-        for page in index.list(prefix="rag-"):
+        for page in index.list(prefix=prefix):
             for vid in page:
                 parts = str(vid).split("-")
-                if len(parts) >= 3 and parts[0] == "rag" and parts[1] not in current_hashes:
-                    stale_ids.append(str(vid))
+                if slug:
+                    if (len(parts) == 4 and parts[0] == "rag" and parts[1] == slug
+                            and _HASH16_RE.match(parts[2]) and parts[2] not in current_hashes):
+                        stale_ids.append(str(vid))
+                else:
+                    if (len(parts) == 3 and parts[0] == "rag"
+                            and _HASH16_RE.match(parts[1]) and parts[1] not in current_hashes):
+                        stale_ids.append(str(vid))
         if stale_ids:
             for i in range(0, len(stale_ids), 1000):
                 index.delete(ids=stale_ids[i:i + 1000])
@@ -349,8 +474,8 @@ def prune_removed_sources(index, docs: List[Dict[str, Any]]) -> None:
         )
 
 
-def delete_source(index, source_id: str) -> None:
-    prefix = f"rag-{hashlib.sha256(source_id.encode('utf-8')).hexdigest()[:16]}-"
+def delete_source(index, source_id: str, collection: Optional[str] = None) -> None:
+    prefix = _source_prefix(source_id, collection)
     ids = [vid for page in index.list(prefix=prefix) for vid in page]
     if ids:
         index.delete(ids=ids)
@@ -363,18 +488,58 @@ def delete_source(index, source_id: str) -> None:
 # Main
 # ---------------------------------------------------------------------------
 
+def resolve_collection(collection: Optional[str], input_paths: List[Path]) -> Optional[str]:
+    """Validate the collection choice against the input locations.
+
+    The repo corpus (data/rag_docs, collection=None) and named collections
+    (local PDF folders etc.) live in separate ID namespaces so their
+    removed-source sweeps can never delete each other's vectors. To keep that
+    guarantee, ingesting anything OUTSIDE the repo docs dir requires an
+    explicit --collection, and the repo dir must not be re-labeled.
+    """
+    default_root = DEFAULT_DOCS_DIR.resolve()
+
+    def _inside_repo_docs(p: Path) -> bool:
+        try:
+            p.resolve().relative_to(default_root)
+            return True
+        except ValueError:
+            return False
+
+    outside = [p for p in input_paths if not _inside_repo_docs(p)]
+    if collection:
+        if not outside:
+            raise SystemExit(
+                "--collection must not be used with the repo docs dir "
+                f"({DEFAULT_DOCS_DIR}) — that corpus is the default namespace."
+            )
+        return slugify_collection(collection)
+    if outside:
+        raise SystemExit(
+            "Ingesting documents outside data/rag_docs/ requires --collection <name> "
+            "(e.g. --collection pdfs). Collections get their own vector-ID namespace "
+            "so the repo corpus sync can never delete them."
+        )
+    return None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Ingest/update RAG documents in Pinecone")
     parser.add_argument("--dir", type=Path, default=DEFAULT_DOCS_DIR,
                         help=f"Directory of docs to ingest (default: {DEFAULT_DOCS_DIR})")
     parser.add_argument("--file", type=Path, action="append", default=None,
                         help="Ingest specific file(s) instead of --dir")
+    parser.add_argument("--collection", default=None,
+                        help="Namespace for docs outside data/rag_docs (e.g. 'pdfs'). "
+                             "Required for external dirs/files; isolates their vectors "
+                             "from the repo corpus sync.")
     parser.add_argument("--dry-run", action="store_true",
                         help="Load, chunk, and embed but skip all Pinecone writes")
     parser.add_argument("--no-prune", action="store_true",
                         help="Skip deleting stale chunks of shrunk documents")
     parser.add_argument("--delete-source", metavar="SOURCE_ID",
-                        help="Delete all vectors for one source_id, then exit")
+                        help="Delete all vectors for one source_id, then exit "
+                             "(pair with --collection for collection docs)")
     args = parser.parse_args()
 
     load_environment()
@@ -383,7 +548,8 @@ def main() -> None:
     logger.info(f"Target index: {index_name}")
 
     if args.delete_source:
-        delete_source(get_index(index_name), args.delete_source)
+        slug = slugify_collection(args.collection) if args.collection else None
+        delete_source(get_index(index_name), args.delete_source, slug)
         return
 
     if args.file:
@@ -393,11 +559,15 @@ def main() -> None:
             raise SystemExit(f"Docs directory not found: {args.dir}")
         paths = sorted(
             p for p in args.dir.rglob("*")
-            if p.is_file() and p.suffix.lower() in (".json", ".jsonl", ".md", ".txt")
+            if p.is_file() and p.suffix.lower() in (".json", ".jsonl", ".md", ".txt", ".pdf")
             and p.name.lower() != "readme.md"
         )
     if not paths:
         raise SystemExit("No documents found to ingest.")
+
+    collection = resolve_collection(args.collection, paths)
+    if collection:
+        logger.info(f"Collection namespace: {collection}")
 
     raw_docs = load_documents(paths)
     docs = [validate_document(d, origin=origin) for origin, d in raw_docs]
@@ -415,7 +585,7 @@ def main() -> None:
 
     logger.info("Chunking...")
     from src.models.cohere_flow import HFEmbedder
-    records = build_vectors(docs)
+    records = build_vectors(docs, collection)
     logger.info(f"Built {len(records)} chunk(s) from {len(docs)} document(s)")
 
     logger.info("Embedding with BGE-M3 (HuggingFace Inference API)...")
@@ -437,10 +607,11 @@ def main() -> None:
     upsert_records(index, records)
 
     if not args.no_prune:
-        prune_stale_chunks(index, docs, records)
-        # Removed-source sweep only makes sense when the full corpus was loaded
+        prune_stale_chunks(index, docs, records, collection)
+        # Removed-source sweep only makes sense when a full corpus was loaded,
+        # and it stays strictly inside this run's collection namespace
         if not args.file:
-            prune_removed_sources(index, docs)
+            prune_removed_sources(index, docs, collection)
 
     try:
         stats = index.describe_index_stats()

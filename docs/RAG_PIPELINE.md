@@ -43,14 +43,47 @@ python -m scripts.rag_ingest --file data/rag_docs/thorncliffe-park.json
 python -m scripts.rag_ingest --delete-source thorncliffe-park-00
 ```
 
+## Large documents (PDFs) — local ingestion
+
+Big source materials (e.g. 100MB PDF reports) must **never** be committed to
+git — GitHub rejects files over 100MB and the repo would bloat permanently
+(`data/rag_docs/**/*.pdf` is gitignored as a guard). Ingest them locally
+instead, from any machine that has the two keys in its environment:
+
+```bash
+pip install pypdf
+export PINECONE_API_KEY=...   # same values as the Azure App Service settings
+export HF_TOKEN=...
+
+python -m scripts.rag_ingest --dir ~/climate-pdfs --collection pdfs --dry-run
+python -m scripts.rag_ingest --dir ~/climate-pdfs --collection pdfs
+```
+
+- Text is extracted per page (born-digital PDFs; scanned/image PDFs need OCR
+  first, e.g. `ocrmypdf`), chunked, embedded, and upserted like any other doc.
+- Title comes from a sidecar file > PDF metadata > the filename. Add a
+  `<name>.pdf.meta.json` next to a PDF to set `title`, `url`, keywords, etc.
+- **Collections are isolated namespaces**: vectors from `--collection pdfs`
+  get IDs shaped `rag-pdfs-<hash>-<chunk>`, and each collection's
+  removed-source sweep only ever touches its own namespace — so the GitHub
+  Action syncing `data/rag_docs/` can never delete locally ingested PDFs,
+  and re-running the local ingest updates them in place.
+- Ingesting anything outside `data/rag_docs/` *requires* `--collection`;
+  the tool refuses to run without it.
+
 ## Automation
 
 `.github/workflows/rag-ingest.yml` runs the ingestion automatically on every
 push to `main` that touches `data/rag_docs/**` or the ingest script, and can
 be run manually from the Actions tab (with an optional dry-run flag).
 
-Repository secrets required: `PINECONE_API_KEY`, `HF_TOKEN`.
-Optional repository variable: `PINECONE_INDEX_NAME`.
+Where the keys live matters: the **runtime app** reads them from Azure App
+Service settings, but GitHub Actions runners cannot see Azure configuration.
+CI ingestion therefore needs the two keys copied into GitHub as repository
+secrets (`PINECONE_API_KEY`, `HF_TOKEN`; optional repository variable
+`PINECONE_INDEX_NAME`). Until they are added the workflow skips with a
+warning — alternatively, run the ingest locally (above) or from the Azure
+App Service SSH console, where the environment already has the keys.
 
 ## Design decisions (retriever compatibility)
 

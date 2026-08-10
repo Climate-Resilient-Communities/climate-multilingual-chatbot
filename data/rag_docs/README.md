@@ -53,4 +53,16 @@ Document text...
 - Long documents are chunked automatically (~2400 chars per chunk, paragraph
   boundaries, with overlap); chunk titles get a `— part N` suffix.
 
-See `docs/RAG_PIPELINE.md` for the full pipeline documentation.
+## Large files (PDFs)
+
+Do **not** put big PDFs in this directory — GitHub rejects files over 100MB
+and the repo would bloat permanently (`*.pdf` here is gitignored as a guard).
+Ingest them locally instead, into an isolated collection namespace:
+
+```bash
+pip install pypdf
+python -m scripts.rag_ingest --dir ~/climate-pdfs --collection pdfs
+```
+
+See `docs/RAG_PIPELINE.md` for the full pipeline documentation, including
+local PDF ingestion and where the API keys need to live.
