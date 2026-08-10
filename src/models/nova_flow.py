@@ -301,6 +301,13 @@ Answer with ONLY the classification result, no explanations or additional text."
                 "Example do not use this example for non Chinise: ‘全球气候变化’ when referring to the global phenomenon, ‘气候变化缓解’ for mitigation, and ‘极端气候事件’ for extreme events."
             )
             extra = zh_rules if tgt.lower() in {"zh", "zh-cn", "zh-tw", "chinese"} else ""
+            proper_noun_rules = (
+                "PROPER NOUNS: Keep every name of a person, place, organization, or program "
+                "faithful to the source — transliterate it accurately into the target script, "
+                "or keep it in Latin script if unsure. NEVER substitute a different place or "
+                "name (for example, 'Hamilton' must never become 'Hamburg'). Keep URLs, "
+                "phone numbers, and quantities exactly as written. "
+            )
 
             payload = {
                 "messages": [
@@ -309,7 +316,7 @@ Answer with ONLY the classification result, no explanations or additional text."
                         "content": [
                             {"text": (
                                 "[SYSTEM INSTRUCTION]: You are a professional climate-science translator.\n"
-                                f"{terminology_rules}{extra}\n"
+                                f"{terminology_rules}{proper_noun_rules}{extra}\n"
                                 f"Translate the following text from {src} to {tgt}. Style: Formal. Tone: Informative.\n"
                                 "Provide ONLY the translation, with no preface or notes.\n\n"
                                 "Text:\n" + text + "\n\nTranslation:"

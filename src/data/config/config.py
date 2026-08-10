@@ -117,6 +117,8 @@ TAVILY_TRUSTED_DOMAINS = [
     d.strip() for d in os.getenv(
         "TAVILY_TRUSTED_DOMAINS",
         "toronto.ca,ontario.ca,canada.ca,gc.ca,trca.ca,climatedata.ca,climateatlas.ca,"
+        "hamilton.ca,ottawa.ca,mississauga.ca,brampton.ca,markham.ca,vaughan.ca,"
+        "york.ca,durham.ca,peelregion.ca,halton.ca,conservationhamilton.ca,"
         "ipcc.ch,unfccc.int,un.org,wmo.int,nasa.gov,noaa.gov,epa.gov,"
         "cbc.ca,theweathernetwork.com,weather.gc.ca"
     ).split(",") if d.strip()
