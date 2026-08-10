@@ -314,6 +314,41 @@ def prune_stale_chunks(index, docs: List[Dict[str, Any]], records: List[Dict[str
             logger.warning(f"  Prune skipped for '{sid}' (list API unavailable?): {e}")
 
 
+def prune_removed_sources(index, docs: List[Dict[str, Any]]) -> None:
+    """Delete vectors whose source document was removed from the corpus.
+
+    The deterministic ID scheme (rag-<sha16(source_id)>-<chunk>) doubles as the
+    manifest: any rag-* vector whose source-hash segment is absent from the
+    current corpus belongs to a deleted document. Only run this for a FULL
+    corpus ingest — a single-file run must never delete other files' vectors.
+    """
+    current_hashes = {
+        hashlib.sha256(d["source_id"].encode("utf-8")).hexdigest()[:16] for d in docs
+    }
+    try:
+        stale_ids = []
+        for page in index.list(prefix="rag-"):
+            for vid in page:
+                parts = str(vid).split("-")
+                if len(parts) >= 3 and parts[0] == "rag" and parts[1] not in current_hashes:
+                    stale_ids.append(str(vid))
+        if stale_ids:
+            for i in range(0, len(stale_ids), 1000):
+                index.delete(ids=stale_ids[i:i + 1000])
+            logger.info(f"  Pruned {len(stale_ids)} vector(s) from sources removed from the corpus")
+    except Exception as e:
+        logger.warning(f"  Removed-source prune skipped (list API unavailable?): {e}")
+
+    # Docs pinned to legacy vector IDs live outside the rag- namespace and
+    # cannot be swept automatically if their entry is deleted later.
+    legacy = [d["source_id"] for d in docs if d.get("vector_id")]
+    if legacy:
+        logger.info(
+            f"  Note: {len(legacy)} document(s) use legacy vector IDs; if one is removed "
+            f"from the corpus later, delete its vector with --delete-source <source_id>."
+        )
+
+
 def delete_source(index, source_id: str) -> None:
     prefix = f"rag-{hashlib.sha256(source_id.encode('utf-8')).hexdigest()[:16]}-"
     ids = [vid for page in index.list(prefix=prefix) for vid in page]
@@ -403,6 +438,9 @@ def main() -> None:
 
     if not args.no_prune:
         prune_stale_chunks(index, docs, records)
+        # Removed-source sweep only makes sense when the full corpus was loaded
+        if not args.file:
+            prune_removed_sources(index, docs)
 
     try:
         stats = index.describe_index_stats()

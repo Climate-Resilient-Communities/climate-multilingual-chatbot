@@ -146,6 +146,35 @@ class TestEmbedding:
             assert len(r["values"]) == 1024
 
 
+class TestRemovedSourcePrune:
+    class FakeIndex:
+        def __init__(self, ids):
+            self._ids = ids
+            self.deleted = []
+
+        def list(self, prefix=""):
+            yield [i for i in self._ids if i.startswith(prefix)]
+
+        def delete(self, ids):
+            self.deleted.extend(ids)
+
+    def test_removed_source_vectors_deleted(self):
+        from scripts.rag_ingest import prune_removed_sources, make_vector_id
+        import hashlib
+
+        kept = validate_document(_doc(source_id="kept-doc"), origin="test")
+        kept_id = make_vector_id("kept-doc", 0)
+        removed_id = make_vector_id("removed-doc", 0)
+        legacy_id = "tp-legacy123"  # outside the rag- namespace: untouched
+
+        index = self.FakeIndex([kept_id, removed_id, legacy_id])
+        prune_removed_sources(index, [kept])
+
+        assert removed_id in index.deleted
+        assert kept_id not in index.deleted
+        assert legacy_id not in index.deleted
+
+
 class TestLoading:
     def test_load_json_file(self, tmp_path):
         path = tmp_path / "docs.json"
