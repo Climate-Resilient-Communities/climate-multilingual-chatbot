@@ -9,6 +9,14 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Serialize deploys: Azure OneDeploy returns 409 Conflict when two
+# deployments overlap, which happens whenever merges land back-to-back.
+# Queue new runs behind the active one instead of racing it; cancel
+# superseded queued runs so only the newest commit deploys.
+concurrency:
+  group: azure-deploy
+  cancel-in-progress: false
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -99,13 +107,33 @@ jobs:
           echo "Checking Azure application logs..."
           az webapp log tail --name ClimateReslianceAPP --resource-group ${{ secrets.AZURE_RESOURCE_GROUP || 'Embeddings' }} --timeout 30 || true
           
-      - name: Health check
+      - name: Health check (live site verification)
         run: |
-          sleep 60  # Wait longer for startup
-          echo "Testing health endpoint..."
-          curl -v https://climatereslianceapp.azurewebsites.net/health || {
-            echo "Health check failed, checking logs again..."
-            az webapp log tail --name ClimateReslianceAPP --resource-group ${{ secrets.AZURE_RESOURCE_GROUP || 'Embeddings' }} --timeout 10 || true
-            exit 1
+          # Poll until the app answers — cold starts after deploy can take a
+          # few minutes (startup command pip-installs requirements).
+          echo "Waiting for the app to come up..."
+          for i in $(seq 1 30); do
+            if curl -sf -m 15 https://climatereslianceapp.azurewebsites.net/health > /tmp/health.json; then
+              echo "✅ /health answered after ~$((i*20))s: $(cat /tmp/health.json)"
+              break
+            fi
+            if [ "$i" = "30" ]; then
+              echo "❌ /health never answered (10 min)";
+              az webapp log tail --name ClimateReslianceAPP --resource-group ${{ secrets.AZURE_RESOURCE_GROUP || 'Embeddings' }} --timeout 10 || true
+              exit 1
+            fi
+            sleep 20
+          done
+
+          echo "Verifying the frontend is served..."
+          curl -sf -m 20 https://climatereslianceapp.azurewebsites.net/ | grep -qi "climate" || {
+            echo "❌ Homepage did not serve the frontend"; exit 1;
           }
-          echo "✅ Deployment health check passed"
+          echo "✅ Frontend serving"
+
+          echo "Verifying the custom domain..."
+          curl -sf -m 20 https://climatechat-to.ca/health > /dev/null \
+            && echo "✅ climatechat-to.ca healthy" \
+            || echo "⚠️ climatechat-to.ca not reachable from runner (DNS/binding) — app itself is healthy"
+
+          echo "✅ Deployment verified live"
