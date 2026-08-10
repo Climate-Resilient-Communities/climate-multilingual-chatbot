@@ -31,13 +31,27 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
+      - name: Check secrets are configured
+        id: secrets_check
+        env:
+          PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$PINECONE_API_KEY" ] || [ -z "$HF_TOKEN" ]; then
+            echo "::warning title=RAG ingest skipped::Repository secrets PINECONE_API_KEY and/or HF_TOKEN are not configured. Add them under Settings → Secrets and variables → Actions, then re-run this workflow to sync data/rag_docs/ into Pinecone."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install dependencies
+        if: ${{ steps.secrets_check.outputs.configured == 'true' }}
         run: |
           pip install --upgrade pip
-          pip install numpy "pinecone>=5" huggingface_hub python-dotenv
+          pip install numpy "pinecone>=5" huggingface_hub python-dotenv cohere
 
       - name: Validate documents (dry run)
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        if: ${{ steps.secrets_check.outputs.configured == 'true' && github.event_name == 'workflow_dispatch' && inputs.dry_run }}
         env:
           PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
           PINECONE_INDEX_NAME: ${{ vars.PINECONE_INDEX_NAME }}
@@ -45,7 +59,7 @@ jobs:
         run: python -m scripts.rag_ingest --dry-run
 
       - name: Ingest documents into Pinecone
-        if: ${{ github.event_name != 'workflow_dispatch' || !inputs.dry_run }}
+        if: ${{ steps.secrets_check.outputs.configured == 'true' && (github.event_name != 'workflow_dispatch' || !inputs.dry_run) }}
         env:
           PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
           PINECONE_INDEX_NAME: ${{ vars.PINECONE_INDEX_NAME }}

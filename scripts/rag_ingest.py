@@ -344,7 +344,7 @@ def main() -> None:
 
     load_environment()
 
-    index_name = os.getenv("PINECONE_INDEX_NAME", DEFAULT_INDEX)
+    index_name = os.getenv("PINECONE_INDEX_NAME") or DEFAULT_INDEX
     logger.info(f"Target index: {index_name}")
 
     if args.delete_source:
