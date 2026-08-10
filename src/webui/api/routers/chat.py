@@ -225,7 +225,9 @@ async def process_chat_query(
                     citations=citations,
                     faithfulness_score=result.get('faithfulness_score', 0.0),
                     processing_time=processing_time,
-                    language_used=detected_language,
+                    # Effective response language — may differ from the selection
+                    # when the query explicitly requested another language
+                    language_used=result.get('language_code') or detected_language,
                     model_used=model_used,
                     request_id=request_id,
                     retrieval_source=result.get('retrieval_source')

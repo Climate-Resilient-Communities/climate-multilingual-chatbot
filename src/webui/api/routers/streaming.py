@@ -135,7 +135,8 @@ async def generate_chat_stream(
                 # Send completion. 'response' mirrors the non-streaming ChatResponse
                 # contract; numeric metadata is namespaced under 'meta' so display
                 # code never mixes it into the answer text.
-                yield f"data: {json.dumps({'type': 'complete', 'final_response': response_text, 'response': response_text, 'citations': citations, 'retrieval_source': result.get('retrieval_source'), 'meta': {'faithfulness_score': faithfulness_score, 'model_used': model_used, 'language_used': detected_language}, 'request_id': request_id})}\n\n"
+                effective_language = result.get('language_code') or detected_language
+                yield f"data: {json.dumps({'type': 'complete', 'final_response': response_text, 'response': response_text, 'citations': citations, 'retrieval_source': result.get('retrieval_source'), 'meta': {'faithfulness_score': faithfulness_score, 'model_used': model_used, 'language_used': effective_language}, 'request_id': request_id})}\n\n"
 
             else:
                 # Pipeline error — the pipeline puts the message in 'response'

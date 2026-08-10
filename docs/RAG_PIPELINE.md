@@ -12,7 +12,11 @@ scripts/rag_ingest.py
   3. embed                (BGE-M3 via HuggingFace Inference API, 1024-dim,
                            L2-normalized — same embedder the runtime uses)
   4. upsert               (deterministic IDs → edits update in place)
-  5. prune                (stale chunks of shrunk docs are deleted)
+  5. prune                (stale chunks of shrunk docs are deleted; on full-corpus
+                           runs, vectors of documents removed from data/rag_docs
+                           are deleted too — the rag-<hash>-<chunk> ID scheme is
+                           the manifest. Docs pinned to legacy vector IDs need
+                           --delete-source if removed.)
         │
         ▼
 Pinecone index  ←──  src/models/retrieval.py (runtime hybrid search)
