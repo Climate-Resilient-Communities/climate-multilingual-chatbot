@@ -1,6 +1,6 @@
 # Caching (Redis) Guide
 
-This guide explains how caching works to speed up responses in the Climate Multilingual Chatbot.
+This guide explains how caching works to speed up responses in the Dunia — Multilingual Climate Chatbot.
 
 ---
 

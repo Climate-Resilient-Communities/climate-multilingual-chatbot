@@ -64,7 +64,7 @@ def main():
         if consent_btn.count():
             consent_btn.first.click()
             page.wait_for_timeout(800)
-        check("app loads past consent", page.get_by_text("Welcome to Multilingual Climate chatbot!").count() > 0,
+        check("app loads past consent", page.get_by_text("Welcome to Dunia!").count() > 0,
               "welcome header not found")
         page.screenshot(path=f"{SHOTS}/02-welcome.png")
 
@@ -118,7 +118,7 @@ def main():
         page.wait_for_timeout(1500)
         body_text = page.inner_text("body")
         check("greeting gets canned reply",
-              "multilingual climate chatbot" in body_text.lower() or "climate questions" in body_text.lower(),
+              "dunia" in body_text.lower() or "climate questions" in body_text.lower(),
               f"tail: {body_text[-300:]!r}")
         page.screenshot(path=f"{SHOTS}/05-greeting.png", full_page=True)
 

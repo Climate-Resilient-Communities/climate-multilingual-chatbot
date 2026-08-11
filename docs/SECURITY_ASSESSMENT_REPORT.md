@@ -1,7 +1,7 @@
-# Climate Multilingual Chatbot - Security Assessment Report
+# Dunia — Multilingual Climate Chatbot - Security Assessment Report
 
 **Date:** August 7, 2025  
-**System:** Climate Multilingual Chatbot v2.0  
+**System:** Dunia — Multilingual Climate Chatbot v2.0  
 **Assessment Type:** Comprehensive Prompt Injection Vulnerability Testing  
 
 ---
@@ -243,7 +243,7 @@
 
 ## Conclusion
 
-The Climate Multilingual Chatbot has successfully passed comprehensive security testing with an exceptional 98.8% security score. The system demonstrates:
+The Dunia — Multilingual Climate Chatbot has successfully passed comprehensive security testing with an exceptional 98.8% security score. The system demonstrates:
 
 - **Robust Security:** Zero exploitable vulnerabilities
 - **Professional Quality:** Industry-exceeding standards

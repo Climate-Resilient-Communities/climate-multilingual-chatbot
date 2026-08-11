@@ -1,5 +1,5 @@
 /**
- * URL Validation Service for Climate Multilingual Chatbot
+ * URL Validation Service for Dunia (Sprout multilingual climate chatbot)
  * Handles URL liveness checks and PDF fallback functionality
  */
 

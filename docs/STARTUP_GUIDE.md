@@ -1,4 +1,4 @@
-# Climate Multilingual Chatbot - Startup Guide
+# Dunia — Multilingual Climate Chatbot - Startup Guide
 
 This guide provides step-by-step instructions for starting both the backend API and frontend development servers.
 

@@ -1,6 +1,6 @@
-# Azure Deployment Guide for Climate Multilingual Chatbot
+# Azure Deployment Guide for Dunia — Multilingual Climate Chatbot
 
-This guide provides instructions for deploying the Climate Multilingual Chatbot to Azure App Service.
+This guide provides instructions for deploying the Dunia — Multilingual Climate Chatbot to Azure App Service.
 
 ## Prerequisites
 

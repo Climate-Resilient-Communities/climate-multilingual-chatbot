@@ -1,5 +1,5 @@
 """
-FastAPI backend for Climate Multilingual Chatbot
+FastAPI backend for Dunia, the Sprout multilingual climate chatbot
 Integrates with existing pipeline components from src/models/
 """
 
@@ -82,8 +82,8 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app with lifespan management
 app = FastAPI(
-    title="Climate Multilingual Chatbot API",
-    description="Backend API for climate change information chatbot with multilingual support",
+    title="Dunia Climate Chatbot API",
+    description="Backend API for Dunia, Sprout's multilingual climate change chatbot",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -343,7 +343,7 @@ async def serve_react_app(full_path: str):
     
     # Fallback API info if frontend not built
     return {
-        "message": "Climate Multilingual Chatbot API",
+        "message": "Dunia Climate Chatbot API (by Sprout)",
         "version": "1.0.0",
         "docs": "/docs",
         "health": "/health",

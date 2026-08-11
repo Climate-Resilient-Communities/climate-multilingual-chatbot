@@ -1,6 +1,12 @@
-# Climate Multilingual Chatbot
+# Dunia — Multilingual Climate Chatbot
 
-A comprehensive multilingual climate change assistant powered by Amazon Bedrock Nova and Cohere Command-A models. Supports 20+ languages with intelligent routing, real-time responses, and comprehensive citation system.
+**Dunia** is Sprout™'s comprehensive multilingual climate change assistant, powered by Amazon Bedrock Nova and Cohere Command-A models. It supports 20+ languages with intelligent routing, real-time responses, and a comprehensive citation system.
+
+## 🌱 What's in a name?
+
+In Swahili, *dunia* or *dunya* (pronounced doo-nyah) means "world" or "earth" — the physical planet, as well as the world in a broader sense: society, kingdom, universe. In Swahili culture, *dunia* holds significant philosophical and spiritual importance. It reflects the belief that the Earth is a sacred and interconnected system, where all living beings are interdependent and strive to coexist in harmony.
+
+That belief is what Dunia is built on: climate knowledge that speaks every language, for one shared world. Dunia is made by **Sprout™** (formerly Climate Resilient Communities™).
 
 ## 🌍 Features
 

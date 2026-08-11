@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import Image from "next/image";
 import Logo from "@/app/Logo.png";
-import { Languages, HelpCircle, MessageSquarePlus, BarChart, Lock, ShieldCheck, Check, ChevronsUpDown } from "lucide-react";
+import { Languages, HelpCircle, MessageSquarePlus, BarChart, Lock, ShieldCheck, Check, ChevronsUpDown, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -91,9 +91,9 @@ export function AppHeader({ onNewChat, selectedLanguage, onLanguageChange }: App
     <>
       <header className="flex items-center justify-between p-4 border-b bg-[#1F1F1F] text-white">
         <a href="https://crc.place/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
-            <Image src={Logo} alt="Climate Resilient Communities Logo" width={28} height={28} />
+            <Image src={Logo} alt="Sprout Logo" width={28} height={28} />
             <span className="hidden sm:inline text-sm font-semibold text-gray-300">
-                Made by: Climate Resilient Communities™
+                Dunia · Made by Sprout™
             </span>
         </a>
         <div className="flex items-center gap-2">
@@ -183,6 +183,28 @@ export function AppHeader({ onNewChat, selectedLanguage, onLanguageChange }: App
           </DialogHeader>
           <div className="py-4 flex-1 overflow-y-auto pr-4 text-sm">
             <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="about">
+                <AccordionTrigger className="text-base">
+                  <Globe className="mr-2 h-5 w-5" /> About Dunia & Sprout
+                </AccordionTrigger>
+                <AccordionContent className="space-y-4">
+                  <div>
+                    <p className="font-semibold">Why is the chatbot called Dunia?</p>
+                    <p className="text-muted-foreground mt-1">
+                      In Swahili, <em>dunia</em> (pronounced doo-nyah) means &ldquo;world&rdquo; or &ldquo;earth&rdquo; — the physical planet, but also the world in a broader sense: society, kingdom, universe. In Swahili culture, dunia holds deep philosophical and spiritual importance, reflecting the belief that the Earth is a sacred and interconnected system where all living beings are interdependent and strive to coexist in harmony.
+                    </p>
+                    <p className="text-muted-foreground mt-1">
+                      That belief is at the heart of this chatbot: climate knowledge that speaks every language, for one shared world.
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-semibold">Who makes Dunia?</p>
+                    <p className="text-muted-foreground mt-1">
+                      Dunia is built by Sprout™, a community organization helping neighbourhoods grow climate resilience through accessible knowledge, local resources, and community co-design.
+                    </p>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
               <AccordionItem value="accuracy">
                 <AccordionTrigger className="text-base">
                   <BarChart className="mr-2 h-5 w-5" /> Information Accuracy

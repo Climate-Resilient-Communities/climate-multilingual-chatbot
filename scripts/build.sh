@@ -7,7 +7,7 @@
 # Exit on error
 set -e
 
-echo "🚀 Starting Climate Multilingual Chatbot build process..."
+echo "🚀 Starting Dunia (Sprout) build process..."
 echo "📊 Build strategy: Single deployment (FastAPI serves Next.js static files)"
 
 # Build the frontend

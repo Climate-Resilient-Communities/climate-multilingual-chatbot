@@ -1,6 +1,6 @@
 # Frontend (Next.js) Guide
 
-This guide explains the frontend user interface of the Climate Multilingual Chatbot.
+This guide explains the frontend user interface of the Dunia — Multilingual Climate Chatbot.
 
 ---
 

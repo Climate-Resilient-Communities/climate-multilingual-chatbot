@@ -1,4 +1,4 @@
-# Production Python Requirements for Climate Multilingual Chatbot
+# Production Python Requirements for Dunia (Sprout multilingual climate chatbot)
 # Generated from working environment pip freeze
 
 # Core FastAPI and ASGI Server

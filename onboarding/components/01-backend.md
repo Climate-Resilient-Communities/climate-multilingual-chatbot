@@ -1,6 +1,6 @@
 # Backend (FastAPI) Guide
 
-This guide explains the backend server that powers the Climate Multilingual Chatbot.
+This guide explains the backend server that powers the Dunia — Multilingual Climate Chatbot.
 
 ---
 
@@ -28,7 +28,7 @@ This is where everything starts. When you run the server, this file:
 1. **Creates the FastAPI app** (line 98-104)
 ```python
 app = FastAPI(
-    title="Climate Multilingual Chatbot API",
+    title="Dunia — Multilingual Climate Chatbot API",
     version="1.0.0",
     lifespan=lifespan
 )

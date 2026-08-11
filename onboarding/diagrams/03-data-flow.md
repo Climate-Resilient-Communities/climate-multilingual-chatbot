@@ -1,6 +1,6 @@
 # Data Flow Diagram
 
-This document shows how data moves through the Climate Multilingual Chatbot system.
+This document shows how data moves through the Dunia — Multilingual Climate Chatbot system.
 
 ---
 
