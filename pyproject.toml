@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "mlccapp"
+name = "dunia"
 version = "0.1.0"
 description = "Multilingual Climate Change Chatbot Application"
 authors = ["Your Name <your.email@example.com>"]
@@ -46,7 +46,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-mlccapp = "src.main_nova:main"
+dunia = "src.main_nova:main"
 
 [tool.black]
 line-length = 88

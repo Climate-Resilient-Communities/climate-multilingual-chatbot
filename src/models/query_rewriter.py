@@ -23,7 +23,7 @@ CANNED_MAP = {
     "greeting": {
         "enabled": True,
         "type": "greeting",
-        "text": "Hello, I am your multilingual climate chatbot. I can answer climate questions in any language. What do you want to learn?",
+        "text": "Hello! I'm Dunia, your multilingual climate chatbot. I can answer climate questions in any language. What would you like to learn?",
     },
     "goodbye": {
         "enabled": True,

@@ -2,7 +2,7 @@
 
 ## 🚀 **Overview**
 
-This guide outlines the Azure deployment strategy for the Climate Multilingual Chatbot, implementing a **single deployment model** where FastAPI serves the Next.js frontend as static files. This approach is based on the successful [Climate-Stories-Map](https://github.com/Climate-Resilient-Communities/Climate-Stories-Map) deployment strategy.
+This guide outlines the Azure deployment strategy for the Dunia — Multilingual Climate Chatbot, implementing a **single deployment model** where FastAPI serves the Next.js frontend as static files. This approach is based on the successful [Climate-Stories-Map](https://github.com/Climate-Resilient-Communities/Climate-Stories-Map) deployment strategy.
 
 ## 📋 **Architecture**
 

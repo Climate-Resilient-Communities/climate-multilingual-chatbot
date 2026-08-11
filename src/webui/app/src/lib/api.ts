@@ -1,5 +1,5 @@
 /**
- * API Client for Climate Multilingual Chatbot
+ * API Client for Dunia (Sprout multilingual climate chatbot)
  * Integrates with FastAPI backend
  */
 

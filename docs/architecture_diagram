@@ -1,4 +1,4 @@
-// Multilingual Climate Chatbot with LLM Follow-up Detection
+// Dunia — Multilingual Climate Chatbot with LLM Follow-up Detection
 digraph "Climate Chatbot Architecture" {
 	bgcolor=white fontname=Arial nodesep=0.5 rankdir=TB ranksep=0.8 size="11,8"
 	node [fillcolor="#E5F2FF" fontname=Arial fontsize=14 margin="0.3,0.1" shape=box style=filled]
@@ -65,7 +65,7 @@ Relevance Scoring" fillcolor="#98FB98" style=filled]
 	hallucination_check -> citation_generator
 	response_translation -> redis_cache
 	citation_generator -> redis_cache
-	fontsize=20 label="Multilingual Climate Chatbot Architecture
+	fontsize=20 label="Dunia — Multilingual Climate Chatbot Architecture
 with LLM-based Follow-up Detection" labelloc=t
 	subgraph cluster_legend {
 		fillcolor=white label=Legend labelloc=b style=filled

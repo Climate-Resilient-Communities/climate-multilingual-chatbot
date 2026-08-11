@@ -473,4 +473,4 @@ Our chatbot provides **trustworthy**, **cited** climate information in **180+ la
 
 ---
 
-*You're now ready to understand the Climate Multilingual Chatbot's AI!*
+*You're now ready to understand the Dunia — Multilingual Climate Chatbot's AI!*

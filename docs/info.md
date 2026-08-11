@@ -60,7 +60,7 @@ The refactored architecture is complete and ready for use. The system will autom
 
 ---
 
-# Climate Multilingual Chatbot - Architecture Documentation
+# Dunia — Multilingual Climate Chatbot - Architecture Documentation
 
 ## Project Overview
 A multilingual climate education chatbot built with AWS Bedrock (Nova) and Cohere models, supporting 28+ languages with intelligent routing and response generation.

@@ -147,4 +147,4 @@ Content...
 
 ---
 
-*These slides are part of the Climate Multilingual Chatbot onboarding materials.*
+*These slides are part of the Dunia — Multilingual Climate Chatbot onboarding materials.*

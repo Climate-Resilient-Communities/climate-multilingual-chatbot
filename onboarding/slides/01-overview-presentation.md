@@ -1,11 +1,11 @@
-# Climate Multilingual Chatbot
+# Dunia — Multilingual Climate Chatbot
 ## Technical Overview Presentation
 
 ---
 
 # Slide 1: Welcome
 
-## Climate Multilingual Chatbot
+## Dunia — Multilingual Climate Chatbot
 
 **An AI-powered assistant for climate change information**
 
@@ -454,4 +454,4 @@ A production-ready AI chatbot that:
 
 ---
 
-*Thank you for joining the Climate Multilingual Chatbot team!*
+*Thank you for joining the Dunia — Multilingual Climate Chatbot team!*

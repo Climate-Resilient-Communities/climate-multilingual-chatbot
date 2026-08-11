@@ -3,8 +3,8 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
-  title: 'Multilingual Climate chatbot',
-  description: 'An AI-powered chatbot for climate change information.',
+  title: 'Dunia — Multilingual Climate Chatbot',
+  description: 'Dunia ("world" in Swahili) is Sprout’s AI-powered multilingual chatbot for climate change information.',
   authors: [{ name: 'Luis Ticas', url: 'https://www.linkedin.com/in/luisticas' }],
   icons: {
     icon: '/favicon.ico',

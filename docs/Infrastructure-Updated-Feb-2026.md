@@ -1,4 +1,4 @@
-# Climate Multilingual Chatbot - Infrastructure & Architecture (Updated Feb 2026)
+# Dunia — Multilingual Climate Chatbot - Infrastructure & Architecture (Updated Feb 2026)
 
 ## Table of Contents
 

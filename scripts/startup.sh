@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "🚀 Starting Climate Multilingual Chatbot FastAPI deployment..."
+echo "🚀 Starting Dunia (Sprout) FastAPI deployment..."
 
 # Set Azure paths
 WWWROOT="/home/site/wwwroot"

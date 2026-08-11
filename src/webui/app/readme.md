@@ -1,4 +1,4 @@
-# MLCC Climate Chatbot
+# Dunia Climate Chatbot (by Sprout™)
 
 This is a Next.js project that provides a chatbot interface for climate-related information.
 
@@ -56,7 +56,7 @@ Users agree to use the chatbot in accordance with these terms and all applicable
 
 ## Contributing
 
-We welcome contributions to improve the MLCC Climate Chatbot. You can contribute in the following ways:
+We welcome contributions to improve the Dunia Climate Chatbot. You can contribute in the following ways:
 
 *   **Feedback:** Use the feedback button within the chat interface or submit feedback through our [Google Form](https://docs.google.com/forms/d/e/1FAIpQLSd2-iv25ZSpBkMuoz6dGgt8vuU1ifmi-PxY63I7accyAdHirg/viewform?pli=1).
 *   **Technical Contributions:** Fork the repository and submit a pull request on our [GitHub repository](https://github.com/Climate-Resilient-Communities/climate-multilingual-chatbot).

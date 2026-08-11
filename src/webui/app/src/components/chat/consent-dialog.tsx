@@ -33,10 +33,13 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
             <div className="flex justify-center">
                 <Image src={Logo} alt="Logo" width={48} height={48} className="w-12 h-12" />
             </div>
-          <DialogTitle className="text-center text-xl font-bold text-primary !mt-2">MLCC Climate Chatbot</DialogTitle>
+          <DialogTitle className="text-center text-xl font-bold text-primary !mt-2">Dunia Climate Chatbot</DialogTitle>
           <DialogDescription className="text-center text-muted-foreground !mt-1">
-            Connecting Toronto Communities to Climate Knowledge
+            Connecting Communities to Climate Knowledge
           </DialogDescription>
+          <p className="text-center text-xs text-muted-foreground italic !mt-1">
+            Dunia — Swahili for &ldquo;world&rdquo; — is made by Sprout™
+          </p>
         </DialogHeader>
         
         <div className="flex justify-center py-2">
@@ -148,7 +151,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
 
                 <div className="space-y-1">
                   <h4 className="font-semibold text-foreground">Acceptance of Terms</h4>
-                  <p>By accessing and using the Climate Resilience Communities chatbot, you accept and agree to be bound by these Terms of Use and all applicable laws and regulations.</p>
+                  <p>By accessing and using Dunia, the Sprout climate chatbot, you accept and agree to be bound by these Terms of Use and all applicable laws and regulations.</p>
                 </div>
 
                 <div className="space-y-1">
@@ -181,7 +184,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
 
                 <div className="space-y-1">
                   <h4 className="font-semibold text-foreground">Intellectual Property</h4>
-                  <p>While our code is open-source, the following remains the property of Climate Resilience Communities:</p>
+                  <p>While our code is open-source, the following remains the property of Sprout:</p>
                   <ul className="list-disc list-outside space-y-1 pl-5">
                     <li>Trademarks and branding</li>
                     <li>Content created specifically for the chatbot</li>
@@ -191,7 +194,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
                 
                 <div className="space-y-1">
                   <h4 className="font-semibold text-foreground">Liability Limitation</h4>
-                  <p>The chatbot and its services are provided "as is" and "as available" without any warranties, expressed or implied. Climate Resilience Communities is not liable for any damages arising from:</p>
+                  <p>The chatbot and its services are provided "as is" and "as available" without any warranties, expressed or implied. Sprout is not liable for any damages arising from:</p>
                   <ul className="list-disc list-outside space-y-1 pl-5">
                     <li>Use or inability to use the service</li>
                     <li>Reliance on information provided</li>
@@ -210,7 +213,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
 
                     <div className="space-y-1">
                         <h4 className="font-semibold text-foreground">General Information</h4>
-                        <p>Climate Resilience Communities ("we," "our," or "us") provides this climate information chatbot as a public service to Toronto's communities. While we strive for accuracy and reliability, please note the following important limitations and disclaimers.</p>
+                        <p>Sprout ("we," "our," or "us") provides this climate information chatbot as a public service to our communities. While we strive for accuracy and reliability, please note the following important limitations and disclaimers.</p>
                     </div>
 
                     <div className="space-y-1">
@@ -230,7 +233,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
                     
                     <div className="space-y-1">
                         <h4 className="font-semibold text-foreground">Third-Party Content</h4>
-                        <p>Citations and references to third-party content are provided for transparency and verification. Climate Resilience Communities does not endorse and is not responsible for the accuracy, completeness, or reliability of third-party information.</p>
+                        <p>Citations and references to third-party content are provided for transparency and verification. Sprout does not endorse and is not responsible for the accuracy, completeness, or reliability of third-party information.</p>
                     </div>
                 </div>
             </AccordionContent>

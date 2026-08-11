@@ -1,5 +1,5 @@
 """
-Azure-specific configuration settings for the Climate Multilingual Chatbot
+Azure-specific configuration settings for Dunia (Sprout multilingual climate chatbot)
 """
 
 import os

@@ -1,6 +1,6 @@
 # Configuration Guide
 
-This guide explains all the configuration options for the Climate Multilingual Chatbot.
+This guide explains all the configuration options for the Dunia — Multilingual Climate Chatbot.
 
 ---
 

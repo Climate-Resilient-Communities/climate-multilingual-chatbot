@@ -1,6 +1,6 @@
-# Climate Multilingual Chatbot - Onboarding Guide
+# Dunia — Multilingual Climate Chatbot - Onboarding Guide
 
-Welcome to the Climate Multilingual Chatbot project! This guide will help you understand how the codebase works, even if you're just getting started with AI concepts.
+Welcome to the Dunia — Multilingual Climate Chatbot project! This guide will help you understand how the codebase works, even if you're just getting started with AI concepts.
 
 ---
 
@@ -20,7 +20,7 @@ Welcome to the Climate Multilingual Chatbot project! This guide will help you un
 
 ## What is This Project?
 
-The **Climate Multilingual Chatbot** is an AI-powered assistant that helps people learn about climate change. It can:
+The **Dunia — Multilingual Climate Chatbot** is an AI-powered assistant that helps people learn about climate change. It can:
 
 - **Answer questions** about climate change, adaptation, and environmental topics
 - **Speak 180+ languages** - from English and Spanish to Urdu and Tagalog
@@ -363,4 +363,4 @@ If you have questions about the codebase:
 
 ---
 
-*This onboarding guide is part of the Climate Multilingual Chatbot project. Last updated: December 2024*
+*This onboarding guide is part of the Dunia — Multilingual Climate Chatbot project. Last updated: December 2024*

@@ -39,9 +39,9 @@ export function ChatWindow({ messages, loadingMessage, onQuestionClick, onRetry 
               <Card className="max-w-3xl w-full mx-auto border-0 shadow-none bg-transparent">
                 <CardContent className="p-6 text-center flex flex-col items-center">
                     <Image src={Logo} alt="Logo" width={64} height={64} className="w-16 h-16 mb-4" />
-                    <h2 className="text-xl md:text-2xl font-semibold text-primary">Welcome to Multilingual Climate chatbot!</h2>
+                    <h2 className="text-xl md:text-2xl font-semibold text-primary">Welcome to Dunia!</h2>
                     <p className="text-sm md:text-base text-muted-foreground mt-2 max-w-2xl">
-                        I can chat in many languages. Select yours from the menu above to begin. Ask me anything about climate change, and I'll provide you with information and local resources.
+                        Dunia means &ldquo;world&rdquo; in Swahili — and I can chat in many of the world&apos;s languages. Select yours from the menu above to begin. Ask me anything about climate change, and I&apos;ll provide you with information and local resources.
                     </p>
                 </CardContent>
               </Card>

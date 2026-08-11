@@ -47,9 +47,9 @@ export function AppHeader({ onNewChat, selectedLanguage, onLanguageChange }: App
     <>
       <header className="flex items-center justify-between p-4 border-b">
         <a href="https://crc.place/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
-            <Image src={Logo} alt="Climate Resilient Communities Logo" width={28} height={28} />
+            <Image src={Logo} alt="Sprout Logo" width={28} height={28} />
             <span className="hidden sm:inline text-sm font-semibold text-muted-foreground">
-                Made by: Climate Resilient Communities™
+                Dunia · Made by Sprout™
             </span>
         </a>
         <div className="flex items-center gap-2">

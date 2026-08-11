@@ -1,13 +1,13 @@
 # High-Level Architecture Diagram
 
-This document provides a visual overview of the Climate Multilingual Chatbot system architecture.
+This document provides a visual overview of the Dunia — Multilingual Climate Chatbot system architecture.
 
 ---
 
 ## System Overview
 
 ```
-                                    CLIMATE MULTILINGUAL CHATBOT
+                                    DUNIA — MULTILINGUAL CLIMATE CHATBOT
     ════════════════════════════════════════════════════════════════════════════
 
     ┌─────────────────────────────────────────────────────────────────────────┐
