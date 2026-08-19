@@ -5,7 +5,7 @@ import { Slot } from '@radix-ui/react-slot';
 
 const Textarea = React.forwardRef<
   HTMLTextAreaElement,
-  React.ComponentProps<'textarea'> & { as?: React.ElementType; minRows?: number }
+  React.ComponentProps<'textarea'> & { as?: React.ElementType; minRows?: number; maxRows?: number }
 >(({className, as, ...props}, ref) => {
   const Comp = as || 'textarea';
   return (

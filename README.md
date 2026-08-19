@@ -183,6 +183,14 @@ The application uses a **single deployment model**:
 2. FastAPI serves both API endpoints and static files
 3. All traffic goes through the FastAPI server on port 8000
 
+### Embedding the chat on a website
+
+The deployed app can be embedded on any website as a floating chat bubble
+that opens the chat in an iframe — no CORS or backend changes needed. For the
+Sprout Ghost site, paste [docs/ghost-embed/ghost-code-injection.html](docs/ghost-embed/ghost-code-injection.html)
+into Ghost Admin → Settings → Code injection → Site footer. See
+[docs/ghost-embed/README.md](docs/ghost-embed/README.md) for details.
+
 ## 📊 Performance
 
 - **Language Detection**: <100ms response time

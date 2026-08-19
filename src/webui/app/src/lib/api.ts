@@ -212,13 +212,15 @@ class ApiClient {
   }
 
   /**
-   * Stream chat responses using fetch with ReadableStream
+   * Stream chat responses using fetch with ReadableStream.
+   * Aborting via `signal` stops the stream without calling onError.
    */
   async streamChatQuery(
     request: ChatRequest,
     onProgress: (data: any) => void,
     onComplete: (response: ChatResponse) => void,
-    onError: (error: Error) => void
+    onError: (error: Error) => void,
+    signal?: AbortSignal
   ): Promise<void> {
     try {
       const response = await fetch(`${this.baseUrl}/api/v1/chat/stream`, {
@@ -228,6 +230,7 @@ class ApiClient {
           'Accept': 'text/event-stream',
         },
         body: JSON.stringify(request),
+        signal,
       });
 
       if (!response.ok) {
@@ -281,6 +284,8 @@ class ApiClient {
         }
       }
     } catch (error) {
+      // A user-initiated stop is not an error
+      if (error instanceof DOMException && error.name === 'AbortError') return;
       onError(error instanceof Error ? error : new Error('Stream failed'));
     }
   }

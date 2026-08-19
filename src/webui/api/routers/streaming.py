@@ -177,6 +177,10 @@ async def stream_chat_response(
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
+            # Tell reverse proxies not to buffer the event stream — without
+            # this some front ends hold chunks and clients see nothing until
+            # the response completes.
+            "X-Accel-Buffering": "no",
             "X-Request-ID": request_id
         }
     )

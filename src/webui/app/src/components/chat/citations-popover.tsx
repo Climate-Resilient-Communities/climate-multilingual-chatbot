@@ -7,8 +7,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import Image from "next/image";
-import { FileText } from "lucide-react";
+import { useState } from "react";
+import { BookOpen, FileText, Globe } from "lucide-react";
 
 export type Source = {
   url: string;
@@ -41,37 +41,36 @@ function getFaviconUrl(url: string) {
     }
 }
 
-const SourceIcon = ({ url }: { url: string }) => {
-    if (!isValidHttpUrl(url)) {
-        return (
-            <div className="flex h-[16px] w-[16px] items-center justify-center rounded-full border border-border bg-white">
-                <FileText className="h-3 w-3 text-muted-foreground" />
-            </div>
-        );
-    }
+/**
+ * Site favicon with a graceful fallback: when the favicon service is
+ * unreachable (offline, blocked, invalid URL) a globe icon renders instead of
+ * a broken image.
+ */
+export function SourceFavicon({ url }: { url: string }) {
+    const [failed, setFailed] = useState(false);
     const faviconUrl = getFaviconUrl(url);
-    if (!faviconUrl) {
+
+    if (failed || !faviconUrl) {
         return (
-            <div className="flex h-[16px] w-[16px] items-center justify-center rounded-full border border-border bg-white">
-                <FileText className="h-3 w-3 text-muted-foreground" />
-            </div>
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-muted">
+                <Globe className="h-3 w-3 text-muted-foreground" />
+            </span>
         );
     }
     return (
-        <Image
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
             src={faviconUrl}
-            alt="Source"
+            alt=""
+            aria-hidden="true"
             width={16}
             height={16}
-            className="rounded-full border border-border bg-white"
-            onError={() => {
-                // Fallback to FileText icon if favicon fails to load
-                console.log('Favicon failed to load for URL:', url);
-            }}
-            unoptimized={true} // Disable Next.js optimization for external favicons
+            className="h-4 w-4 shrink-0 rounded-full"
+            onError={() => setFailed(true)}
         />
     );
-};
+}
+
 
 export function CitationsPopover({ sources }: CitationsPopoverProps) {
   // DISABLED: URL validation was causing false positives due to CORS restrictions
@@ -88,18 +87,18 @@ export function CitationsPopover({ sources }: CitationsPopoverProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" className="h-7 gap-2 px-3 text-muted-foreground hover:text-foreground">
-            <div className="flex -space-x-2">
-                {displaySources.slice(0, 5).reverse().map((source, index) => (
-                    <SourceIcon key={index} url={source.url} />
-                ))}
-            </div>
-          <span className="text-xs">Sources</span>
+        <Button
+          variant="outline"
+          className="h-7 gap-1.5 rounded-full px-2.5 text-muted-foreground hover:text-foreground"
+          title="View cited sources"
+        >
+          <BookOpen className="h-3.5 w-3.5" />
+          <span className="text-xs font-medium">{displaySources.length} source{displaySources.length === 1 ? "" : "s"}</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-96" align="center">
         <div className="space-y-2">
-          <h4 className="font-semibold">Citations</h4>
+          <h4 className="font-semibold">Sources</h4>
           <ScrollArea className="h-72">
             <div className="p-1 flex flex-col">
                 {displaySources.map((source, index) => {
@@ -114,19 +113,9 @@ export function CitationsPopover({ sources }: CitationsPopoverProps) {
                                     rel="noopener noreferrer"
                                     className="block p-4 space-y-2 rounded-lg hover:bg-muted/50 group"
                                 >
-                                    <div className="flex items-center gap-3">
-                                        <Image
-                                            src={getFaviconUrl(source.url)}
-                                            alt={source.title}
-                                            width={16}
-                                            height={16}
-                                            className="rounded-full"
-                                            onError={() => {
-                                                console.log('Favicon failed to load for URL:', source.url);
-                                            }}
-                                            unoptimized={true}
-                                        />
-                                        <div className="text-xs text-muted-foreground">
+                                    <div className="flex items-center gap-2">
+                                        <SourceFavicon url={source.url} />
+                                        <div className="truncate text-xs text-muted-foreground">
                                             {(() => {
                                                 try {
                                                     return new URL(source.url).hostname.replace('www.', '');
@@ -139,7 +128,7 @@ export function CitationsPopover({ sources }: CitationsPopoverProps) {
                                     <div className="text-sm font-medium text-foreground group-hover:underline">
                                         {source.title}
                                     </div>
-                                    <div className="text-xs text-foreground/80">
+                                    <div className="line-clamp-2 text-xs text-foreground/80">
                                         {source.text}
                                     </div>
                                 </a>

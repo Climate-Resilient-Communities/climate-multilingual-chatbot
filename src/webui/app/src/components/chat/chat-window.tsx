@@ -1,73 +1,129 @@
 
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Logo from "@/app/Logo.png";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage, type Message } from "@/components/chat/chat-message";
-import { Loader2 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { ArrowDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { SampleQuestions } from "@/app/components/chat/sample-questions";
 
 type ChatWindowProps = {
   messages: Message[];
-  loadingMessage: string | null;
+  isStreaming: boolean;
   onQuestionClick: (question: string) => void;
   onRetry?: (messageIndex: number) => void;
 };
 
-export function ChatWindow({ messages, loadingMessage, onQuestionClick, onRetry }: ChatWindowProps) {
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const isLoading = loadingMessage !== null;
+// How close to the bottom (px) still counts as "at the bottom"
+const BOTTOM_THRESHOLD = 96;
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+export function ChatWindow({ messages, isStreaming, onQuestionClick, onRetry }: ChatWindowProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const atBottomRef = useRef(true);
+  const prevCountRef = useRef(0);
+  const [showJump, setShowJump] = useState(false);
+
+  // Auto-follow rules: a new message always scrolls into view; streamed
+  // content only keeps the view pinned while the reader is already at the
+  // bottom — scrolling up to read is never interrupted.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const isNewMessage = messages.length !== prevCountRef.current;
+    prevCountRef.current = messages.length;
+
+    if (isNewMessage || atBottomRef.current) {
+      container.scrollTop = container.scrollHeight;
+      atBottomRef.current = true;
+      setShowJump(false);
+    }
+  }, [messages]);
+
+  const handleScroll = () => {
+    const container = containerRef.current;
+    if (!container) return;
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    const atBottom = distanceFromBottom < BOTTOM_THRESHOLD;
+    atBottomRef.current = atBottom;
+    setShowJump((prev) => (prev === !atBottom ? prev : !atBottom));
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, loadingMessage]);
+  const jumpToBottom = () => {
+    const container = containerRef.current;
+    if (!container) return;
+    container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+  };
+
+  const lastAssistantIndex = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "assistant") return i;
+    }
+    return -1;
+  })();
 
   return (
-    <div className="flex-1 overflow-hidden">
-      <ScrollArea className="h-full" viewportRef={scrollAreaRef}>
-        <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
-          {messages.length === 0 && !isLoading && (
-            <div className="flex flex-col items-center justify-center h-full pt-10 md:pt-20">
-              <Card className="max-w-3xl w-full mx-auto border-0 shadow-none bg-transparent">
-                <CardContent className="p-6 text-center flex flex-col items-center">
-                    <Image src={Logo} alt="Logo" width={64} height={64} className="w-16 h-16 mb-4" />
-                    <h2 className="text-xl md:text-2xl font-semibold text-primary">Welcome to Dunia!</h2>
-                    <p className="text-sm md:text-base text-muted-foreground mt-2 max-w-2xl">
-                        Dunia means &ldquo;world&rdquo; in Swahili — and I can chat in many of the world&apos;s languages. Select yours from the menu above to begin. Ask me anything about climate change, and I&apos;ll provide you with information and local resources.
-                    </p>
-                </CardContent>
-              </Card>
-              <SampleQuestions 
-                  onQuestionClick={onQuestionClick} 
-              />
-            </div>
-          )}
-          {messages.map((msg, index) => (
-            <ChatMessage 
-              key={msg.id || index} 
-              message={msg} 
-              onRetry={msg.role === 'assistant' && onRetry ? () => onRetry(index) : undefined}
-            />
-          ))}
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted message-bubble">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                <span className="text-sm text-muted-foreground">{loadingMessage}</span>
+    <div className="relative h-full">
+      <div
+        ref={containerRef}
+        onScroll={handleScroll}
+        className="h-full overflow-y-auto overscroll-contain"
+        aria-live="polite"
+      >
+        <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center pt-10 text-center md:pt-24">
+              <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
+                <Image src={Logo} alt="Dunia logo" width={40} height={40} className="h-10 w-10" />
+              </div>
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+                Welcome to Dunia
+              </h1>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground md:text-[15px] md:leading-7">
+                Dunia means &ldquo;world&rdquo; in Swahili — and I can chat in many of the
+                world&rsquo;s languages. Pick yours from the menu above or just start typing.
+                I answer with verified information and local resources, always with sources.
+              </p>
+              <div className="mt-10 w-full">
+                <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Try asking
+                </p>
+                <SampleQuestions onQuestionClick={onQuestionClick} />
               </div>
             </div>
+          ) : (
+            <div className="space-y-6">
+              {messages.map((msg, index) => (
+                <ChatMessage
+                  key={msg.id || index}
+                  message={msg}
+                  onRetry={
+                    msg.role === "assistant" && onRetry && index === lastAssistantIndex && !isStreaming
+                      ? () => onRetry(index)
+                      : undefined
+                  }
+                />
+              ))}
+            </div>
           )}
-          <div ref={messagesEndRef} />
         </div>
-      </ScrollArea>
+      </div>
+
+      {showJump && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={jumpToBottom}
+            className="pointer-events-auto h-9 w-9 rounded-full border bg-card shadow-md"
+            aria-label="Jump to latest message"
+          >
+            <ArrowDown className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

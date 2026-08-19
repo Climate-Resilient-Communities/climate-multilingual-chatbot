@@ -1,0 +1,186 @@
+<!-- ============================================================
+  Dunia chat widget — Ghost Code Injection snippet
+
+  Paste this entire file into:
+    Ghost Admin → Settings → Code injection → Site footer
+  and click Save. A floating chat bubble appears on every page of
+  the site; clicking it opens the Azure-hosted Dunia chat app in
+  an iframe. No backend or CORS changes are required.
+
+  To change the chat URL, colors, or labels, edit the
+  "Configuration" block at the top of the script.
+============================================================ -->
+<script>
+(function () {
+  "use strict";
+  if (window.__duniaChatWidget) return; // don't run twice if pasted in header AND footer
+  window.__duniaChatWidget = true;
+
+  // ---- Configuration ------------------------------------------------
+  var CHAT_URL = "https://climatechat-to.ca/";
+  // Fallback if the custom domain is ever unavailable:
+  // var CHAT_URL = "https://climatereslianceapp.azurewebsites.net/";
+  var PANEL_TITLE = "Dunia · Climate Chat";
+  var BUTTON_LABEL = "Chat with Dunia";
+  var BRAND = "#099077";      // Sprout primary — hsl(169 88% 30%)
+  var BRAND_DARK = "#077e69"; // hover shade
+  var APP_BG = "#f7f9fc";     // matches the app's light background
+  // -------------------------------------------------------------------
+
+  var FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+
+  var css = [
+    "#dunia-chat-root { position: fixed; z-index: 2147483000; right: 0; bottom: 0; font-family: " + FONT + "; }",
+
+    /* Launcher bubble */
+    "#dunia-chat-btn { position: fixed; right: 20px; bottom: 20px; z-index: 2147483002;",
+    "  width: 60px; height: 60px; border-radius: 50%; border: 0; cursor: pointer; padding: 0; margin: 0;",
+    "  background: " + BRAND + "; color: #fff; display: flex; align-items: center; justify-content: center;",
+    "  box-shadow: 0 4px 16px rgba(4, 61, 49, 0.35); }",
+    "#dunia-chat-btn:hover { background: " + BRAND_DARK + "; transform: scale(1.06); }",
+    "#dunia-chat-btn:focus-visible { outline: 3px solid " + BRAND + "; outline-offset: 3px; }",
+    "#dunia-chat-btn svg { width: 28px; height: 28px; display: block; }",
+    "#dunia-chat-root.dunia-open #dunia-chat-icon-chat { display: none; }",
+    "#dunia-chat-icon-close { display: none; }",
+    "#dunia-chat-root.dunia-open #dunia-chat-icon-close { display: block; }",
+
+    /* Panel */
+    "#dunia-chat-panel { position: fixed; right: 20px; bottom: 92px; z-index: 2147483001;",
+    "  width: 400px; max-width: calc(100vw - 40px);",
+    "  height: 640px; max-height: calc(100vh - 112px); max-height: calc(100dvh - 112px);",
+    "  display: flex; flex-direction: column; overflow: hidden; border-radius: 16px;",
+    "  background: " + APP_BG + "; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.28);",
+    "  opacity: 0; transform: translateY(12px) scale(0.98); visibility: hidden; pointer-events: none; }",
+    "#dunia-chat-root.dunia-open #dunia-chat-panel { opacity: 1; transform: none; visibility: visible; pointer-events: auto; }",
+
+    /* Panel header */
+    "#dunia-chat-header { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;",
+    "  gap: 8px; padding: 0 8px 0 16px; height: 48px; background: " + BRAND + "; color: #fff; }",
+    "#dunia-chat-header span { font-size: 15px; font-weight: 600; letter-spacing: 0.01em; }",
+    "#dunia-chat-close { width: 36px; height: 36px; border: 0; border-radius: 8px; cursor: pointer;",
+    "  background: transparent; color: #fff; display: flex; align-items: center; justify-content: center; padding: 0; }",
+    "#dunia-chat-close:hover { background: rgba(255, 255, 255, 0.15); }",
+    "#dunia-chat-close:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }",
+    "#dunia-chat-close svg { width: 20px; height: 20px; display: block; }",
+
+    /* Panel body + iframe */
+    "#dunia-chat-body { position: relative; flex: 1 1 auto; overscroll-behavior: contain; }",
+    "#dunia-chat-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: " + APP_BG + "; }",
+
+    /* Loading state (shown until the iframe finishes loading) */
+    "#dunia-chat-loader { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 12px;",
+    "  align-items: center; justify-content: center; background: " + APP_BG + "; text-align: center; padding: 24px; }",
+    "#dunia-chat-loader .dunia-spinner { width: 30px; height: 30px; border-radius: 50%;",
+    "  border: 3px solid #d7e5e1; border-top-color: " + BRAND + "; animation: dunia-chat-spin 0.9s linear infinite; }",
+    "#dunia-chat-loader p { margin: 0; font-size: 14px; color: #33415c; }",
+    "#dunia-chat-loader small { font-size: 12px; color: #6b7a90; }",
+    "#dunia-chat-root.dunia-loaded #dunia-chat-loader { display: none; }",
+    "@keyframes dunia-chat-spin { to { transform: rotate(360deg); } }",
+
+    /* Gentle motion, disabled for reduced-motion users */
+    "@media (prefers-reduced-motion: no-preference) {",
+    "  #dunia-chat-btn { transition: background 0.15s ease, transform 0.15s ease; }",
+    "  #dunia-chat-panel { transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s; }",
+    "}",
+
+    /* Small screens: full-screen chat with its own close button */
+    "@media (max-width: 640px) {",
+    "  #dunia-chat-panel { inset: 0; width: 100%; max-width: none; height: 100%; max-height: none;",
+    "    border-radius: 0; padding-bottom: env(safe-area-inset-bottom, 0); }",
+    "  #dunia-chat-header { padding-top: env(safe-area-inset-top, 0); height: auto; min-height: 48px; }",
+    "  #dunia-chat-root.dunia-open #dunia-chat-btn { display: none; }",
+    "}"
+  ].join("\n");
+
+  var ICON_CHAT =
+    '<svg id="dunia-chat-icon-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>';
+  var ICON_CLOSE =
+    '<svg id="dunia-chat-icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+  var ICON_X =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+
+  function init() {
+    var style = document.createElement("style");
+    style.textContent = css;
+    document.head.appendChild(style);
+
+    var root = document.createElement("div");
+    root.id = "dunia-chat-root";
+    root.innerHTML =
+      '<button id="dunia-chat-btn" type="button" aria-expanded="false" aria-controls="dunia-chat-panel"' +
+      ' aria-label="' + BUTTON_LABEL + '" title="' + BUTTON_LABEL + '">' + ICON_CHAT + ICON_CLOSE + "</button>" +
+      '<div id="dunia-chat-panel" role="dialog" aria-label="' + PANEL_TITLE + '" tabindex="-1">' +
+      '<div id="dunia-chat-header"><span>' + PANEL_TITLE + "</span>" +
+      '<button id="dunia-chat-close" type="button" aria-label="Close chat">' + ICON_X + "</button></div>" +
+      '<div id="dunia-chat-body">' +
+      '<div id="dunia-chat-loader"><div class="dunia-spinner" aria-hidden="true"></div>' +
+      "<p>Loading Dunia…</p><small>First load can take a moment.</small></div>" +
+      "</div></div>";
+    document.body.appendChild(root);
+
+    var btn = document.getElementById("dunia-chat-btn");
+    var panel = document.getElementById("dunia-chat-panel");
+    var body = document.getElementById("dunia-chat-body");
+    var closeBtn = document.getElementById("dunia-chat-close");
+    var frame = null;
+    var isOpen = false;
+
+    // The iframe is only created on demand, so pages load with zero
+    // extra network traffic until a visitor shows interest in the chat.
+    function ensureFrame() {
+      if (frame) return;
+      frame = document.createElement("iframe");
+      frame.id = "dunia-chat-frame";
+      frame.title = PANEL_TITLE;
+      frame.setAttribute("allow", "clipboard-write; fullscreen");
+      frame.addEventListener("load", function () {
+        root.classList.add("dunia-loaded");
+      });
+      frame.src = CHAT_URL;
+      body.appendChild(frame);
+      setTimeout(function () {
+        if (!root.classList.contains("dunia-loaded")) {
+          var note = document.querySelector("#dunia-chat-loader small");
+          if (note) note.textContent = "Still working — the chat service may be waking up.";
+        }
+      }, 15000);
+    }
+
+    function open() {
+      ensureFrame();
+      isOpen = true;
+      root.classList.add("dunia-open");
+      btn.setAttribute("aria-expanded", "true");
+      panel.focus({ preventScroll: true });
+    }
+
+    function close() {
+      isOpen = false;
+      root.classList.remove("dunia-open");
+      btn.setAttribute("aria-expanded", "false");
+      btn.focus({ preventScroll: true });
+    }
+
+    btn.addEventListener("click", function () { isOpen ? close() : open(); });
+    closeBtn.addEventListener("click", close);
+    document.addEventListener("keydown", function (e) {
+      if (isOpen && e.key === "Escape") close();
+    });
+
+    // Warm up the App Service as soon as the visitor hovers or focuses
+    // the bubble, so the chat is usually ready by the time they click.
+    ["mouseenter", "focus", "touchstart"].forEach(function (evt) {
+      btn.addEventListener(evt, ensureFrame, { passive: true });
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>

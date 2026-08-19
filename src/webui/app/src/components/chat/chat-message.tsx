@@ -2,9 +2,11 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
+import Logo from "@/app/Logo.png";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Copy, ThumbsDown, ThumbsUp, RefreshCw } from "lucide-react";
+import { Check, Copy, ThumbsDown, ThumbsUp, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiClient, type FeedbackRequest } from "@/lib/api";
 import ReactMarkdown from 'react-markdown';
@@ -28,34 +30,54 @@ import { Textarea } from "@/components/ui/textarea";
 export type Message = {
   role: 'user' | 'assistant';
   content: string;
-  id?: string; // Add optional ID for feedback tracking
-  sources?: Source[]; // Add optional sources for citations
-  retrieval_source?: string; // Add optional retrieval source for canned responses
+  id?: string; // Optional ID for feedback tracking
+  sources?: Source[]; // Optional sources for citations
+  retrieval_source?: string; // Optional retrieval source for canned responses
+  streaming?: boolean; // True while this message is still being generated
+  statusLabel?: string; // Pipeline status shown before the first token arrives
+  isError?: boolean; // True when this message reports a system error
 };
 
 type ChatMessageProps = {
   message: Message;
-  onRetry?: () => void; // Add retry callback
+  onRetry?: () => void;
 };
 
-// DISABLED: ValidatedLink was causing false positives due to CORS restrictions
-// Reverted to simple link component without validation
+function ThinkingIndicator({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2.5 py-0.5" role="status" aria-label={label}>
+      <span className="flex items-center gap-1">
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/70 [animation-delay:-0.3s]" />
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/70 [animation-delay:-0.15s]" />
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/70" />
+      </span>
+      <span className="text-sm text-muted-foreground">{label}</span>
+    </div>
+  );
+}
 
 export function ChatMessage({ message, onRetry }: ChatMessageProps) {
   const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
   const [feedbackType, setFeedbackType] = useState<'up' | 'down' | null>(null);
+  const [feedbackGiven, setFeedbackGiven] = useState<'up' | 'down' | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [feedbackComment, setFeedbackComment] = useState('');
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [copied, setCopied] = useState(false);
   const { toast } = useToast()
   const isMobile = useIsMobile()
-  const sources = message.sources ?? [];
-  const hasSources = message.sources && message.sources.length > 0;;
+  const hasSources = !!message.sources && message.sources.length > 0;
 
   const isUser = message.role === 'user';
 
-  const onCopy = () => {
-    navigator.clipboard.writeText(message.content);
+  const onCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast({ variant: "destructive", title: "Copy failed", description: "Couldn't access the clipboard." });
+    }
   }
 
   const handleFeedback = (type: 'up' | 'down') => {
@@ -66,8 +88,8 @@ export function ChatMessage({ message, onRetry }: ChatMessageProps) {
   };
 
   const handleCategoryChange = (categoryId: string, checked: boolean) => {
-    setSelectedCategories(prev => 
-      checked 
+    setSelectedCategories(prev =>
+      checked
         ? [...prev, categoryId]
         : prev.filter(id => id !== categoryId)
     );
@@ -87,15 +109,15 @@ export function ChatMessage({ message, onRetry }: ChatMessageProps) {
       };
 
       const response = await apiClient.submitFeedback(feedbackRequest);
-      
+
       if (response.success) {
-        // Success popup removed - feedback submitted silently
+        setFeedbackGiven(feedbackType);
         setFeedbackDialogOpen(false);
+        toast({ title: "Thanks for the feedback!", duration: 2000 });
       } else {
         throw new Error("Failed to submit feedback");
       }
     } catch (error) {
-      console.error('Feedback submission error:', error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -125,80 +147,127 @@ export function ChatMessage({ message, onRetry }: ChatMessageProps) {
 
   const feedbackOptions = feedbackType === 'up' ? thumbsUpOptions : thumbsDownOptions;
 
-  return (
-    <div
-      className={cn(
-        "flex items-start gap-3",
-        isUser ? "justify-end" : "justify-start"
-      )}
-    >
-      <div className="flex flex-col items-start gap-2 max-w-prose">
-        <div
-            className={cn(
-                "rounded-lg p-3 text-sm message-bubble border",
-                isUser
-                    ? "bg-primary text-primary-foreground rounded-br-none border-primary [&_*]:text-primary-foreground"
-                    : "bg-card text-card-foreground rounded-bl-none border-border"
-            )}
-        >
-            <div className={cn("prose prose-sm max-w-none dark:prose-invert", !isUser && "pt-1")}>
-                <ReactMarkdown 
-                    remarkPlugins={[remarkGfm]}
-                    components={{
-                        // Custom component styling to match the chat theme
-                        h1: ({node, ...props}) => <h1 className={cn("text-lg font-bold mb-2 text-foreground", !isUser && "mt-1")} {...props} />,
-                        h2: ({node, ...props}) => <h2 className={cn("text-base font-semibold mb-2 text-foreground", !isUser && "mt-1")} {...props} />,
-                        h3: ({node, ...props}) => <h3 className={cn("text-sm font-medium mb-1 text-foreground", !isUser && "mt-1")} {...props} />,
-                        p: ({node, ...props}) => <p className={cn("mb-2 last:mb-0 text-foreground", !isUser && "mt-1 first:mt-1")} {...props} />,
-                        ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 text-foreground" {...props} />,
-                        ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2 text-foreground" {...props} />,
-                        li: ({node, ...props}) => <li className="mb-1 text-foreground" {...props} />,
-                        strong: ({node, ...props}) => <strong className="font-semibold text-foreground" {...props} />,
-                        em: ({node, ...props}) => <em className="italic text-foreground" {...props} />,
-                        code: ({node, ...props}: any) => {
-                            const inline = !props.className?.includes('language-');
-                            return inline 
-                                ? <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono text-foreground" {...props} />
-                                : <code className="block bg-muted p-2 rounded text-xs font-mono text-foreground" {...props} />;
-                        },
-                        blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-muted-foreground/20 pl-4 italic text-muted-foreground" {...props} />,
-                        a: ({node, ...props}) => <a className="text-primary hover:underline" target="_blank" rel="noopener noreferrer" {...props} />
-                    }}
-                >
-                    {message.content}
-                </ReactMarkdown>
-            </div>
+  // --- User message: compact right-aligned bubble, plain text ---
+  if (isUser) {
+    return (
+      <div className="flex justify-end">
+        <div className="message-bubble max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-[15px] leading-relaxed text-primary-foreground shadow-sm">
+          {message.content}
         </div>
-        {!isUser && (
-            <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={onCopy}>
-                    <Copy className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => handleFeedback('up')}>
-                    <ThumbsUp className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => handleFeedback('down')}>
-                    <ThumbsDown className="h-4 w-4" />
-                </Button>
-                <Button 
-                    variant="ghost" 
-                    className="h-7 gap-1 px-2 text-muted-foreground hover:text-foreground"
-                    onClick={onRetry}
-                    disabled={!onRetry}
+      </div>
+    );
+  }
+
+  // --- Assistant message: avatar + content card + action row ---
+  const showThinking = !!message.streaming && !message.content && !!message.statusLabel;
+
+  return (
+    <div className="flex items-start gap-3">
+      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 ring-1 ring-primary/15">
+        <Image src={Logo} alt="Dunia" width={20} height={20} className="h-5 w-5" />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div
+          className={cn(
+            "message-bubble rounded-2xl rounded-tl-md border bg-card px-4 py-3 shadow-sm",
+            message.isError && "border-destructive/30 bg-destructive/5"
+          )}
+        >
+          {showThinking ? (
+            <ThinkingIndicator label={message.statusLabel!} />
+          ) : (
+            <div className="chat-markdown min-w-0" data-streaming={message.streaming ? "true" : undefined}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                    h1: ({node, ...props}) => <h1 className="mb-2 mt-4 text-xl font-semibold tracking-tight text-foreground first:mt-0" {...props} />,
+                    h2: ({node, ...props}) => <h2 className="mb-2 mt-4 text-lg font-semibold tracking-tight text-foreground first:mt-0" {...props} />,
+                    h3: ({node, ...props}) => <h3 className="mb-1.5 mt-3 text-[15px] font-semibold text-foreground first:mt-0" {...props} />,
+                    p: ({node, ...props}) => <p className="mb-2.5 text-[15px] leading-7 text-foreground last:mb-0" {...props} />,
+                    ul: ({node, ...props}) => <ul className="mb-2.5 list-disc space-y-1 pl-5 text-[15px] leading-7 text-foreground marker:text-primary/60 last:mb-0" {...props} />,
+                    ol: ({node, ...props}) => <ol className="mb-2.5 list-decimal space-y-1 pl-5 text-[15px] leading-7 text-foreground marker:font-medium marker:text-muted-foreground last:mb-0" {...props} />,
+                    li: ({node, ...props}) => <li className="pl-1 [&>p]:mb-1" {...props} />,
+                    strong: ({node, ...props}) => <strong className="font-semibold text-foreground" {...props} />,
+                    em: ({node, ...props}) => <em className="italic" {...props} />,
+                    table: ({node, ...props}) => (
+                        <div className="my-3 overflow-x-auto rounded-lg border">
+                            <table className="w-full border-collapse text-sm [&_tr:last-child_td]:border-b-0" {...props} />
+                        </div>
+                    ),
+                    thead: ({node, ...props}) => <thead className="bg-muted/60" {...props} />,
+                    th: ({node, ...props}) => <th className="border-b px-3 py-2 text-left text-[13px] font-semibold text-foreground" {...props} />,
+                    td: ({node, ...props}) => <td className="border-b border-border/70 px-3 py-2 align-top text-foreground" {...props} />,
+                    code: ({node, ...props}: any) => {
+                        const inline = !props.className?.includes('language-');
+                        return inline
+                            ? <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[13px] text-foreground" {...props} />
+                            : <code className="my-2 block overflow-x-auto rounded-lg bg-muted p-3 font-mono text-[13px] text-foreground" {...props} />;
+                    },
+                    blockquote: ({node, ...props}) => <blockquote className="my-2 border-l-2 border-primary/40 pl-3 italic text-muted-foreground" {...props} />,
+                    hr: ({node, ...props}) => <hr className="my-3 border-border" {...props} />,
+                    a: ({node, ...props}) => <a className="font-medium text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary" target="_blank" rel="noopener noreferrer" {...props} />
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
+            </div>
+          )}
+        </div>
+
+        {!message.streaming && !showThinking && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-0.5">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                    onClick={onCopy}
+                    aria-label={copied ? "Copied" : "Copy answer"}
+                    title={copied ? "Copied!" : "Copy"}
                 >
-                    <RefreshCw className="h-4 w-4" />
-                    <span className="text-xs">Retry</span>
+                    {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
                 </Button>
-                
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn("h-7 w-7 text-muted-foreground hover:text-foreground", feedbackGiven === 'up' && "text-primary hover:text-primary")}
+                    onClick={() => handleFeedback('up')}
+                    aria-label="Good answer"
+                    title="Good answer"
+                >
+                    <ThumbsUp className={cn("h-4 w-4", feedbackGiven === 'up' && "fill-current")} />
+                </Button>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn("h-7 w-7 text-muted-foreground hover:text-foreground", feedbackGiven === 'down' && "text-destructive hover:text-destructive")}
+                    onClick={() => handleFeedback('down')}
+                    aria-label="Poor answer"
+                    title="Poor answer"
+                >
+                    <ThumbsDown className={cn("h-4 w-4", feedbackGiven === 'down' && "fill-current")} />
+                </Button>
+                {onRetry && (
+                    <Button
+                        variant="ghost"
+                        className="h-7 gap-1 px-2 text-muted-foreground hover:text-foreground"
+                        onClick={onRetry}
+                        title="Regenerate this answer"
+                    >
+                        <RefreshCw className="h-4 w-4" />
+                        <span className="text-xs">Retry</span>
+                    </Button>
+                )}
+
                 {hasSources && message.retrieval_source !== "canned" && <ExportButton message={message} />}
 
-          {hasSources && (
-            isMobile
-              ? <CitationsSheet sources={message.sources!} />
-              : <CitationsPopover sources={message.sources!} />
-           )}
+                {hasSources && (
+                    isMobile
+                        ? <CitationsSheet sources={message.sources!} />
+                        : <CitationsPopover sources={message.sources!} />
+                )}
 
-          {!hasSources && message.retrieval_source !== "canned" && <ExportButton message={message} />}
+                {!hasSources && message.retrieval_source !== "canned" && !message.isError && <ExportButton message={message} />}
             </div>
         )}
       </div>
@@ -219,30 +288,30 @@ export function ChatMessage({ message, onRetry }: ChatMessageProps) {
             <div className="space-y-3">
                 {feedbackOptions.map(option => (
                     <div key={option.id} className="flex items-center space-x-2">
-                        <Checkbox 
-                            id={option.id}
+                        <Checkbox
+                            id={`${message.id || 'msg'}-${option.id}`}
                             checked={selectedCategories.includes(option.id)}
                             onCheckedChange={(checked) => handleCategoryChange(option.id, checked as boolean)}
                         />
-                        <Label htmlFor={option.id} className="font-normal">{option.label}</Label>
+                        <Label htmlFor={`${message.id || 'msg'}-${option.id}`} className="font-normal">{option.label}</Label>
                     </div>
                 ))}
             </div>
-            <Textarea 
-                placeholder="Provide additional feedback" 
+            <Textarea
+                placeholder="Provide additional feedback"
                 value={feedbackComment}
                 onChange={(e) => setFeedbackComment(e.target.value)}
             />
           </div>
           <DialogFooter>
-            <Button 
-                variant="outline" 
+            <Button
+                variant="outline"
                 onClick={() => setFeedbackDialogOpen(false)}
                 disabled={isSubmittingFeedback}
             >
                 Cancel
             </Button>
-            <Button 
+            <Button
                 onClick={submitFeedback}
                 disabled={isSubmittingFeedback}
             >
