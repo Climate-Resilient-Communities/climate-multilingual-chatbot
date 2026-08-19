@@ -23,12 +23,30 @@ inside the iframe on the app's own domain. That means:
 - **No secrets in the website** — all API keys stay on the server.
 - **One deployment to maintain** — the widget always shows whatever is live.
 
-## Installation
+## Two embed styles
+
+| Style | File | Where it goes | What visitors see |
+|---|---|---|---|
+| **Floating bubble** (site-wide) | [`ghost-code-injection.html`](ghost-code-injection.html) | Ghost Admin → Settings → Code injection → **Site footer** | A "Chat with Dunia" pill + bubble in the corner of every page; clicking opens the chat panel |
+| **Inline** (one page) | [`ghost-inline-embed.html`](ghost-inline-embed.html) | An **HTML card** inside a specific page or post | The full chat visible immediately on that page — no clicking. Ideal for a dedicated "Chat" page in the site menu |
+
+They can be combined: the bubble site-wide plus a dedicated chat page.
+
+## Installation — floating bubble
 
 1. Open **Ghost Admin → Settings → Code injection**.
 2. Paste the entire contents of [`ghost-code-injection.html`](ghost-code-injection.html)
    into the **Site footer** box.
-3. Click **Save**. The bubble appears in the bottom-right corner of every page.
+3. Click **Save**. The bubble appears in the bottom-right corner of every page,
+   with a "Chat with Dunia" label that hides after the chat is first opened
+   (per browsing session).
+
+## Installation — inline page
+
+1. In Ghost Admin, edit the page (or create one, e.g. "Chat with Dunia").
+2. Add an **HTML card** where the chat should appear and paste the contents of
+   [`ghost-inline-embed.html`](ghost-inline-embed.html) into it.
+3. Publish. The full chat renders right on the page.
 
 The snippet is origin-agnostic: it works the same on
 `climate-resilient-communities.ghost.io` and on any custom domain the site

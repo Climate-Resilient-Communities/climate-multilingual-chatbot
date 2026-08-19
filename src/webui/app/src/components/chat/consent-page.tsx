@@ -4,51 +4,46 @@
 import { useState } from "react";
 import Image from "next/image";
 import Logo from "@/app/Logo.png";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Separator } from "@/components/ui/separator";
 
-type ConsentDialogProps = {
-  open: boolean;
+type ConsentPageProps = {
   onConsent: () => void;
 };
 
-export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
+/**
+ * Consent rendered as a normal page (not a modal): the content scrolls from
+ * the top and fits whatever box the app lives in — including the small
+ * website-embed iframe — while the accept button stays pinned and visible.
+ */
+export function ConsentPage({ onConsent }: ConsentPageProps) {
   const [agreed, setAgreed] = useState(false);
 
   return (
-    <Dialog open={open}>
-      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg" onInteractOutside={(e) => e.preventDefault()}>
-        <DialogHeader className="space-y-2">
-            <div className="flex justify-center">
-                <Image src={Logo} alt="Logo" width={48} height={48} className="w-12 h-12" />
-            </div>
-          <DialogTitle className="text-center text-xl font-bold text-primary !mt-2">Dunia Climate Chatbot</DialogTitle>
-          <DialogDescription className="text-center text-muted-foreground !mt-1">
-            Connecting Communities to Climate Knowledge
-          </DialogDescription>
-          <p className="text-center text-xs text-muted-foreground italic !mt-1">
-            Dunia — Swahili for &ldquo;world&rdquo; — is made by Sprout™
-          </p>
-        </DialogHeader>
-        
-        <div className="flex justify-center py-2">
+    <div className="flex h-[100svh] flex-col bg-background">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="mx-auto w-full max-w-lg px-4 pb-6 pt-6 sm:px-6 sm:pt-8">
+          <div className="flex flex-col items-center text-center">
+            <Image src={Logo} alt="Logo" width={44} height={44} className="h-11 w-11" />
+            <h1 className="mt-2 text-lg font-bold text-primary sm:text-xl">Dunia Climate Chatbot</h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Connecting Communities to Climate Knowledge
+            </p>
+            <p className="mt-1 text-xs italic text-muted-foreground">
+              Dunia — Swahili for &ldquo;world&rdquo; — is made by Sprout™
+            </p>
+          </div>
+
+          <div className="flex justify-center py-3">
             <Separator className="w-1/2" />
-        </div>
-        
-        <div className="space-y-3 text-xs">
+          </div>
+
+          <div className="space-y-3 text-xs">
             <p className="text-center text-muted-foreground">
-              Welcome! This app shares clear info on climate impacts and local action. Please confirm you're good with the basics below.
+              Welcome! This app shares clear info on climate impacts and local action. Please confirm you&rsquo;re good with the basics below.
             </p>
 
             <div className="flex items-start space-x-3 pt-2">
@@ -65,13 +60,12 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
                 <li>I read and agree to the <span className="font-bold">Terms of Use</span></li>
                 <li>I read and understand the <span className="font-bold">Disclaimer</span></li>
             </ul>
-        </div>
+          </div>
 
-
-        <Accordion type="single" collapsible className="w-full text-xs">
+          <Accordion type="single" collapsible className="mt-2 w-full text-xs">
           <AccordionItem value="privacy">
             <AccordionTrigger className="text-xs">Privacy Policy</AccordionTrigger>
-            <AccordionContent className="max-h-48 overflow-y-auto pr-4">
+            <AccordionContent>
               <div className="text-xs text-muted-foreground space-y-3">
                 <p><strong>Privacy Policy</strong><br />Last Updated: January 28, 2025</p>
 
@@ -90,7 +84,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
                         <li>Usage patterns</li>
                     </ul>
                 </div>
-                
+
                 <div className="space-y-1 pl-4">
                     <h5 className="font-semibold text-foreground">What We Do Collect</h5>
                     <ul className="list-disc list-outside space-y-1 pl-5">
@@ -120,7 +114,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
                         <li>Limited access controls</li>
                     </ul>
                 </div>
-                
+
                 <div className="space-y-1">
                     <h4 className="font-semibold text-foreground">Third-Party Services</h4>
                     <p>Our chatbot utilizes Cohere's language models. Users should note:</p>
@@ -145,7 +139,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
           </AccordionItem>
           <AccordionItem value="terms">
             <AccordionTrigger className="text-xs">Terms of Use</AccordionTrigger>
-            <AccordionContent className="max-h-48 overflow-y-auto pr-4">
+            <AccordionContent>
               <div className="text-xs text-muted-foreground space-y-3">
                 <p><strong>Terms of Use</strong><br />Last Updated: January 28, 2025</p>
 
@@ -191,7 +185,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
                     <li>Documentation and supporting materials</li>
                   </ul>
                 </div>
-                
+
                 <div className="space-y-1">
                   <h4 className="font-semibold text-foreground">Liability Limitation</h4>
                   <p>The chatbot and its services are provided "as is" and "as available" without any warranties, expressed or implied. Sprout is not liable for any damages arising from:</p>
@@ -207,7 +201,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
           </AccordionItem>
           <AccordionItem value="disclaimer">
             <AccordionTrigger className="text-xs">Disclaimer</AccordionTrigger>
-            <AccordionContent className="max-h-48 overflow-y-auto pr-4">
+            <AccordionContent>
                 <div className="text-xs text-muted-foreground space-y-3">
                     <p><strong>Disclaimer</strong><br />Last Updated: January 28, 2025</p>
 
@@ -230,7 +224,7 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
                             <li>Consult local authorities for community-specific guidance</li>
                         </ul>
                     </div>
-                    
+
                     <div className="space-y-1">
                         <h4 className="font-semibold text-foreground">Third-Party Content</h4>
                         <p>Citations and references to third-party content are provided for transparency and verification. Sprout does not endorse and is not responsible for the accuracy, completeness, or reliability of third-party information.</p>
@@ -238,14 +232,17 @@ export function ConsentDialog({ open, onConsent }: ConsentDialogProps) {
                 </div>
             </AccordionContent>
           </AccordionItem>
-        </Accordion>
+          </Accordion>
+        </div>
+      </div>
 
-        <DialogFooter className="sm:justify-center mt-2">
+      <div className="shrink-0 border-t bg-background p-3 sm:p-4">
+        <div className="mx-auto w-full max-w-lg">
           <Button type="button" className="w-full" disabled={!agreed} onClick={onConsent}>
             Start Chatting Now
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </div>
+    </div>
   );
 }

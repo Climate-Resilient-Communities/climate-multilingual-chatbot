@@ -151,7 +151,7 @@ export function ChatMessage({ message, onRetry }: ChatMessageProps) {
   if (isUser) {
     return (
       <div className="flex justify-end">
-        <div className="message-bubble max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-[15px] leading-relaxed text-primary-foreground shadow-sm">
+        <div className="message-bubble max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-primary px-3.5 py-2 text-sm leading-relaxed text-primary-foreground shadow-sm">
           {message.content}
         </div>
       </div>
@@ -181,28 +181,28 @@ export function ChatMessage({ message, onRetry }: ChatMessageProps) {
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
-                    h1: ({node, ...props}) => <h1 className="mb-2 mt-4 text-xl font-semibold tracking-tight text-foreground first:mt-0" {...props} />,
-                    h2: ({node, ...props}) => <h2 className="mb-2 mt-4 text-lg font-semibold tracking-tight text-foreground first:mt-0" {...props} />,
-                    h3: ({node, ...props}) => <h3 className="mb-1.5 mt-3 text-[15px] font-semibold text-foreground first:mt-0" {...props} />,
-                    p: ({node, ...props}) => <p className="mb-2.5 text-[15px] leading-7 text-foreground last:mb-0" {...props} />,
-                    ul: ({node, ...props}) => <ul className="mb-2.5 list-disc space-y-1 pl-5 text-[15px] leading-7 text-foreground marker:text-primary/60 last:mb-0" {...props} />,
-                    ol: ({node, ...props}) => <ol className="mb-2.5 list-decimal space-y-1 pl-5 text-[15px] leading-7 text-foreground marker:font-medium marker:text-muted-foreground last:mb-0" {...props} />,
+                    h1: ({node, ...props}) => <h1 className="mb-2 mt-4 text-lg font-semibold tracking-tight text-foreground first:mt-0" {...props} />,
+                    h2: ({node, ...props}) => <h2 className="mb-2 mt-3.5 text-base font-semibold tracking-tight text-foreground first:mt-0" {...props} />,
+                    h3: ({node, ...props}) => <h3 className="mb-1.5 mt-3 text-sm font-semibold text-foreground first:mt-0" {...props} />,
+                    p: ({node, ...props}) => <p className="mb-2.5 text-sm leading-6 text-foreground last:mb-0" {...props} />,
+                    ul: ({node, ...props}) => <ul className="mb-2.5 list-disc space-y-1 pl-5 text-sm leading-6 text-foreground marker:text-primary/60 last:mb-0" {...props} />,
+                    ol: ({node, ...props}) => <ol className="mb-2.5 list-decimal space-y-1 pl-5 text-sm leading-6 text-foreground marker:font-medium marker:text-muted-foreground last:mb-0" {...props} />,
                     li: ({node, ...props}) => <li className="pl-1 [&>p]:mb-1" {...props} />,
                     strong: ({node, ...props}) => <strong className="font-semibold text-foreground" {...props} />,
                     em: ({node, ...props}) => <em className="italic" {...props} />,
                     table: ({node, ...props}) => (
                         <div className="my-3 overflow-x-auto rounded-lg border">
-                            <table className="w-full border-collapse text-sm [&_tr:last-child_td]:border-b-0" {...props} />
+                            <table className="w-full border-collapse text-[13px] [&_tr:last-child_td]:border-b-0" {...props} />
                         </div>
                     ),
                     thead: ({node, ...props}) => <thead className="bg-muted/60" {...props} />,
-                    th: ({node, ...props}) => <th className="border-b px-3 py-2 text-left text-[13px] font-semibold text-foreground" {...props} />,
-                    td: ({node, ...props}) => <td className="border-b border-border/70 px-3 py-2 align-top text-foreground" {...props} />,
+                    th: ({node, ...props}) => <th className="border-b px-3 py-1.5 text-left text-xs font-semibold text-foreground" {...props} />,
+                    td: ({node, ...props}) => <td className="border-b border-border/70 px-3 py-1.5 align-top text-foreground" {...props} />,
                     code: ({node, ...props}: any) => {
                         const inline = !props.className?.includes('language-');
                         return inline
-                            ? <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[13px] text-foreground" {...props} />
-                            : <code className="my-2 block overflow-x-auto rounded-lg bg-muted p-3 font-mono text-[13px] text-foreground" {...props} />;
+                            ? <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground" {...props} />
+                            : <code className="my-2 block overflow-x-auto rounded-lg bg-muted p-3 font-mono text-xs text-foreground" {...props} />;
                     },
                     blockquote: ({node, ...props}) => <blockquote className="my-2 border-l-2 border-primary/40 pl-3 italic text-muted-foreground" {...props} />,
                     hr: ({node, ...props}) => <hr className="my-3 border-border" {...props} />,

@@ -1,0 +1,26 @@
+<!-- ============================================================
+  Dunia inline embed — the full chat visible directly on a page
+
+  Use this instead of (or alongside) the floating bubble when the
+  chat should be immediately visible with no clicking — e.g. on a
+  dedicated "Chat with Dunia" page linked from the site menu.
+
+  In Ghost: edit the page or post, add an **HTML card** where the
+  chat should appear, and paste this whole block into it.
+
+  Tweaks:
+  - Height: min(78vh, 720px) fills most of the screen, capped at
+    720px. Raise or lower to taste; min-height keeps it usable on
+    small screens.
+  - URL: if the custom domain is ever unavailable, switch the
+    iframe src to https://climatereslianceapp.azurewebsites.net/
+============================================================ -->
+<div style="position: relative; width: 100%; height: min(78vh, 720px); min-height: 480px; border: 1px solid #dbe4e0; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.10); background: #f7f9fc;">
+  <iframe
+    src="https://climatechat-to.ca/"
+    title="Dunia · Climate Chat"
+    style="position: absolute; inset: 0; width: 100%; height: 100%; border: 0;"
+    allow="clipboard-write; fullscreen"
+    loading="lazy"
+  ></iframe>
+</div>

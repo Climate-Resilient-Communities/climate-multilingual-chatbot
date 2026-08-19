@@ -23,17 +23,38 @@ export function ChatWindow({ messages, isStreaming, onQuestionClick, onRetry }: 
   const containerRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(true);
   const prevCountRef = useRef(0);
+  const streamingByIdRef = useRef<Map<string, boolean>>(new Map());
   const [showJump, setShowJump] = useState(false);
 
   // Auto-follow rules: a new message always scrolls into view; streamed
   // content only keeps the view pinned while the reader is already at the
-  // bottom — scrolling up to read is never interrupted.
+  // bottom; and when an answer finishes, the view jumps back to the TOP of
+  // that answer so it can be read from the beginning.
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
+    // Detect an assistant message transitioning streaming -> done
+    let completedId: string | null = null;
+    for (const m of messages) {
+      if (m.role === "assistant" && m.id) {
+        if (streamingByIdRef.current.get(m.id) && !m.streaming) completedId = m.id;
+        streamingByIdRef.current.set(m.id, !!m.streaming);
+      }
+    }
+
     const isNewMessage = messages.length !== prevCountRef.current;
     prevCountRef.current = messages.length;
+
+    if (completedId) {
+      const el = container.querySelector<HTMLElement>(`[data-msg-id="${CSS.escape(completedId)}"]`);
+      if (el) {
+        const top = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+        container.scrollTop = Math.max(0, top - 8);
+        atBottomRef.current = false;
+        return; // don't pin to bottom on the completion update
+      }
+    }
 
     if (isNewMessage || atBottomRef.current) {
       container.scrollTop = container.scrollHeight;
@@ -74,20 +95,21 @@ export function ChatWindow({ messages, isStreaming, onQuestionClick, onRetry }: 
       >
         <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center pt-10 text-center md:pt-24">
-              <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/15">
-                <Image src={Logo} alt="Dunia logo" width={40} height={40} className="h-10 w-10" />
+            <div className="flex flex-col items-center pt-1 text-center sm:pt-4">
+              <div className="flex items-center justify-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/15">
+                  <Image src={Logo} alt="Dunia logo" width={26} height={26} className="h-[26px] w-[26px]" />
+                </div>
+                <h1 className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+                  Welcome to Dunia
+                </h1>
               </div>
-              <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
-                Welcome to Dunia
-              </h1>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground md:text-[15px] md:leading-7">
-                Dunia means &ldquo;world&rdquo; in Swahili — and I can chat in many of the
-                world&rsquo;s languages. Pick yours from the menu above or just start typing.
-                I answer with verified information and local resources, always with sources.
+              <p className="mt-2.5 max-w-md text-[13px] leading-5 text-muted-foreground">
+                Dunia means &ldquo;world&rdquo; in Swahili. Ask me about climate change in any
+                language — every answer comes with verified sources.
               </p>
-              <div className="mt-10 w-full">
-                <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <div className="mt-5 w-full">
+                <p className="mb-2.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                   Try asking
                 </p>
                 <SampleQuestions onQuestionClick={onQuestionClick} />
@@ -96,15 +118,16 @@ export function ChatWindow({ messages, isStreaming, onQuestionClick, onRetry }: 
           ) : (
             <div className="space-y-6">
               {messages.map((msg, index) => (
-                <ChatMessage
-                  key={msg.id || index}
-                  message={msg}
-                  onRetry={
-                    msg.role === "assistant" && onRetry && index === lastAssistantIndex && !isStreaming
-                      ? () => onRetry(index)
-                      : undefined
-                  }
-                />
+                <div key={msg.id || index} data-msg-id={msg.id}>
+                  <ChatMessage
+                    message={msg}
+                    onRetry={
+                      msg.role === "assistant" && onRetry && index === lastAssistantIndex && !isStreaming
+                        ? () => onRetry(index)
+                        : undefined
+                    }
+                  />
+                </div>
               ))}
             </div>
           )}
