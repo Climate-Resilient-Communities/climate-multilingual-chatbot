@@ -74,6 +74,20 @@
     animation: message-bubble-in 0.3s ease-in-out;
   }
 
+  /* Blinking caret after the last block while an answer is streaming in */
+  .chat-markdown[data-streaming="true"] > :last-child::after {
+    content: "▍";
+    margin-left: 2px;
+    color: hsl(var(--primary));
+    animation: chat-caret-blink 1s steps(2, start) infinite;
+  }
+
+  @keyframes chat-caret-blink {
+    to {
+      visibility: hidden;
+    }
+  }
+
   @keyframes message-bubble-in {
     from {
       opacity: 0;

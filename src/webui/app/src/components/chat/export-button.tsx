@@ -2,7 +2,7 @@
 
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
-import { ArrowUpToLine } from "lucide-react";
+import { Download, Share2 } from "lucide-react";
 import { type Message } from "@/components/chat/chat-message";
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,8 +15,8 @@ export function ExportButton({ message }: ExportButtonProps) {
   const { toast } = useToast();
 
   const formatContent = () => {
-    let content = `User: ${message.content}\n\n`;
-    content += `Assistant: ${message.content}\n\n`;
+    let content = `Dunia — Climate Chat answer\n\n`;
+    content += `${message.content}\n\n`;
 
     if (message.sources && message.sources.length > 0) {
       content += "Sources:\n";
@@ -80,11 +80,12 @@ export function ExportButton({ message }: ExportButtonProps) {
   return (
     <Button
       variant="ghost"
-      size="icon"
-      className="h-7 w-7 text-muted-foreground hover:text-foreground"
+      className="h-7 gap-1 px-2 text-muted-foreground hover:text-foreground"
       onClick={handleClick}
+      title={isMobile ? "Share this answer" : "Download this answer as a text file"}
     >
-      <ArrowUpToLine className="h-4 w-4" />
+      {isMobile ? <Share2 className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+      <span className="text-xs">{isMobile ? "Share" : "Export"}</span>
     </Button>
   );
 }

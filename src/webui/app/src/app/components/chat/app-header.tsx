@@ -89,14 +89,15 @@ export function AppHeader({ onNewChat, selectedLanguage, onLanguageChange }: App
 
   return (
     <>
-      <header className="flex items-center justify-between p-4 border-b bg-[#1F1F1F] text-white">
-        <a href="https://crc.place/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
-            <Image src={Logo} alt="Sprout Logo" width={28} height={28} />
-            <span className="hidden sm:inline text-sm font-semibold text-gray-300">
-                Dunia · Made by Sprout™
+      <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
+        <a href="https://crc.place/" target="_blank" rel="noopener noreferrer" className="flex min-w-0 items-center gap-2.5">
+            <Image src={Logo} alt="Sprout Logo" width={28} height={28} className="shrink-0" />
+            <span className="flex min-w-0 flex-col leading-tight">
+                <span className="truncate text-[15px] font-semibold tracking-tight text-foreground">Dunia</span>
+                <span className="hidden truncate text-[11px] text-muted-foreground sm:block">by Sprout™</span>
             </span>
         </a>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
             <Popover open={langPopoverOpen} onOpenChange={setLangPopoverOpen}>
                 <TooltipProvider>
                     <Tooltip>
@@ -106,12 +107,16 @@ export function AppHeader({ onNewChat, selectedLanguage, onLanguageChange }: App
                                     variant="outline"
                                     role="combobox"
                                     aria-expanded={langPopoverOpen}
-                                    className="w-[180px] justify-between h-9 bg-[#1F1F1F] text-white border-gray-600 hover:bg-gray-700 hover:text-white"
+                                    className="h-9 w-[150px] justify-between font-normal sm:w-[180px]"
                                 >
-                                    <Languages className="mr-2 h-4 w-4 shrink-0" />
-                                    {selectedLanguage
-                                        ? sortedLanguages.find((lang) => lang.value === selectedLanguage)?.label
-                                        : "Select language..."}
+                                    <span className="flex min-w-0 items-center">
+                                        <Languages className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" />
+                                        <span className="truncate">
+                                            {selectedLanguage
+                                                ? sortedLanguages.find((lang) => lang.value === selectedLanguage)?.label
+                                                : "Select language..."}
+                                        </span>
+                                    </span>
                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                             </PopoverTrigger>
@@ -154,14 +159,14 @@ export function AppHeader({ onNewChat, selectedLanguage, onLanguageChange }: App
                 </PopoverContent>
             </Popover>
 
-          <Button variant="outline" size="sm" onClick={onNewChat} className="h-9 text-white bg-transparent border-gray-600 hover:bg-gray-700 hover:text-white">
+          <Button variant="outline" size="sm" onClick={onNewChat} className="h-9">
             <MessageSquarePlus className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">New Chat</span>
           </Button>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)} className="h-9 w-9 text-white hover:bg-gray-700 hover:text-white">
+                <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)} className="h-9 w-9 text-muted-foreground hover:text-foreground">
                   <HelpCircle className="h-5 w-5" />
                   <span className="sr-only">FAQ</span>
                 </Button>

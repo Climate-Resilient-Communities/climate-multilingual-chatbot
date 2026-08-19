@@ -10,9 +10,8 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import Image from "next/image";
-import { FileText } from "lucide-react";
-import { type Source } from "@/components/chat/citations-popover";
+import { BookOpen, FileText } from "lucide-react";
+import { SourceFavicon, type Source } from "@/components/chat/citations-popover";
 
 type CitationsSheetProps = {
   sources: Source[];
@@ -28,45 +27,7 @@ function isValidHttpUrl(string: string) {
   return url.protocol === "http:" || url.protocol === "https:";
 }
 
-function getFaviconUrl(url: string) {
-    try {
-        const urlObject = new URL(url);
-        return `https://www.google.com/s2/favicons?domain=${urlObject.hostname}&sz=32`;
-    } catch (error) {
-        return ""; // Return empty for invalid URLs
-    }
-}
 
-const SourceIcon = ({ url }: { url: string }) => {
-    if (!isValidHttpUrl(url)) {
-        return (
-            <div className="flex h-[16px] w-[16px] items-center justify-center rounded-full border border-border bg-white">
-                <FileText className="h-3 w-3 text-muted-foreground" />
-            </div>
-        );
-    }
-    const faviconUrl = getFaviconUrl(url);
-    if (!faviconUrl) {
-        return (
-            <div className="flex h-[16px] w-[16px] items-center justify-center rounded-full border border-border bg-white">
-                <FileText className="h-3 w-3 text-muted-foreground" />
-            </div>
-        );
-    }
-    return (
-        <Image
-            src={faviconUrl}
-            alt="Source"
-            width={16}
-            height={16}
-            className="rounded-full border border-border bg-white"
-            onError={(e) => {
-                (e.target as HTMLImageElement).style.display = 'none';
-            }}
-            unoptimized
-        />
-    );
-};
 
 export function CitationsSheet({ sources }: CitationsSheetProps) {
   // DISABLED: URL validation was causing false positives due to CORS restrictions
@@ -83,18 +44,18 @@ export function CitationsSheet({ sources }: CitationsSheetProps) {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="ghost" className="h-7 gap-2 px-3 text-muted-foreground hover:text-foreground">
-            <div className="flex -space-x-2">
-                {displaySources.slice(0, 5).reverse().map((source, index) => (
-                    <SourceIcon key={index} url={source.url} />
-                ))}
-            </div>
-          <span className="text-xs">Sources</span>
+        <Button
+          variant="outline"
+          className="h-7 gap-1.5 rounded-full px-2.5 text-muted-foreground hover:text-foreground"
+          title="View cited sources"
+        >
+          <BookOpen className="h-3.5 w-3.5" />
+          <span className="text-xs font-medium">{displaySources.length} source{displaySources.length === 1 ? "" : "s"}</span>
         </Button>
       </SheetTrigger>
       <SheetContent side="bottom" className="h-[70svh]">
         <SheetHeader className="text-left">
-          <SheetTitle>Citations</SheetTitle>
+          <SheetTitle>Sources</SheetTitle>
         </SheetHeader>
         <ScrollArea className="h-[calc(100%-4rem)]">
           <div className="p-1 flex flex-col mt-4">
@@ -112,17 +73,7 @@ export function CitationsSheet({ sources }: CitationsSheetProps) {
                           >
                               <div className="flex items-center gap-3">
                                   {isUrl ? (
-                                      <Image
-                                          src={getFaviconUrl(source.url)}
-                                          alt={source.title}
-                                          width={16}
-                                          height={16}
-                                          className="rounded-full"
-                                          onError={(e) => {
-                                              (e.target as HTMLImageElement).style.display = 'none';
-                                          }}
-                                          unoptimized
-                                      />
+                                      <SourceFavicon url={source.url} />
                                   ) : (
                                       <FileText className="h-4 w-4 text-muted-foreground" />
                                   )}
