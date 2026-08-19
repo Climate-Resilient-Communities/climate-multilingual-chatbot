@@ -317,6 +317,24 @@ def s_community_rag():
         "no Thorncliffe citation in response"
 
 
+@scenario("City-wide question → general docs lead, one community doesn't dominate")
+def s_citywide_not_community_dominated():
+    t0 = time.time()
+    status, body = chat("What are the impacts of climate change in Toronto?", language="en", skip_cache=True)
+    assert status == 200, f"status {status}: {body}"
+    retrieved = [e for e in _audit_since(t0) if e.get("kind") == "retrieval"]
+    assert retrieved, "no retrieval performed"
+    returned = retrieved[-1].get("returned", [])
+    assert returned, "retrieval returned nothing"
+    # The context slots must be led by city-general docs, not one community's
+    assert "Thorncliffe" not in returned[0], f"community doc leads city-wide retrieval: {returned}"
+    top3_community = sum(1 for t in returned[:3] if "Thorncliffe" in t)
+    assert top3_community <= 1, f"community docs dominate top-3 for a city-wide question: {returned[:3]}"
+    citations = [c.get("title") or "" for c in body.get("citations", [])]
+    assert citations and "Thorncliffe" not in citations[0], \
+        f"first citation is a community doc for a city-wide question: {citations}"
+
+
 @scenario("SSE streaming endpoint: tokens preserve whitespace, complete event matches contract")
 def s_streaming():
     req = urllib.request.Request(
@@ -359,7 +377,7 @@ def main():
                s_explicit_french, s_chinese_selected, s_mismatch_not_blocked, s_spanish_native,
                s_region_variant, s_greeting, s_offtopic, s_instruction, s_cache, s_followup,
                s_short_query, s_location_followup, s_location_in_query, s_short_query_spanish,
-               s_injection, s_community_rag, s_streaming]:
+               s_injection, s_community_rag, s_citywide_not_community_dominated, s_streaming]:
         fn()
 
     passed = sum(1 for _, s, _ in RESULTS if s == "PASS")

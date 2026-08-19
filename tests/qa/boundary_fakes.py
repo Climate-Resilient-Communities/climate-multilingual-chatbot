@@ -133,7 +133,9 @@ def _load_fixture_docs():
 FIXTURE_DOCS = _load_fixture_docs()
 
 
-def _score_docs(query: str):
+def _score_docs(query: str, k: int = 5):
+    """Keyword-score fixture docs; k=None returns every match (the caller
+    mirrors production by demoting community docs before cutting)."""
     q_tokens = set(re.findall(r"[a-z]{3,}", (query or "").lower()))
     scored = []
     for d in FIXTURE_DOCS:
@@ -142,7 +144,7 @@ def _score_docs(query: str):
         if score > 0:
             scored.append(({**d, "score": float(score)}, score))
     scored.sort(key=lambda x: -x[1])
-    top = [d for d, _ in scored[:5]]
+    top = [d for d, _ in (scored if k is None else scored[:k])]
     return top or [dict(FIXTURE_DOCS[-3])]  # general overview fallback
 
 
@@ -432,7 +434,12 @@ class FakeCache:
 
 
 async def fake_get_documents(query, index, embed_model, cohere_client):
-    docs = _score_docs(query)
+    # Mirror production ordering: overfetch every keyword match, run the REAL
+    # community-demotion stage from src.models.retrieval, then cut — so
+    # keyless QA exercises the same doc mix the live retriever produces.
+    from src.models.retrieval import _demote_unrequested_community_docs
+    docs = _score_docs(query, k=None)
+    docs = _demote_unrequested_community_docs(query, docs)[:5]
     _audit("retrieval", query=(query or "")[:120], returned=[d["title"] for d in docs])
     return docs
 
