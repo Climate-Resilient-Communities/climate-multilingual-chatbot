@@ -366,6 +366,42 @@ def _apply_soft_boosts(query: str, docs: List[Dict], boost_doc_type: float = 0.0
     return boosted
 
 
+# Neighbourhood-scoped document collections in the knowledge base. The corpus
+# holds dense, curated docs for specific communities (e.g. Thorncliffe Park),
+# which otherwise dominate retrieval for ANY city-level climate query and make
+# every general answer spotlight that one neighbourhood.
+_COMMUNITY_DOC_MARKERS: Tuple[str, ...] = ("thorncliffe", "flemingdon")
+
+
+def _demote_unrequested_community_docs(query: str, docs: List[Dict], penalty: float = 0.15,
+                                       markers: Optional[Tuple[str, ...]] = None) -> List[Dict]:
+    """Demote neighbourhood-scoped docs when the query doesn't mention that
+    neighbourhood, so city-general documents win the context slots for
+    city-general questions.
+
+    The list order is what the downstream stages trust (gate truncation, MMR
+    pool, rerank input all preserve it), so this stable-partitions the docs —
+    general docs first, unrequested community docs behind them — and also
+    applies a small score penalty so the refill/top-up paths, which do sort by
+    score, agree. Community docs still rank normally when the user asks about
+    their community, and still serve when nothing general matches."""
+    if not docs or penalty <= 0:
+        return docs
+    marker_list = markers if markers is not None else _COMMUNITY_DOC_MARKERS
+    ql = (query or "").lower()
+    general: List[Dict] = []
+    demoted: List[Dict] = []
+    for d in docs:
+        doc_text = f"{d.get('title', '') or ''} {d.get('section_title', '') or ''}".lower()
+        if any(m in doc_text and m not in ql for m in marker_list):
+            demoted.append({**d, 'score': float(d.get('score', 0.0)) - float(penalty)})
+        else:
+            general.append(d)
+    if demoted:
+        logger.info(f"Community-doc demotion: {len(demoted)} of {len(docs)} docs moved behind general docs")
+    return general + demoted
+
+
 def _dedup_by_title_url(docs: List[Dict]) -> List[Dict]:
     seen = set()
     out = []
@@ -514,6 +550,20 @@ async def get_documents(query, index, embed_model, cohere_client, alpha=0.5, top
             except Exception:
                 pass
             docs = _apply_soft_boosts(query, docs, BOOSTS_CONFIG.get("doc_type_boost_weight", 0.05), BOOSTS_CONFIG.get("topic_boost_weight", 0.03))
+
+            # Keep neighbourhood-scoped docs from dominating city-general
+            # questions: demote them unless the query names that community.
+            try:
+                community_markers = tuple(
+                    str(m).lower() for m in BOOSTS_CONFIG.get("community_markers", _COMMUNITY_DOC_MARKERS)
+                )
+                docs = _demote_unrequested_community_docs(
+                    query, docs,
+                    penalty=float(BOOSTS_CONFIG.get("community_demotion_weight", 0.15)),
+                    markers=community_markers,
+                )
+            except Exception:
+                pass
 
             # Audience blocklist (title + first 512 chars + domain)
             docs, blocked_base, blocked_text_only_base = _apply_audience_blocklist(docs)
