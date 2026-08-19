@@ -40,9 +40,21 @@
     "#dunia-chat-btn:hover { background: " + BRAND_DARK + "; transform: scale(1.06); }",
     "#dunia-chat-btn:focus-visible { outline: 3px solid " + BRAND + "; outline-offset: 3px; }",
     "#dunia-chat-btn svg { width: 28px; height: 28px; display: block; }",
+    /* Two-id selector so this outranks the `#dunia-chat-btn svg` sizing rule */
     "#dunia-chat-root.dunia-open #dunia-chat-icon-chat { display: none; }",
-    "#dunia-chat-icon-close { display: none; }",
+    "#dunia-chat-btn #dunia-chat-icon-close { display: none; }",
     "#dunia-chat-root.dunia-open #dunia-chat-icon-close { display: block; }",
+
+    /* Teaser label next to the bubble (shown until the chat is first opened) */
+    "#dunia-chat-label { position: fixed; right: 92px; bottom: 34px; z-index: 2147483001;",
+    "  border: 1px solid #dbe4e0; background: #fff; color: #0b3d33; cursor: pointer; margin: 0;",
+    "  border-radius: 999px; padding: 9px 14px; font-size: 13px; font-weight: 600; line-height: 1;",
+    "  font-family: inherit; box-shadow: 0 4px 16px rgba(4, 61, 49, 0.18); white-space: nowrap;",
+    "  opacity: 0; transform: translateY(4px); }",
+    "#dunia-chat-label.dunia-label-show { opacity: 1; transform: none; }",
+    "#dunia-chat-label:hover { border-color: " + BRAND + "; }",
+    "#dunia-chat-label:focus-visible { outline: 2px solid " + BRAND + "; outline-offset: 2px; }",
+    "#dunia-chat-root.dunia-open #dunia-chat-label { display: none; }",
 
     /* Panel */
     "#dunia-chat-panel { position: fixed; right: 20px; bottom: 92px; z-index: 2147483001;",
@@ -81,6 +93,7 @@
     "@media (prefers-reduced-motion: no-preference) {",
     "  #dunia-chat-btn { transition: background 0.15s ease, transform 0.15s ease; }",
     "  #dunia-chat-panel { transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s; }",
+    "  #dunia-chat-label { transition: opacity 0.3s ease, transform 0.3s ease; }",
     "}",
 
     /* Small screens: full-screen chat with its own close button */
@@ -128,6 +141,28 @@
     var frame = null;
     var isOpen = false;
 
+    // "Chat with Dunia" pill beside the bubble — makes the entry point
+    // discoverable. It disappears once the chat has been opened and stays
+    // hidden for the rest of the browsing session.
+    var LABEL_SEEN_KEY = "dunia-chat-opened";
+    var label = null;
+    var labelSeen = false;
+    try { labelSeen = window.sessionStorage.getItem(LABEL_SEEN_KEY) === "1"; } catch (e) { /* storage blocked */ }
+    if (!labelSeen) {
+      label = document.createElement("button");
+      label.id = "dunia-chat-label";
+      label.type = "button";
+      label.textContent = BUTTON_LABEL;
+      label.addEventListener("click", function () { open(); });
+      root.appendChild(label);
+      setTimeout(function () { if (label) label.classList.add("dunia-label-show"); }, 700);
+    }
+
+    function dismissLabel() {
+      if (label) { label.remove(); label = null; }
+      try { window.sessionStorage.setItem(LABEL_SEEN_KEY, "1"); } catch (e) { /* storage blocked */ }
+    }
+
     // The iframe is only created on demand, so pages load with zero
     // extra network traffic until a visitor shows interest in the chat.
     function ensureFrame() {
@@ -151,6 +186,7 @@
 
     function open() {
       ensureFrame();
+      dismissLabel();
       isOpen = true;
       root.classList.add("dunia-open");
       btn.setAttribute("aria-expanded", "true");
@@ -171,9 +207,10 @@
     });
 
     // Warm up the App Service as soon as the visitor hovers or focuses
-    // the bubble, so the chat is usually ready by the time they click.
+    // the bubble or label, so the chat is usually ready by the time they click.
     ["mouseenter", "focus", "touchstart"].forEach(function (evt) {
       btn.addEventListener(evt, ensureFrame, { passive: true });
+      if (label) label.addEventListener(evt, ensureFrame, { passive: true });
     });
   }
 
