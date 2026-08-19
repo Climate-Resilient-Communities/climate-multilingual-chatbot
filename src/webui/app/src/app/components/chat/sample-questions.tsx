@@ -22,7 +22,7 @@ export function SampleQuestions({ onQuestionClick }: SampleQuestionsProps) {
                 <button
                     key={text}
                     type="button"
-                    className="group flex items-center gap-3 rounded-xl border bg-card/80 px-4 py-3 text-left text-sm text-foreground shadow-sm transition-colors hover:border-primary/40 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="group flex items-center gap-2.5 rounded-xl border bg-card/80 px-3.5 py-2.5 text-left text-[13px] text-foreground shadow-sm transition-colors hover:border-primary/40 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     onClick={() => onQuestionClick(text)}
                 >
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">

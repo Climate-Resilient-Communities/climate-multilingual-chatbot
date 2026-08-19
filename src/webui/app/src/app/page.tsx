@@ -9,7 +9,7 @@ import Textarea from 'react-textarea-autosize';
 import { ArrowUp, Square } from "lucide-react";
 import { AppHeader } from "@/app/components/chat/app-header";
 import { ChatWindow } from "@/components/chat/chat-window";
-import { ConsentDialog } from "@/components/chat/consent-dialog";
+import { ConsentPage } from "@/components/chat/consent-page";
 import { type Message } from "@/components/chat/chat-message";
 import { type Source } from "@/components/chat/citations-popover";
 import { apiClient, type ChatRequest, type CitationDict, type LanguageDetectionRequest } from "@/lib/api";
@@ -318,7 +318,7 @@ export default function Home() {
   }
 
   if (showConsent) {
-    return <ConsentDialog open={showConsent} onConsent={handleConsent} />;
+    return <ConsentPage onConsent={handleConsent} />;
   }
 
   const canSend = inputValue.trim().length > 0 && !isStreaming;
@@ -360,7 +360,7 @@ export default function Home() {
               }}
               placeholder="Ask about climate change…"
               aria-label="Ask about climate change"
-              className="max-h-40 min-h-0 flex-1 resize-none border-0 bg-transparent px-0 py-2 text-[15px] shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="max-h-40 min-h-0 flex-1 resize-none border-0 bg-transparent px-0 py-2 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
               minRows={1}
               maxRows={6}
               as={Textarea}
