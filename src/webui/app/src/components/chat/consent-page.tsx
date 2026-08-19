@@ -43,7 +43,7 @@ export function ConsentPage({ onConsent }: ConsentPageProps) {
 
           <div className="space-y-3 text-xs">
             <p className="text-center text-muted-foreground">
-              Welcome! This app shares clear info on climate impacts and local action. Please confirm you&rsquo;re good with the basics below.
+              Welcome! Dunia shares clear info on climate impacts and local action. Please confirm you&rsquo;re good with the basics below.
             </p>
 
             <div className="flex items-start space-x-3 pt-2">
